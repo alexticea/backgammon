@@ -543,17 +543,18 @@
                     if (hDie > aDie) {
                         log(`You rolled ${hDie}, AI rolled ${aDie}. You start!`);
                         setTurn('human');
-                        setDice([hDie, aDie]); // Winner plays both dice
-                        setVisualDice([hDie, aDie]);
+                        setDice([]); // Reset for re-roll
+                        setVisualDice([]);
+                        setCanRoll(true); // Winner rolls again
                         setTimeout(() => setGameStatus('playing'), 1500);
                     } else if (aDie > hDie) {
                         log(`You rolled ${hDie}, AI rolled ${aDie}. AI starts!`);
                         setTurn('ai');
-                        setDice([aDie, hDie]);
-                        setVisualDice([aDie, hDie]); // AI plays, visualization helps
+                        setDice([]); // Reset for re-roll
+                        setVisualDice([]);
                         setTimeout(() => {
                             setGameStatus('playing');
-                            // Trigger AI Logic if it's AI turn (useEffect monitors turn='ai' & gameStatus='playing')
+                            // Trigger AI Logic
                         }, 1500);
                     } else {
                         log(`Tie (${hDie}-${aDie})! Rerolling...`);
@@ -571,21 +572,20 @@
                         if (h > a) {
                             log(`You won opening roll (${h} vs ${a})! You start.`);
                             setTurn('human');
-                            setDice([h, a]);
-                            setVisualDice([h, a]);
-                            setCanRoll(false); // Dice already derived from opening
+                            setDice([]); // Winner rolls again
+                            setVisualDice([]);
+                            setCanRoll(true);
                             setGameStatus('playing');
                         } else if (a > h) {
                             log(`Opponent won opening roll (${a} vs ${h}). Opponent starts.`);
                             setTurn('opponent');
-                            setDice([a, h]); // Not really used locally if turn is opponent, but good for sync
-                            setVisualDice([a, h]);
+                            setDice([]); // Wait for opponent re-roll
+                            setVisualDice([]);
                             setGameStatus('playing');
                         } else {
                             log(`Tie (${h}-${a})! Re-rolling...`);
                             setTimeout(() => {
                                 setOpeningRoll(null);
-                                // In multi, both need to click again.
                                 log("Click Roll to try again.");
                             }, 1500);
                         }
