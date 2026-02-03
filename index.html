@@ -78,6 +78,10 @@
             const [opponentLevel, setOpponentLevel] = useState(1);
             const [socket, setSocket] = useState(null);
 
+            // --- REFS FOR SOCKET HANDLERS ---
+            const gameStatusRef = useRef(gameStatus);
+            useEffect(() => { gameStatusRef.current = gameStatus; }, [gameStatus]);
+
             // --- SOCKET INIT ---
             useEffect(() => {
                 // Determine Server URL: Local vs Production
@@ -144,8 +148,10 @@
             }, []);
 
             const handleRemoteEvent = (type, payload) => {
+                const currentStatus = gameStatusRef.current;
+
                 if (type === 'roll') {
-                    if (gameStatus === 'opening_roll') {
+                    if (currentStatus === 'opening_roll') {
                         // Handle Opponent Opening Roll
                         const val = payload[0]; // sent as array [val] or just val? Let's assume array for consistency with 'roll'
                         log(`Opponent Rolled: ${val} (Opening)`);
