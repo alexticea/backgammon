@@ -1763,7 +1763,9 @@
 
                         <div className="card">
                             <div className="label">Status</div>
-                            <div className="value">{turn === 'human' ? 'Your Turn' : 'AI Thinking...'}</div>
+                            <div className="value">
+                                {turn === 'human' ? 'Your Turn' : (gameMode === 'multi' ? 'Wait...' : 'AI Thinking...')}
+                            </div>
                             {turn === 'human' && (
                                 <div style={{ marginTop: '5px', fontSize: '0.9rem', color: turnTimer < 30 ? '#ff5252' : '#aaa' }}>
                                     Time: {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
