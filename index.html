@@ -715,14 +715,17 @@
                 if (currentDice.length === 0) return true; // Handled elsewhere
 
                 const uniqueDice = [...new Set(currentDice)];
+                const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
+                const direction = playerColor === PLAYER_HUMAN ? -1 : 1;
 
                 // 1. Check Bar
-                if (currentBar[PLAYER_HUMAN] > 0) {
+                if (currentBar[playerColor] > 0) {
                     return uniqueDice.some(d => {
-                        const target = 24 - d;
+                        // White (1): 24-d. Red (-1): d-1
+                        const target = playerColor === PLAYER_HUMAN ? 24 - d : d - 1;
                         if (target >= 0 && target <= 23) {
                             const dest = currentBoard[target];
-                            return !(dest.player === PLAYER_AI && dest.count > 1);
+                            return !(dest.player === opponent && dest.count > 1);
                         }
                         return false;
                     });
@@ -730,10 +733,13 @@
 
                 // 2. Check Board
                 let canBearOff = true;
-                if (currentBar[PLAYER_HUMAN] > 0) canBearOff = false;
+                if (currentBar[playerColor] > 0) canBearOff = false;
                 else {
-                    for (let i = 6; i < 24; i++) {
-                        if (currentBoard[i].player === PLAYER_HUMAN && currentBoard[i].count > 0) {
+                    // White: 6-23. Red: 0-17.
+                    const start = playerColor === PLAYER_HUMAN ? 6 : 0;
+                    const end = playerColor === PLAYER_HUMAN ? 23 : 17;
+                    for (let i = start; i <= end; i++) {
+                        if (currentBoard[i].player === playerColor && currentBoard[i].count > 0) {
                             canBearOff = false;
                             break;
                         }
@@ -741,22 +747,31 @@
                 }
 
                 for (let i = 0; i < 24; i++) {
-                    if (currentBoard[i].player === PLAYER_HUMAN && currentBoard[i].count > 0) {
+                    if (currentBoard[i].player === playerColor && currentBoard[i].count > 0) {
                         for (let d of uniqueDice) {
-                            const target = i - d;
+                            const target = i + (d * direction);
                             // Normal Move
-                            if (target >= 0) {
+                            if (target >= 0 && target <= 23) {
                                 const dest = currentBoard[target];
-                                if (!(dest.player === PLAYER_AI && dest.count > 1)) return true;
+                                if (!(dest.player === opponent && dest.count > 1)) return true;
                             }
                             // Bear Off Move
                             else if (canBearOff) {
-                                if (target === -1) return true;
-                                let higherPieces = false;
-                                for (let h = i + 1; h <= 5; h++) {
-                                    if (currentBoard[h].player === PLAYER_HUMAN && currentBoard[h].count > 0) higherPieces = true;
+                                if (playerColor === PLAYER_HUMAN) {
+                                    if (target === -1) return true;
+                                    let higherPieces = false;
+                                    for (let h = i + 1; h <= 5; h++) {
+                                        if (currentBoard[h].player === playerColor && currentBoard[h].count > 0) higherPieces = true;
+                                    }
+                                    if (!higherPieces) return true;
+                                } else {
+                                    if (target === 24) return true;
+                                    let higherPieces = false;
+                                    for (let h = 18; h < i; h++) {
+                                        if (currentBoard[h].player === playerColor && currentBoard[h].count > 0) higherPieces = true;
+                                    }
+                                    if (!higherPieces) return true;
                                 }
-                                if (!higherPieces) return true;
                             }
                         }
                     }
@@ -778,7 +793,7 @@
                         return () => clearTimeout(timer);
                     }
                 }
-            }, [dice, turn, rolling, board, bar]);
+            }, [dice, turn, rolling, board, bar, playerColor]);
 
             // AI TURN
             useEffect(() => {
@@ -2001,8 +2016,9 @@
                                         className="btn-action"
                                         onClick={handleManualRoll}
                                         disabled={!canRoll || turn !== 'human'}
+                                        style={(dice.length > 0 && turn === 'human') ? { background: '#2e7d32', color: '#fff', border: '1px solid #66bb6a', cursor: 'default' } : {}}
                                     >
-                                        Roll Dice
+                                        {(dice.length > 0 && turn === 'human') ? "Make Your Moves" : "Roll Dice"}
                                     </button>
                                 )}
                             </div>
