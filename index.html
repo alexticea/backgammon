@@ -1875,7 +1875,7 @@
                         {/* DICE TABLE OVERLAY */}
                         <div className={`dice-table-overlay ${rolling ? 'rolling' : ''}`}>
                             {/* Turn Notification */}
-                            {turn === 'human' && canRoll && !rolling && (
+                            {turn === 'human' && (canRoll || dice.length > 0) && !rolling && (
                                 <div className="turn-message">YOUR TURN!</div>
                             )}
 
@@ -1941,7 +1941,7 @@
                         </div>
 
                         {/* PLAYER CONTROLS */}
-                        <div className={`player-controls-bar ${turn === 'human' && canRoll ? 'active-turn' : ''}`}>
+                        <div className={`player-controls-bar ${turn === 'human' && (canRoll || dice.length > 0) ? 'active-turn' : ''}`}>
                             <div className="player-info">
                                 <div className="player-avatar" style={{
                                     background: playerColor === PLAYER_AI
