@@ -119,18 +119,15 @@
                     console.log("Assigned Color:", colorStr, myColor);
 
                     // Start Game Logic
+                    // Start Game Logic
                     setGameMode('multi');
-                    setGameStatus('playing'); // Skip opening roll for simplicity in v1
-                    setBoard(initialBoard);
-                    if (myColor === PLAYER_HUMAN) {
-                        setTurn('human');
-                        log("Game Started! You are Player 1. You move first.");
-                        setCanRoll(true);
-                    } else {
-                        setTurn('opponent'); // Special turn state
-                        log("Game Started! You are Player 2. Opponent moves first.");
-                        setCanRoll(false);
-                    }
+                    // SAME AS SINGLE PLAYER: START WITH OPENING ROLL
+                    setGameStatus('opening_roll');
+                    setOpeningRoll(null);
+                    setRolling(false);
+                    setTurn('human'); // Enable "Roll" button for opening
+                    log("Match Found! Roll for the first turn.");
+
                 });
 
                 newSocket.on('game_update', ({ type, payload }) => {
@@ -146,10 +143,21 @@
 
             const handleRemoteEvent = (type, payload) => {
                 if (type === 'roll') {
-                    log(`Opponent Rolled: ${payload.join(', ')}`);
-                    // Visual only - show max 2 dice even for doubles
-                    setVisualDice(payload.slice(0, 2));
-                    setDice(payload);
+                    if (gameStatus === 'opening_roll') {
+                        // Handle Opponent Opening Roll
+                        const val = payload[0]; // sent as array [val] or just val? Let's assume array for consistency with 'roll'
+                        log(`Opponent Rolled: ${val} (Opening)`);
+                        setOpeningRoll(prev => {
+                            const newState = { ...prev, ai: val };
+                            checkMultiOpeningWinner(newState);
+                            return newState;
+                        });
+                    } else {
+                        log(`Opponent Rolled: ${payload.join(', ')}`);
+                        // Visual only - show max 2 dice even for doubles
+                        setVisualDice(payload.slice(0, 2));
+                        setDice(payload);
+                    }
                 } else if (type === 'move') {
                     // payload = { from, to, dieVal } (Assuming simplistic relay for now)
                     // We need to mirror this move on our board
@@ -494,6 +502,30 @@
                 playDiceSound();
                 setRolling(true);
 
+                // MULTIPLAYER LOGIC
+                if (gameMode === 'multi') {
+                    setTimeout(() => {
+                        const hDie = Math.ceil(Math.random() * 6);
+
+                        // Update Local State
+                        setOpeningRoll(prev => {
+                            const newState = { ...(prev || {}), human: hDie };
+                            checkMultiOpeningWinner(newState);
+                            return newState;
+                        });
+                        setRolling(false);
+                        log(`You Rolled: ${hDie} (Opening)`);
+
+                        // Emit to Opponent
+                        // We reuse standard 'roll' event but context is opening_roll
+                        emitGameEvent('roll', [hDie]);
+
+                    }, 600);
+                    return;
+                }
+
+                // SINGLE PLAYER LOGIC
+
                 setTimeout(() => {
                     const hDie = Math.ceil(Math.random() * 6);
                     const aDie = Math.ceil(Math.random() * 6);
@@ -520,6 +552,37 @@
                         setTimeout(handleOpeningRoll, 1000);
                     }
                 }, 600);
+            };
+
+            const checkMultiOpeningWinner = (rolls) => {
+                if (rolls && rolls.human && rolls.ai) {
+                    setTimeout(() => {
+                        const h = rolls.human;
+                        const a = rolls.ai;
+
+                        if (h > a) {
+                            log(`You won opening roll (${h} vs ${a})! You start.`);
+                            setTurn('human');
+                            setDice([h, a]);
+                            setVisualDice([h, a]);
+                            setCanRoll(false); // Dice already derived from opening
+                            setGameStatus('playing');
+                        } else if (a > h) {
+                            log(`Opponent won opening roll (${a} vs ${h}). Opponent starts.`);
+                            setTurn('opponent');
+                            setDice([a, h]); // Not really used locally if turn is opponent, but good for sync
+                            setVisualDice([a, h]);
+                            setGameStatus('playing');
+                        } else {
+                            log(`Tie (${h}-${a})! Re-rolling...`);
+                            setTimeout(() => {
+                                setOpeningRoll(null);
+                                // In multi, both need to click again.
+                                log("Click Roll to try again.");
+                            }, 1500);
+                        }
+                    }, 1000);
+                }
             };
 
             const handleManualRoll = () => {
@@ -1764,7 +1827,7 @@
                                         </div>
                                         <div style={{ fontSize: '1.5rem', color: '#aaa', paddingTop: '20px' }}>vs</div>
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>AI</div>
+                                            <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>{gameMode === 'multi' ? opponentName : 'AI'}</div>
                                             <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
                                         </div>
                                     </div>
