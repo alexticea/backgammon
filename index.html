@@ -151,7 +151,9 @@
                 const currentStatus = gameStatusRef.current;
 
                 if (type === 'roll') {
-                    if (currentStatus === 'opening_roll') {
+                    // Robustness check: Ensure we handle Opening Roll vs Game Roll correctly
+                    // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
+                    if (currentStatus === 'opening_roll' && payload.length === 1) {
                         // Handle Opponent Opening Roll
                         const val = payload[0]; // sent as array [val] or just val? Let's assume array for consistency with 'roll'
                         log(`Opponent Rolled: ${val} (Opening)`);
@@ -576,12 +578,14 @@
                             setVisualDice([]);
                             setCanRoll(true);
                             setGameStatus('playing');
+                            setOpeningRoll(null);
                         } else if (a > h) {
                             log(`Opponent won opening roll (${a} vs ${h}). Opponent starts.`);
                             setTurn('opponent');
                             setDice([]); // Wait for opponent re-roll
                             setVisualDice([]);
                             setGameStatus('playing');
+                            setOpeningRoll(null);
                         } else {
                             log(`Tie (${h}-${a})! Re-rolling...`);
                             setTimeout(() => {
