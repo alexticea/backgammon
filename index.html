@@ -74,6 +74,7 @@
             const [playerColor, setPlayerColor] = useState(PLAYER_HUMAN); // In multi: assigned by server
             const [roomId, setRoomId] = useState(null);
             const [opponentName, setOpponentName] = useState('AI');
+            const [opponentWallet, setOpponentWallet] = useState(null);
             const [opponentLevel, setOpponentLevel] = useState(1);
             const [socket, setSocket] = useState(null);
 
@@ -109,6 +110,7 @@
                     const oppId = Object.keys(data.players).find(id => id !== newSocket.id);
                     const oppName = data.players[oppId]?.name || "Opponent";
                     setOpponentName(oppName);
+                    setOpponentWallet(data.players[oppId]?.wallet || null);
 
                     alert(`Match Found! Playing against ${oppName}`);
                 });
@@ -1777,7 +1779,12 @@
                             <div className="opponent-info">
                                 <div className="opponent-avatar"></div>
                                 <div className="opponent-name">
-                                    {gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}
+                                    <div style={{ fontWeight: 'bold' }}>{gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}</div>
+                                    {gameMode === 'multi' && opponentWallet && (
+                                        <div style={{ fontSize: '0.8rem', color: '#ffecb3', fontFamily: 'monospace', opacity: 0.8 }}>
+                                            {opponentWallet.slice(0, 4)}...{opponentWallet.slice(-4)}
+                                        </div>
+                                    )}
                                     <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px' }}>
                                         {gameMode === 'multi' ? `Lvl ${opponentLevel}` : 'Level 100'}
                                     </div>
@@ -1819,29 +1826,41 @@
                                     Roll to decide who moves first!
                                 </div>
 
-                                {openingRoll ? (
+                                {(openingRoll || rolling) ? (
                                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '60px', margin: '30px 0' }}>
                                         <div style={{ textAlign: 'center' }}>
                                             <div style={{ color: '#fff', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>YOU</div>
-                                            <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.human}</div>
+                                            {(openingRoll && openingRoll.human) ? (
+                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.human}</div>
+                                            ) : (
+                                                rolling ? (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }}></div>
+                                                ) : (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #666', background: 'transparent', color: '#666', fontSize: '2rem' }}>?</div>
+                                                )
+                                            )}
                                         </div>
                                         <div style={{ fontSize: '1.5rem', color: '#aaa', paddingTop: '20px' }}>vs</div>
                                         <div style={{ textAlign: 'center' }}>
                                             <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>{gameMode === 'multi' ? opponentName : 'AI'}</div>
-                                            <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
+                                            {(openingRoll && openingRoll.ai) ? (
+                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
+                                            ) : (
+                                                (gameMode === 'single' && rolling) ? (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear', borderColor: '#d32f2f' }}></div>
+                                                ) : (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d32f2f', background: 'transparent', color: '#d32f2f', fontSize: '2rem' }}>{gameMode === 'multi' ? '...' : '?'}</div>
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                 ) : (
                                     <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '30px 0' }}>
-                                        {rolling ? (
-                                            <div className="die-3d" style={{ animation: 'spin 1s infinite linear' }}></div>
-                                        ) : (
-                                            <div style={{ fontSize: '4rem' }}>🎲</div>
-                                        )}
+                                        <div style={{ fontSize: '4rem' }}>🎲</div>
                                     </div>
                                 )}
 
-                                {!openingRoll && !rolling && (
+                                {(!openingRoll || !openingRoll.human) && !rolling && (
                                     <button className="btn-primary" style={{ fontSize: '1.3rem', padding: '15px 50px' }} onClick={handleOpeningRoll}>ROLL FOR FIRST TURN</button>
                                 )}
                             </div>
@@ -1927,7 +1946,14 @@
                                     {userProfile.avatar && <img src={userProfile.avatar} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />}
                                 </div>
                                 <div className="player-name">
-                                    {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`)) : 'Player 1'}
+                                    <div style={{ fontWeight: 'bold' }}>
+                                        {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || 'Player')) : 'Player 1'}
+                                    </div>
+                                    {wallet && !wallet.startsWith('Guest') && (
+                                        <div style={{ fontSize: '0.8rem', color: '#8d6e63', fontFamily: 'monospace' }}>
+                                            {wallet.slice(0, 4)}...{wallet.slice(-4)}
+                                        </div>
+                                    )}
                                     {wallet && !wallet.startsWith('Guest') && userProfile.stats && (
                                         <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px' }}>
                                             Lvl {userProfile.stats.level} • {userProfile.stats.wins}W / {userProfile.stats.losses}L
