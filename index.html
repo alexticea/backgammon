@@ -1786,13 +1786,20 @@
                                 <div className="opponent-avatar"></div>
                                 <div className="opponent-name">
                                     <div style={{ fontWeight: 'bold' }}>{gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}</div>
-                                    {gameMode === 'multi' && opponentWallet && (
-                                        <div style={{ fontSize: '0.8rem', color: '#ffecb3', fontFamily: 'monospace', opacity: 0.8 }}>
-                                            {opponentWallet.slice(0, 4)}...{opponentWallet.slice(-4)}
-                                        </div>
-                                    )}
-                                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px' }}>
-                                        {gameMode === 'multi' ? `Lvl ${opponentLevel}` : 'Level 100'}
+                                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {gameMode === 'multi' ? (
+                                            <>
+                                                {opponentWallet && (!opponentName || !opponentName.includes('...')) && (
+                                                    <span style={{ fontFamily: 'monospace', color: '#ffecb3', opacity: 0.8 }}>
+                                                        {opponentWallet.slice(0, 4)}...{opponentWallet.slice(-4)}
+                                                    </span>
+                                                )}
+                                                {opponentWallet && (!opponentName || !opponentName.includes('...')) && <span>•</span>}
+                                                <span>Lvl {opponentLevel}</span>
+                                            </>
+                                        ) : (
+                                            'Level 100'
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1953,16 +1960,21 @@
                                 </div>
                                 <div className="player-name">
                                     <div style={{ fontWeight: 'bold' }}>
-                                        {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || 'Player')) : 'Player 1'}
+                                        {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`)) : 'Player 1'}
                                     </div>
-                                    {wallet && !wallet.startsWith('Guest') && (
-                                        <div style={{ fontSize: '0.8rem', color: '#8d6e63', fontFamily: 'monospace' }}>
-                                            {wallet.slice(0, 4)}...{wallet.slice(-4)}
-                                        </div>
-                                    )}
                                     {wallet && !wallet.startsWith('Guest') && userProfile.stats && (
-                                        <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px' }}>
-                                            Lvl {userProfile.stats.level} • {userProfile.stats.wins}W / {userProfile.stats.losses}L
+                                        <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {userProfile.name && (
+                                                <>
+                                                    <span style={{ fontFamily: 'monospace', color: '#8d6e63' }}>
+                                                        {wallet.slice(0, 4)}...{wallet.slice(-4)}
+                                                    </span>
+                                                    <span>•</span>
+                                                </>
+                                            )}
+                                            <span>Lvl {userProfile.stats.level}</span>
+                                            <span>•</span>
+                                            <span>{userProfile.stats.wins}W / {userProfile.stats.losses}L</span>
                                         </div>
                                     )}
                                 </div>
