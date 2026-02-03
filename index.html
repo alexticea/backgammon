@@ -82,13 +82,19 @@
                 // Determine Server URL: Local vs Production
                 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 // For Vercel deployment, you will replace the second string with your Render/Railway backend URL.
-                const SERVER_URL = isLocal ? 'http://localhost:3001' : 'https://backgammon-server-example.onrender.com';
+                const SERVER_URL = isLocal ? 'http://localhost:3001' : 'https://backgammon-usxq.onrender.com';
 
                 const newSocket = io(SERVER_URL);
                 setSocket(newSocket);
 
                 newSocket.on('connect', () => {
                     console.log("Connected to Game Server:", newSocket.id);
+                    setLogs(prev => ["Connected to Server!", ...prev]); // Visual Confirm
+                });
+
+                newSocket.on('connect_error', (err) => {
+                    console.error("Connection Error:", err);
+                    setLogs(prev => ["Connection Failed! Check Server URL.", ...prev]);
                 });
 
                 newSocket.on('waiting_for_match', () => {
