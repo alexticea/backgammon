@@ -300,10 +300,27 @@
                     } else {
                         setUserProfile({ name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
                     }
+
+                    // LOAD ESCROW BALANCE
+                    const savedBalance = localStorage.getItem('escrow_balance_' + wallet);
+                    if (savedBalance) {
+                        setEscrowBalance(parseFloat(savedBalance));
+                    } else {
+                        setEscrowBalance(0.00);
+                    }
+
                 } else if (wallet && wallet.startsWith('Guest')) {
                     setUserProfile({ name: 'Guest', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
+                    setEscrowBalance(0.00);
                 }
             }, [wallet]);
+
+            // Persist Escrow Balance
+            useEffect(() => {
+                if (wallet && !wallet.startsWith('Guest')) {
+                    localStorage.setItem('escrow_balance_' + wallet, escrowBalance.toString());
+                }
+            }, [escrowBalance, wallet]);
 
             const updateStats = (result) => {
                 if (!wallet || wallet.startsWith('Guest')) return; // Guests don't save stats
