@@ -1816,14 +1816,16 @@
                         <div className="card"
                             style={{ marginTop: 'auto', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3e2723', borderColor: '#4e342e' }}
                             onClick={() => {
-                                if (gameStatus === 'playing') {
-                                    if (window.confirm("Are you sure you want to resign? You will lose this game.")) {
+                                if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
+                                    if (window.confirm("Are you sure you want to resign?")) {
                                         handleForfeit();
                                     }
                                 } else {
                                     setGameStatus('menu');
                                     setBoard(initialBoard);
                                     setGameResult(null);
+                                    setVisualDice([]);
+                                    setDice([]);
                                 }
                             }}>
                             {gameStatus === 'playing' ? (
@@ -1983,7 +1985,7 @@
                                     <div
                                         className="checker red"
                                         onClick={playerColor === PLAYER_AI ? handleBarClick : undefined}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_AI ? 'pointer' : 'default', color: '#fff' }}>
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_AI ? 'pointer' : 'default', color: '#fff', fontSize: '1.2rem', position: 'relative', zIndex: 5 }}>
                                         {bar[PLAYER_AI]}
                                     </div>
                                 )}
@@ -2015,7 +2017,7 @@
                                     <div
                                         className="checker white"
                                         onClick={playerColor === PLAYER_HUMAN ? handleBarClick : undefined}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_HUMAN ? 'pointer' : 'default', color: '#000' }}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_HUMAN ? 'pointer' : 'default', color: '#000', fontSize: '1.2rem', position: 'relative', zIndex: 5 }}
                                     >
                                         {bar[PLAYER_HUMAN]}
                                     </div>
