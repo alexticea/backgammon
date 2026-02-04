@@ -1461,15 +1461,21 @@
                 const countHuman = board.reduce((acc, p) => p.player === PLAYER_HUMAN ? acc + p.count : acc, 0) + bar[PLAYER_HUMAN];
                 const countAI = board.reduce((acc, p) => p.player === PLAYER_AI ? acc + p.count : acc, 0) + bar[PLAYER_AI];
 
-                if (countHuman === 0) {
+                // Determine "My" pieces and "Opponent" pieces
+                const myPieces = playerColor === PLAYER_HUMAN ? countHuman : countAI;
+                const oppPieces = playerColor === PLAYER_HUMAN ? countAI : countHuman;
+
+                if (myPieces === 0) {
                     setGameStatus('gameover');
                     setGameResult('win'); // "YOU WIN"
                     playDiceSound();
-                } else if (countAI === 0) {
+                    updateStats('win');
+                } else if (oppPieces === 0) {
                     setGameStatus('gameover');
                     setGameResult('loss');
+                    updateStats('loss');
                 }
-            }, [board, bar, gameStatus]);
+            }, [board, bar, gameStatus, playerColor]);
 
             // RENDER
             // 1. LANDING PAGE
