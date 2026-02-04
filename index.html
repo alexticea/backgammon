@@ -76,7 +76,9 @@
             const [opponentName, setOpponentName] = useState('AI');
             const [opponentWallet, setOpponentWallet] = useState(null);
             const [opponentLevel, setOpponentLevel] = useState(1);
+            const [opponentLevel, setOpponentLevel] = useState(1);
             const [socket, setSocket] = useState(null);
+            const [finishingTurn, setFinishingTurn] = useState(false);
 
             // --- REFS FOR SOCKET HANDLERS ---
             const gameStatusRef = useRef(gameStatus);
@@ -609,7 +611,7 @@
             };
 
             const handleUndo = () => {
-                if (history.length === 0) return;
+                if (history.length === 0 || finishingTurn) return;
                 const lastState = history[history.length - 1];
                 setBoard(lastState.board);
                 setBar(lastState.bar);
@@ -1380,14 +1382,18 @@
                     setValidMoves([]);
 
                     if (newDice.length === 0) {
-                        log("Turn Finished. Waiting for opponent...");
-                        setTurn('opponent'); // Wait for remote turn
-                        if (gameMode === 'multi') {
-                            emitGameEvent('end_turn', {});
-                        } else {
-                            log("Turn Finished. AI Moving...");
-                            setTurn('ai');
-                        }
+                        setFinishingTurn(true);
+                        setTimeout(() => {
+                            setFinishingTurn(false);
+                            if (gameMode === 'multi') {
+                                log("Turn Finished. Waiting for opponent...");
+                                setTurn('opponent'); // Wait for remote turn
+                                emitGameEvent('end_turn', {});
+                            } else {
+                                log("Turn Finished. AI Moving...");
+                                setTurn('ai');
+                            }
+                        }, 2000);
                     }
                 }
             };
@@ -2017,7 +2023,7 @@
                                 <button
                                     className="btn-action"
                                     onClick={handleUndo}
-                                    disabled={history.length === 0}
+                                    disabled={history.length === 0 || finishingTurn}
                                 >
                                     Undo
                                 </button>
