@@ -14,7 +14,6 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="tray.css">
 </head>
 
 <body>
@@ -1865,35 +1864,6 @@
                                         )}
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* BEAR OFF TRAY */}
-                        <div className="bear-off-tray">
-                            {/* Top: Opponent Off */}
-                            <div className="tray-section top">
-                                <div className="tray-label">AI</div>
-                                <div className="off-count" style={{ color: playerColor === PLAYER_HUMAN ? '#d32f2f' : '#f5f5f5' }}>
-                                    {off[PLAYER_AI]}
-                                </div>
-                                <div className="tray-checkers">
-                                    {Array(Math.min(off[PLAYER_AI], 15)).fill(null).map((_, i) => (
-                                        <div key={i} className={`mini-checker ${playerColor === PLAYER_HUMAN ? 'red' : 'white'}`} style={{ marginTop: '-2px' }}></div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Bottom: Player Off */}
-                            <div className="tray-section bottom">
-                                <div className="tray-checkers" style={{ flexDirection: 'column-reverse' }}>
-                                    {Array(Math.min(off[PLAYER_HUMAN], 15)).fill(null).map((_, i) => (
-                                        <div key={i} className={`mini-checker ${playerColor === PLAYER_HUMAN ? 'white' : 'red'}`} style={{ marginBottom: '-2px' }}></div>
-                                    ))}
-                                </div>
-                                <div className="off-count" style={{ color: playerColor === PLAYER_HUMAN ? '#f5f5f5' : '#d32f2f' }}>
-                                    {off[PLAYER_HUMAN]}
-                                </div>
-                                <div className="tray-label">YOU</div>
                             </div>
                         </div>
 
