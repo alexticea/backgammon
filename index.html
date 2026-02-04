@@ -1858,12 +1858,17 @@
                                         setBoard(initialBoard);
                                         setGameResult(null);
                                     }}>Back to Menu</button>
-
                                     <button className="btn-primary" style={{ background: '#4caf50', border: '1px solid #81c784' }} onClick={() => {
                                         setBoard(initialBoard);
                                         setBar({ 0: 0, 1: 0 });
                                         setGameResult(null);
-                                        startGame(difficulty);
+
+                                        if (gameMode === 'multi') {
+                                            setGameStatus('multiplayer_menu');
+                                            handleSearchMatch(selectedStake);
+                                        } else {
+                                            startGame(difficulty);
+                                        }
                                     }}>Play Again</button>
                                 </div>
                             </div>
