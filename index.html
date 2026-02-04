@@ -78,6 +78,7 @@
             const [opponentLevel, setOpponentLevel] = useState(1);
             const [socket, setSocket] = useState(null);
             const [finishingTurn, setFinishingTurn] = useState(false);
+            const [isBlocked, setIsBlocked] = useState(false);
 
             // --- REFS FOR SOCKET HANDLERS ---
             const gameStatusRef = useRef(gameStatus);
@@ -226,7 +227,9 @@
                         });
                     }, 1000);
                 } else {
-                    setTurnTimer(180); // Reset when not human turn
+                    setTurnTimer(180); // Reset timer on undo
+                    // Clear blocked state if we undo
+                    setIsBlocked(false);
                 }
                 return () => clearInterval(interval);
             }, [turn, gameStatus]);
@@ -602,6 +605,7 @@
                     setCanRoll(false);
                     // Snapshot state after roll
                     setHistory([]);
+                    setIsBlocked(false); // Reset blocked state on new roll
 
                     if (gameMode === 'multi') {
                         emitGameEvent('roll', d);
@@ -617,6 +621,7 @@
                 setDice(lastState.dice);
                 setTurn(lastState.turn);
                 // Don't restore canRoll usually, as we undoing moves after roll.
+                setIsBlocked(false); // Undo should always unblock
 
                 setHistory(prev => prev.slice(0, -1));
                 setValidMoves([]);
@@ -721,6 +726,23 @@
 
 
 
+            const handlePassTurn = () => {
+                setDice([]);
+                setIsBlocked(false);
+                setFinishingTurn(true);
+                setTimeout(() => {
+                    setFinishingTurn(false);
+                    if (gameMode === 'multi') {
+                        log("Turn Finished. Waiting for opponent...");
+                        setTurn('opponent');
+                        emitGameEvent('end_turn', {});
+                    } else {
+                        log("Turn Finished. AI Moving...");
+                        setTurn('ai');
+                    }
+                }, 2000);
+            };
+
             // CHECK HUMAN MOVES LOGIC
             const checkHumanCanMove = (currentBoard, currentBar, currentDice) => {
                 if (currentDice.length === 0) return true; // Handled elsewhere
@@ -795,13 +817,11 @@
                 if (turn === 'human' && !rolling && dice.length > 0) {
                     const canMove = checkHumanCanMove(board, bar, dice);
                     if (!canMove) {
-                        log("No valid moves possible. Turn ends.");
-                        const timer = setTimeout(() => {
-                            setTurn('ai');
-                            setDice([]);
-                            setVisualDice([]);
-                        }, 2000);
-                        return () => clearTimeout(timer);
+                        log("No valid moves possible. Undo to retry, or Pass.");
+                        setIsBlocked(true);
+                        // Do NOT auto-end. Let user decide.
+                    } else {
+                        setIsBlocked(false); // If moves are possible, ensure not blocked
                     }
                 }
             }, [dice, turn, rolling, board, bar, playerColor]);
@@ -1382,26 +1402,13 @@
 
                     // Check if *remaining* dice have any valid moves
                     if (newDice.length > 0 && !checkHumanCanMove(nextBoard, nextBar, newDice)) {
-                        log("No valid moves remaining. Turn ending.");
-                        // Force dice clearing to trigger end turn logic
-                        // We must update state and 'newDice' variable to ensure the next block runs
-                        newDice.length = 0; // Clear the local array to trigger the next block
-                        setDice([]); // Clear state immediately
+                        log("No valid moves left. Undo to retry, or Pass.");
+                        setIsBlocked(true);
+                        // Do NOT auto-end. Let user decide.
                     }
 
                     if (newDice.length === 0) {
-                        setFinishingTurn(true);
-                        setTimeout(() => {
-                            setFinishingTurn(false);
-                            if (gameMode === 'multi') {
-                                log("Turn Finished. Waiting for opponent...");
-                                setTurn('opponent'); // Wait for remote turn
-                                emitGameEvent('end_turn', {});
-                            } else {
-                                log("Turn Finished. AI Moving...");
-                                setTurn('ai');
-                            }
-                        }, 2000);
+                        handlePassTurn();
                     }
                 }
             };
@@ -1644,6 +1651,7 @@
                                     </div>
                                 </div>
 
+                                <button className="btn-mode" onClick={() => setGameStatus('multiplayer_menu')}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <span className="icon">👥</span>
                                         <span>Multiplayer</span>
@@ -1651,6 +1659,7 @@
                                     <span></span> {/* Spacer for flex-between */}
                                 </button>
 
+                                <button className="btn-mode" disabled>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <span className="icon">🏆</span>
                                         <span>Tournament</span>
@@ -1667,428 +1676,428 @@
                                 </button>
                             </div >
                         )
-            }
+                        }
                     </div >
                 );
-        }
+            }
 
-        if (gameStatus === 'multiplayer_menu') {
-            return (
-                <div className="landing-page">
-                    <h2 className="landing-title">Select Mode</h2>
+            if (gameStatus === 'multiplayer_menu') {
+                return (
+                    <div className="landing-page">
+                        <h2 className="landing-title">Select Mode</h2>
 
-                    {isSearching ? (
-                        <div className="card" style={{ padding: '40px', textAlign: 'center', border: '2px solid #4caf50', background: 'rgba(0,0,0,0.8)' }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🔍</div>
-                            <h3>Searching for opponent...</h3>
-                            <p style={{ color: '#aaa' }}>Stake: {selectedStake ? selectedStake + ' SOL' : 'Free Play'}</p>
-                            <button className="btn-secondary" style={{ marginTop: '20px' }} onClick={() => setIsSearching(false)}>Cancel</button>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                            {/* FREE PLAY */}
-                            <div className="card" style={{ textAlign: 'center', width: '250px', cursor: 'pointer', border: '2px solid #8d6e63' }} onClick={() => handleSearchMatch(null)}>
-                                <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🎮</div>
-                                <h3>Free Play</h3>
-                                <p style={{ color: '#aaa' }}>Practice against random peers.</p>
-                                <button className="btn-primary" style={{ marginTop: '15px', width: '100%' }}>Find Match</button>
+                        {isSearching ? (
+                            <div className="card" style={{ padding: '40px', textAlign: 'center', border: '2px solid #4caf50', background: 'rgba(0,0,0,0.8)' }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🔍</div>
+                                <h3>Searching for opponent...</h3>
+                                <p style={{ color: '#aaa' }}>Stake: {selectedStake ? selectedStake + ' SOL' : 'Free Play'}</p>
+                                <button className="btn-secondary" style={{ marginTop: '20px' }} onClick={() => setIsSearching(false)}>Cancel</button>
                             </div>
-
-                            {/* STAKE PLAY */}
-                            <div className="card" style={{ textAlign: 'center', width: '300px', border: '2px solid gold' }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '10px' }}>💰</div>
-                                <h3>Ranked / Stake</h3>
-                                <p style={{ color: '#aaa' }}>Win SOL from opponents.</p>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '15px' }}>
-                                    {[0.01, 0.02, 0.03, 0.04].map(amt => (
-                                        <button key={amt} className="btn-secondary" onClick={() => handleSearchMatch(amt)}>
-                                            {amt} SOL
-                                        </button>
-                                    ))}
+                        ) : (
+                            <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                {/* FREE PLAY */}
+                                <div className="card" style={{ textAlign: 'center', width: '250px', cursor: 'pointer', border: '2px solid #8d6e63' }} onClick={() => handleSearchMatch(null)}>
+                                    <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🎮</div>
+                                    <h3>Free Play</h3>
+                                    <p style={{ color: '#aaa' }}>Practice against random peers.</p>
+                                    <button className="btn-primary" style={{ marginTop: '15px', width: '100%' }}>Find Match</button>
                                 </div>
-                            </div>
-                        </div>
-                    )}
 
-                    {!isSearching && (
-                        <button className="btn-primary" style={{ marginTop: '40px', background: '#3e2723' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
-                    )}
-                </div>
-            );
-        }
+                                {/* STAKE PLAY */}
+                                <div className="card" style={{ textAlign: 'center', width: '300px', border: '2px solid gold' }}>
+                                    <div style={{ fontSize: '3rem', marginBottom: '10px' }}>💰</div>
+                                    <h3>Ranked / Stake</h3>
+                                    <p style={{ color: '#aaa' }}>Win SOL from opponents.</p>
 
-        if (gameStatus === 'leaderboard') {
-            const leaderboard = getLeaderboard();
-            return (
-                <div className="landing-page">
-                    <h2 className="landing-title" style={{ fontSize: '2.5rem', marginBottom: '20px' }}>Top 20 Players</h2>
-                    <div style={{
-                        background: 'rgba(44, 36, 27, 0.95)',
-                        padding: '20px',
-                        borderRadius: '12px',
-                        width: '90%',
-                        maxWidth: '600px',
-                        maxHeight: '60vh',
-                        overflowY: 'auto',
-                        marginBottom: '20px',
-                        border: '1px solid #5d4037'
-                    }}>
-                        {leaderboard.map((p, i) => (
-                            <div key={i} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '15px',
-                                borderBottom: '1px solid #3e2723',
-                                background: i === 0 ? 'rgba(255, 215, 0, 0.1)' : 'transparent'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '30px', color: i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? '#cd7f32' : '#a1887f' }}>#{i + 1}</div>
-                                    {p.avatar ? <img src={p.avatar} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #5d4037', objectFit: 'cover' }} /> : <div className="dot" style={{ width: '40px', height: '40px', position: 'static', background: '#3e2723' }}></div>}
-                                    <div>
-                                        <div style={{ fontWeight: 'bold', color: '#e8e0d5' }}>{p.name || 'Unknown'}</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Lvl {p.stats?.level || 1} • {p.stats?.wins || 0} Wins</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '15px' }}>
+                                        {[0.01, 0.02, 0.03, 0.04].map(amt => (
+                                            <button key={amt} className="btn-secondary" onClick={() => handleSearchMatch(amt)}>
+                                                {amt} SOL
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>
-                                    {p.stats?.xp || 0} XP
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
-                </div>
-            );
-        }
-
-        // Helper for specific Perspective Rendering
-        // Helper for specific Perspective Rendering
-        const isFlipped = playerColor === PLAYER_AI;
-        const getLogIdx = (i) => isFlipped ? (i + 12) % 24 : i;
-
-        // 2. GAME BOARD
-        return (
-            <div className="app-container">
-                {/* SIDEBAR */}
-                <div className="sidebar">
-                    <div className="logo">
-                        <span style={{ color: '#d32f2f' }}>Play</span><span style={{ color: '#fff' }}>24</span><br />Backgammon
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '10px', justifyContent: 'center' }}>
-                            <div style={{ width: '14px', height: '14px', background: '#fff', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}></div>
-                            <div style={{ width: '14px', height: '14px', background: '#d32f2f', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}></div>
-                        </div>
-                    </div>
-
-                    <div className="card">
-                        <div className="label">Status</div>
-                        <div className="value">
-                            {turn === 'human' ? 'Your Turn' : (gameMode === 'multi' ? 'Wait...' : 'AI Thinking...')}
-                        </div>
-                        {turn === 'human' && (
-                            <div style={{ marginTop: '5px', fontSize: '0.9rem', color: turnTimer < 30 ? '#ff5252' : '#aaa' }}>
-                                Time: {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
                             </div>
                         )}
+
+                        {!isSearching && (
+                            <button className="btn-primary" style={{ marginTop: '40px', background: '#3e2723' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
+                        )}
                     </div>
+                );
+            }
 
-
-
-                    <div className="logs">
-                        {logs.map((L, i) => <div key={i} className="log-item">{L}</div>)}
-                    </div>
-
-                    <div className="spacer"></div>
-
-                    {/* Wallet Info Hidden */}
-                    {/* <div className="wallet-info">...</div> */}
-
-                    <div className="card"
-                        style={{ marginTop: 'auto', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3e2723', borderColor: '#4e342e' }}
-                        onClick={() => {
-                            if (gameStatus === 'playing') {
-                                if (window.confirm("Are you sure you want to resign? You will lose this game.")) {
-                                    handleForfeit();
-                                }
-                            } else {
-                                setGameStatus('menu');
-                                setBoard(initialBoard);
-                                setGameResult(null);
-                            }
+            if (gameStatus === 'leaderboard') {
+                const leaderboard = getLeaderboard();
+                return (
+                    <div className="landing-page">
+                        <h2 className="landing-title" style={{ fontSize: '2.5rem', marginBottom: '20px' }}>Top 20 Players</h2>
+                        <div style={{
+                            background: 'rgba(44, 36, 27, 0.95)',
+                            padding: '20px',
+                            borderRadius: '12px',
+                            width: '90%',
+                            maxWidth: '600px',
+                            maxHeight: '60vh',
+                            overflowY: 'auto',
+                            marginBottom: '20px',
+                            border: '1px solid #5d4037'
                         }}>
-                        {gameStatus === 'playing' ? (
-                            <><span>🏳️</span> Resign</>
-                        ) : (
-                            <><span>🏠</span> Back to Menu</>
-                        )}
-                    </div>
-                </div>
-
-                {/* MAIN GAME AREA */}
-                <div className="board-wrapper">
-
-                    {/* OPPONENT BAR */}
-                    <div className={`opponent-bar ${turn === 'ai' || turn === 'opponent' ? 'active-turn' : ''}`}>
-                        <div className="opponent-info">
-                            <div className="opponent-avatar" style={{
-                                background: playerColor === PLAYER_HUMAN
-                                    ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // If I am White, Opponent is Red (Black/Red styling)
-                                    : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // If I am Red, Opponent is White
-                                borderColor: playerColor === PLAYER_HUMAN ? '#000' : '#b0b0b0'
-                            }}></div>
-                            <div className="opponent-name">
-                                <div style={{ fontWeight: 'bold' }}>{gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    {gameMode === 'multi' ? (
-                                        <>
-                                            {opponentWallet && (!opponentName || !opponentName.includes('...')) && (
-                                                <span style={{ fontFamily: 'monospace', color: '#ffecb3', opacity: 0.8 }}>
-                                                    {opponentWallet.slice(0, 4)}...{opponentWallet.slice(-4)}
-                                                </span>
-                                            )}
-                                            {opponentWallet && (!opponentName || !opponentName.includes('...')) && <span>•</span>}
-                                            <span>Lvl {opponentLevel}</span>
-                                        </>
-                                    ) : (
-                                        'Level 100'
-                                    )}
+                            {leaderboard.map((p, i) => (
+                                <div key={i} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '15px',
+                                    borderBottom: '1px solid #3e2723',
+                                    background: i === 0 ? 'rgba(255, 215, 0, 0.1)' : 'transparent'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '30px', color: i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? '#cd7f32' : '#a1887f' }}>#{i + 1}</div>
+                                        {p.avatar ? <img src={p.avatar} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #5d4037', objectFit: 'cover' }} /> : <div className="dot" style={{ width: '40px', height: '40px', position: 'static', background: '#3e2723' }}></div>}
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', color: '#e8e0d5' }}>{p.name || 'Unknown'}</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Lvl {p.stats?.level || 1} • {p.stats?.wins || 0} Wins</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>
+                                        {p.stats?.xp || 0} XP
+                                    </div>
                                 </div>
+                            ))}
+                        </div>
+                        <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
+                    </div>
+                );
+            }
+
+            // Helper for specific Perspective Rendering
+            // Helper for specific Perspective Rendering
+            const isFlipped = playerColor === PLAYER_AI;
+            const getLogIdx = (i) => isFlipped ? (i + 12) % 24 : i;
+
+            // 2. GAME BOARD
+            return (
+                <div className="app-container">
+                    {/* SIDEBAR */}
+                    <div className="sidebar">
+                        <div className="logo">
+                            <span style={{ color: '#d32f2f' }}>Play</span><span style={{ color: '#fff' }}>24</span><br />Backgammon
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', justifyContent: 'center' }}>
+                                <div style={{ width: '14px', height: '14px', background: '#fff', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}></div>
+                                <div style={{ width: '14px', height: '14px', background: '#d32f2f', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}></div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* GAME OVER OVERLAY */}
-                    {gameStatus === 'gameover' && (
-                        <div className="game-over-overlay">
-                            <div className={`game-over-title ${gameResult}`}>
-                                {gameResult === 'win' ? 'YOU WIN!' : 'YOU LOST!'}
+                        <div className="card">
+                            <div className="label">Status</div>
+                            <div className="value">
+                                {turn === 'human' ? 'Your Turn' : (gameMode === 'multi' ? 'Wait...' : 'AI Thinking...')}
                             </div>
-                            <div className="game-over-subtitle">
-                                {gameResult === 'win' ? 'Great moves! You dominated the board.' : 'Better luck next time!'}
-                            </div>
-                            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                                <button className="btn-primary" onClick={() => {
+                            {turn === 'human' && (
+                                <div style={{ marginTop: '5px', fontSize: '0.9rem', color: turnTimer < 30 ? '#ff5252' : '#aaa' }}>
+                                    Time: {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
+                                </div>
+                            )}
+                        </div>
+
+
+
+                        <div className="logs">
+                            {logs.map((L, i) => <div key={i} className="log-item">{L}</div>)}
+                        </div>
+
+                        <div className="spacer"></div>
+
+                        {/* Wallet Info Hidden */}
+                        {/* <div className="wallet-info">...</div> */}
+
+                        <div className="card"
+                            style={{ marginTop: 'auto', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3e2723', borderColor: '#4e342e' }}
+                            onClick={() => {
+                                if (gameStatus === 'playing') {
+                                    if (window.confirm("Are you sure you want to resign? You will lose this game.")) {
+                                        handleForfeit();
+                                    }
+                                } else {
                                     setGameStatus('menu');
                                     setBoard(initialBoard);
                                     setGameResult(null);
-                                }}>Back to Menu</button>
-                                <button className="btn-primary" style={{ background: '#4caf50', border: '1px solid #81c784' }} onClick={() => {
-                                    setBoard(initialBoard);
-                                    setBar({ 0: 0, 1: 0 });
-                                    setGameResult(null);
-
-                                    if (gameMode === 'multi') {
-                                        setGameStatus('multiplayer_menu');
-                                        handleSearchMatch(selectedStake);
-                                    } else {
-                                        startGame(difficulty);
-                                    }
-                                }}>Play Again</button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* OPENING ROLL OVERLAY */}
-                    {gameStatus === 'opening_roll' && (
-                        <div className="game-over-overlay" style={{ background: 'rgba(0,0,0,0.92)', zIndex: 900 }}>
-                            <div className="game-over-title" style={{ fontSize: '2rem', marginBottom: '10px', color: '#fff' }}>Opening Roll</div>
-                            <div className="game-over-subtitle" style={{ marginBottom: '20px' }}>
-                                Roll to decide who moves first!
-                            </div>
-
-                            {(openingRoll || rolling) ? (
-                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '60px', margin: '30px 0' }}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: '#fff', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>YOU</div>
-                                        {(openingRoll && openingRoll.human) ? (
-                                            <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.human}</div>
-                                        ) : (
-                                            rolling ? (
-                                                <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }}></div>
-                                            ) : (
-                                                <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #666', background: 'transparent', color: '#666', fontSize: '2rem' }}>?</div>
-                                            )
-                                        )}
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', color: '#aaa', paddingTop: '20px' }}>vs</div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>{gameMode === 'multi' ? opponentName : 'AI'}</div>
-                                        {(openingRoll && openingRoll.ai) ? (
-                                            <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
-                                        ) : (
-                                            (gameMode === 'single' && rolling) ? (
-                                                <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear', borderColor: '#d32f2f' }}></div>
-                                            ) : (
-                                                <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d32f2f', background: 'transparent', color: '#d32f2f', fontSize: '2rem' }}>{gameMode === 'multi' ? '...' : '?'}</div>
-                                            )
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '30px 0' }}>
-                                    <div style={{ fontSize: '4rem' }}>🎲</div>
-                                </div>
-                            )}
-
-                            {(!openingRoll || !openingRoll.human) && !rolling && (
-                                <button className="btn-primary" style={{ fontSize: '1.3rem', padding: '15px 50px' }} onClick={handleOpeningRoll}>ROLL FOR FIRST TURN</button>
-                            )}
-                        </div>
-                    )}
-
-                    {/* DICE TABLE OVERLAY */}
-                    <div className={`dice-table-overlay ${rolling ? 'rolling' : ''}`}>
-                        {/* Turn Notification */}
-                        {turn === 'human' && (canRoll || dice.length > 0) && !rolling && (
-                            <div className="turn-message">YOUR TURN!</div>
-                        )}
-
-                        {(visualDice.length > 0 || rolling) && (
-                            <div className="dice-pair">
-                                {rolling ? (
-                                    <>
-                                        <div className="die-3d"></div>
-                                        <div className="die-3d"></div>
-                                    </>
-                                ) : (
-                                    visualDice.map((d, i) => <div key={i} className="die-3d">{d}</div>)
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* TOP HALF (Indices 12-23) */}
-                    <div className="board-row top">
-                        {/* 12-17 */}
-                        <div className="quadrant">
-                            {[12, 13, 14, 15, 16, 17].map(i => {
-                                const logical = getLogIdx(i);
-                                return <Point key={i} index={i} data={board[logical]} isTop={true} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
-                            })}
-                        </div>
-
-                        {/* BAR TOP - OPPONENT (AI) */}
-                        <div className="bar-center">
-                            {bar[PLAYER_AI] > 0 && (
-                                <div
-                                    className="checker red"
-                                    onClick={playerColor === PLAYER_AI ? handleBarClick : undefined}
-                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_AI ? 'pointer' : 'default' }}>
-                                    {bar[PLAYER_AI]}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* 18-23 */}
-                        <div className="quadrant">
-                            {[18, 19, 20, 21, 22, 23].map(i => {
-                                const logical = getLogIdx(i);
-                                return <Point key={i} index={i} data={board[logical]} isTop={true} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
-                            })}
-                        </div>
-                    </div>
-
-                    {/* BOTTOM HALF (Indices 11-0) */}
-                    {/* Bottom Left: 11-6. Bottom Right: 5-0 */}
-                    <div className="board-row bottom">
-                        {/* 11-6 */}
-                        <div className="quadrant">
-                            {[11, 10, 9, 8, 7, 6].map(i => {
-                                const logical = getLogIdx(i);
-                                return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
-                            })}
-                        </div>
-
-                        {/* BAR BOTTOM - PLAYER (HUMAN) */}
-                        <div className="bar-center">
-                            {bar[PLAYER_HUMAN] > 0 && (
-                                <div
-                                    className="checker white"
-                                    onClick={playerColor === PLAYER_HUMAN ? handleBarClick : undefined}
-                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_HUMAN ? 'pointer' : 'default' }}
-                                >
-                                    {bar[PLAYER_HUMAN]}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* 5-0 */}
-                        <div className="quadrant">
-                            {[5, 4, 3, 2, 1, 0].map(i => {
-                                const logical = getLogIdx(i);
-                                return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
-                            })}
-                        </div>
-                    </div>
-
-                    {/* PLAYER CONTROLS */}
-                    <div className={`player-controls-bar ${turn === 'human' && (canRoll || dice.length > 0) ? 'active-turn' : ''}`}>
-                        <div className="player-info">
-                            <div className="player-avatar" style={{
-                                background: playerColor === PLAYER_AI
-                                    ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // I am Red (Black/Red styling)
-                                    : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // I am White
-                                borderColor: playerColor === PLAYER_AI ? '#000' : '#b0b0b0'
+                                }
                             }}>
-                                {userProfile.avatar && <img src={userProfile.avatar} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />}
-                            </div>
-                            <div className="player-name">
-                                <div style={{ fontWeight: 'bold' }}>
-                                    {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`)) : 'Player 1'}
-                                </div>
-                                {wallet && !wallet.startsWith('Guest') && userProfile.stats && (
-                                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        {userProfile.name && (
-                                            <>
-                                                <span style={{ fontFamily: 'monospace', color: '#8d6e63' }}>
-                                                    {wallet.slice(0, 4)}...{wallet.slice(-4)}
-                                                </span>
-                                                <span>•</span>
-                                            </>
-                                        )}
-                                        <span>Lvl {userProfile.stats.level}</span>
-                                        <span>•</span>
-                                        <span>{userProfile.stats.wins}W / {userProfile.stats.losses}L</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="controls-actions">
-                            <button
-                                className="btn-action"
-                                onClick={handleUndo}
-                                disabled={turn !== 'human' || history.length === 0 || finishingTurn || dice.length === 0}
-                            >
-                                Undo
-                            </button>
-                            {validMoves.includes(-1) ? (
-                                <button
-                                    className="btn-action"
-                                    style={{ backgroundColor: '#ffca28', color: '#000', fontWeight: 'bold' }}
-                                    onClick={() => handlePointClick(-1)}
-                                >
-                                    BEAR OFF
-                                </button>
+                            {gameStatus === 'playing' ? (
+                                <><span>🏳️</span> Resign</>
                             ) : (
-                                <button
-                                    className="btn-action"
-                                    onClick={handleManualRoll}
-                                    disabled={!canRoll || turn !== 'human'}
-                                    style={(dice.length > 0 && turn === 'human') ? { background: '#2e7d32', color: '#fff', border: '1px solid #66bb6a', cursor: 'default' } : {}}
-                                >
-                                    {(dice.length > 0 && turn === 'human') ? "Make Your Moves" : "Roll Dice"}
-                                </button>
+                                <><span>🏠</span> Back to Menu</>
                             )}
                         </div>
                     </div>
 
-                    {/* CHAT REMOVED FROM HERE */}
-                </div>
+                    {/* MAIN GAME AREA */}
+                    <div className="board-wrapper">
 
-                {/* RIGHT SIDEBAR REMOVED */}
-            </div>
-        );
+                        {/* OPPONENT BAR */}
+                        <div className={`opponent-bar ${turn === 'ai' || turn === 'opponent' ? 'active-turn' : ''}`}>
+                            <div className="opponent-info">
+                                <div className="opponent-avatar" style={{
+                                    background: playerColor === PLAYER_HUMAN
+                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // If I am White, Opponent is Red (Black/Red styling)
+                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // If I am Red, Opponent is White
+                                    borderColor: playerColor === PLAYER_HUMAN ? '#000' : '#b0b0b0'
+                                }}></div>
+                                <div className="opponent-name">
+                                    <div style={{ fontWeight: 'bold' }}>{gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}</div>
+                                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {gameMode === 'multi' ? (
+                                            <>
+                                                {opponentWallet && (!opponentName || !opponentName.includes('...')) && (
+                                                    <span style={{ fontFamily: 'monospace', color: '#ffecb3', opacity: 0.8 }}>
+                                                        {opponentWallet.slice(0, 4)}...{opponentWallet.slice(-4)}
+                                                    </span>
+                                                )}
+                                                {opponentWallet && (!opponentName || !opponentName.includes('...')) && <span>•</span>}
+                                                <span>Lvl {opponentLevel}</span>
+                                            </>
+                                        ) : (
+                                            'Level 100'
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* GAME OVER OVERLAY */}
+                        {gameStatus === 'gameover' && (
+                            <div className="game-over-overlay">
+                                <div className={`game-over-title ${gameResult}`}>
+                                    {gameResult === 'win' ? 'YOU WIN!' : 'YOU LOST!'}
+                                </div>
+                                <div className="game-over-subtitle">
+                                    {gameResult === 'win' ? 'Great moves! You dominated the board.' : 'Better luck next time!'}
+                                </div>
+                                <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                                    <button className="btn-primary" onClick={() => {
+                                        setGameStatus('menu');
+                                        setBoard(initialBoard);
+                                        setGameResult(null);
+                                    }}>Back to Menu</button>
+                                    <button className="btn-primary" style={{ background: '#4caf50', border: '1px solid #81c784' }} onClick={() => {
+                                        setBoard(initialBoard);
+                                        setBar({ 0: 0, 1: 0 });
+                                        setGameResult(null);
+
+                                        if (gameMode === 'multi') {
+                                            setGameStatus('multiplayer_menu');
+                                            handleSearchMatch(selectedStake);
+                                        } else {
+                                            startGame(difficulty);
+                                        }
+                                    }}>Play Again</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* OPENING ROLL OVERLAY */}
+                        {gameStatus === 'opening_roll' && (
+                            <div className="game-over-overlay" style={{ background: 'rgba(0,0,0,0.92)', zIndex: 900 }}>
+                                <div className="game-over-title" style={{ fontSize: '2rem', marginBottom: '10px', color: '#fff' }}>Opening Roll</div>
+                                <div className="game-over-subtitle" style={{ marginBottom: '20px' }}>
+                                    Roll to decide who moves first!
+                                </div>
+
+                                {(openingRoll || rolling) ? (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '60px', margin: '30px 0' }}>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ color: '#fff', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>YOU</div>
+                                            {(openingRoll && openingRoll.human) ? (
+                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.human}</div>
+                                            ) : (
+                                                rolling ? (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }}></div>
+                                                ) : (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #666', background: 'transparent', color: '#666', fontSize: '2rem' }}>?</div>
+                                                )
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '1.5rem', color: '#aaa', paddingTop: '20px' }}>vs</div>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>{gameMode === 'multi' ? opponentName : 'AI'}</div>
+                                            {(openingRoll && openingRoll.ai) ? (
+                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
+                                            ) : (
+                                                (gameMode === 'single' && rolling) ? (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear', borderColor: '#d32f2f' }}></div>
+                                                ) : (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d32f2f', background: 'transparent', color: '#d32f2f', fontSize: '2rem' }}>{gameMode === 'multi' ? '...' : '?'}</div>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '30px 0' }}>
+                                        <div style={{ fontSize: '4rem' }}>🎲</div>
+                                    </div>
+                                )}
+
+                                {(!openingRoll || !openingRoll.human) && !rolling && (
+                                    <button className="btn-primary" style={{ fontSize: '1.3rem', padding: '15px 50px' }} onClick={handleOpeningRoll}>ROLL FOR FIRST TURN</button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* DICE TABLE OVERLAY */}
+                        <div className={`dice-table-overlay ${rolling ? 'rolling' : ''}`}>
+                            {/* Turn Notification */}
+                            {turn === 'human' && (canRoll || dice.length > 0) && !rolling && (
+                                <div className="turn-message">YOUR TURN!</div>
+                            )}
+
+                            {(visualDice.length > 0 || rolling) && (
+                                <div className="dice-pair">
+                                    {rolling ? (
+                                        <>
+                                            <div className="die-3d"></div>
+                                            <div className="die-3d"></div>
+                                        </>
+                                    ) : (
+                                        visualDice.map((d, i) => <div key={i} className="die-3d">{d}</div>)
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* TOP HALF (Indices 12-23) */}
+                        <div className="board-row top">
+                            {/* 12-17 */}
+                            <div className="quadrant">
+                                {[12, 13, 14, 15, 16, 17].map(i => {
+                                    const logical = getLogIdx(i);
+                                    return <Point key={i} index={i} data={board[logical]} isTop={true} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
+                                })}
+                            </div>
+
+                            {/* BAR TOP - OPPONENT (AI) */}
+                            <div className="bar-center">
+                                {bar[PLAYER_AI] > 0 && (
+                                    <div
+                                        className="checker red"
+                                        onClick={playerColor === PLAYER_AI ? handleBarClick : undefined}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_AI ? 'pointer' : 'default' }}>
+                                        {bar[PLAYER_AI]}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 18-23 */}
+                            <div className="quadrant">
+                                {[18, 19, 20, 21, 22, 23].map(i => {
+                                    const logical = getLogIdx(i);
+                                    return <Point key={i} index={i} data={board[logical]} isTop={true} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
+                                })}
+                            </div>
+                        </div>
+
+                        {/* BOTTOM HALF (Indices 11-0) */}
+                        {/* Bottom Left: 11-6. Bottom Right: 5-0 */}
+                        <div className="board-row bottom">
+                            {/* 11-6 */}
+                            <div className="quadrant">
+                                {[11, 10, 9, 8, 7, 6].map(i => {
+                                    const logical = getLogIdx(i);
+                                    return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
+                                })}
+                            </div>
+
+                            {/* BAR BOTTOM - PLAYER (HUMAN) */}
+                            <div className="bar-center">
+                                {bar[PLAYER_HUMAN] > 0 && (
+                                    <div
+                                        className="checker white"
+                                        onClick={playerColor === PLAYER_HUMAN ? handleBarClick : undefined}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_HUMAN ? 'pointer' : 'default' }}
+                                    >
+                                        {bar[PLAYER_HUMAN]}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 5-0 */}
+                            <div className="quadrant">
+                                {[5, 4, 3, 2, 1, 0].map(i => {
+                                    const logical = getLogIdx(i);
+                                    return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
+                                })}
+                            </div>
+                        </div>
+
+                        {/* PLAYER CONTROLS */}
+                        <div className={`player-controls-bar ${turn === 'human' && (canRoll || dice.length > 0) ? 'active-turn' : ''}`}>
+                            <div className="player-info">
+                                <div className="player-avatar" style={{
+                                    background: playerColor === PLAYER_AI
+                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // I am Red (Black/Red styling)
+                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // I am White
+                                    borderColor: playerColor === PLAYER_AI ? '#000' : '#b0b0b0'
+                                }}>
+                                    {userProfile.avatar && <img src={userProfile.avatar} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />}
+                                </div>
+                                <div className="player-name">
+                                    <div style={{ fontWeight: 'bold' }}>
+                                        {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`)) : 'Player 1'}
+                                    </div>
+                                    {wallet && !wallet.startsWith('Guest') && userProfile.stats && (
+                                        <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {userProfile.name && (
+                                                <>
+                                                    <span style={{ fontFamily: 'monospace', color: '#8d6e63' }}>
+                                                        {wallet.slice(0, 4)}...{wallet.slice(-4)}
+                                                    </span>
+                                                    <span>•</span>
+                                                </>
+                                            )}
+                                            <span>Lvl {userProfile.stats.level}</span>
+                                            <span>•</span>
+                                            <span>{userProfile.stats.wins}W / {userProfile.stats.losses}L</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="controls-actions">
+                                <button
+                                    className="btn-action"
+                                    onClick={handleUndo}
+                                    disabled={turn !== 'human' || history.length === 0 || finishingTurn || dice.length === 0}
+                                >
+                                    Undo
+                                </button>
+                                {validMoves.includes(-1) ? (
+                                    <button
+                                        className="btn-action"
+                                        style={{ backgroundColor: '#ffca28', color: '#000', fontWeight: 'bold' }}
+                                        onClick={() => handlePointClick(-1)}
+                                    >
+                                        BEAR OFF
+                                    </button>
+                                ) : (
+                                    <button
+                                        className="btn-action"
+                                        onClick={() => isBlocked ? handlePassTurn() : handleManualRoll()}
+                                        disabled={(!canRoll && !isBlocked) || turn !== 'human'}
+                                        style={(dice.length > 0 && turn === 'human') ? { background: isBlocked ? '#d32f2f' : '#2e7d32', color: '#fff', border: isBlocked ? '1px solid #b71c1c' : '1px solid #66bb6a', cursor: 'pointer' } : {}}
+                                    >
+                                        {isBlocked ? "Pass Turn (Blocked)" : ((dice.length > 0 && turn === 'human') ? "Make Your Moves" : "Roll Dice")}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* CHAT REMOVED FROM HERE */}
+                    </div>
+
+                    {/* RIGHT SIDEBAR REMOVED */}
+                </div>
+            );
         }
 
         function Point({ index, data, isTop, selected, isValid, onClick, playerColor }) {
