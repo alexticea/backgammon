@@ -2022,7 +2022,7 @@
                                 <button
                                     className="btn-action"
                                     onClick={handleUndo}
-                                    disabled={turn !== 'human' || history.length === 0 || finishingTurn}
+                                    disabled={turn !== 'human' || history.length === 0 || finishingTurn || dice.length === 0}
                                 >
                                     Undo
                                 </button>
