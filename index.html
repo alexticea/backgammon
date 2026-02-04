@@ -1811,7 +1811,12 @@
                         {/* OPPONENT BAR */}
                         <div className={`opponent-bar ${turn === 'ai' || turn === 'opponent' ? 'active-turn' : ''}`}>
                             <div className="opponent-info">
-                                <div className="opponent-avatar"></div>
+                                <div className="opponent-avatar" style={{
+                                    background: playerColor === PLAYER_HUMAN
+                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // If I am White, Opponent is Red (Black/Red styling)
+                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // If I am Red, Opponent is White
+                                    borderColor: playerColor === PLAYER_HUMAN ? '#000' : '#b0b0b0'
+                                }}></div>
                                 <div className="opponent-name">
                                     <div style={{ fontWeight: 'bold' }}>{gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}</div>
                                     <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1980,8 +1985,8 @@
                             <div className="player-info">
                                 <div className="player-avatar" style={{
                                     background: playerColor === PLAYER_AI
-                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)'
-                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)',
+                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // I am Red (Black/Red styling)
+                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // I am White
                                     borderColor: playerColor === PLAYER_AI ? '#000' : '#b0b0b0'
                                 }}>
                                     {userProfile.avatar && <img src={userProfile.avatar} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />}
