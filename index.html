@@ -79,6 +79,7 @@
             const [socket, setSocket] = useState(null);
             const [finishingTurn, setFinishingTurn] = useState(false);
             const [isBlocked, setIsBlocked] = useState(false);
+            const [escrowBalance, setEscrowBalance] = useState(0.00);
 
             // --- REFS FOR SOCKET HANDLERS ---
             const gameStatusRef = useRef(gameStatus);
@@ -87,6 +88,9 @@
 
             const selectedStakeRef = useRef(selectedStake);
             useEffect(() => { selectedStakeRef.current = selectedStake; }, [selectedStake]);
+
+            const escrowBalanceRef = useRef(escrowBalance);
+            useEffect(() => { escrowBalanceRef.current = escrowBalance; }, [escrowBalance]);
 
             // --- SOCKET INIT ---
             useEffect(() => {
@@ -131,11 +135,29 @@
                     console.log("Assigned Color:", colorStr, myColor);
 
                     // Start Game Logic
-                    if (selectedStakeRef.current && selectedStakeRef.current > 0) {
-                        setGameStatus('staking');
-                        log("Match Found! Deposit Stake to start.");
+                    const stake = selectedStakeRef.current;
+                    if (stake && stake > 0) {
+                        const balance = escrowBalanceRef.current || 0;
+                        if (balance >= stake) {
+                            // Deduct Stake
+                            setEscrowBalance(prev => parseFloat((prev - stake).toFixed(2)));
+                            log(`Staked ${stake} SOL from Escrow Balance.`);
+
+                            // Start Game
+                            setGameMode('multi');
+                            setGameStatus('opening_roll');
+                            setOpeningRoll(null);
+                            setRolling(false);
+                            setTurn('human');
+                            log("Match Found! Roll for the first turn.");
+                        } else {
+                            alert(`Insufficient Escrow Balance! You need ${stake} SOL. Please deposit.`);
+                            setGameStatus('multiplayer_menu');
+                            // Ideally emit 'leave_match' here
+                            return;
+                        }
                     } else {
-                        // Free Play - Start Immediately
+                        // Free Play
                         setGameMode('multi');
                         setGameStatus('opening_roll');
                         setOpeningRoll(null);
@@ -146,14 +168,7 @@
 
                 });
 
-                newSocket.on('game_start', () => {
-                    setGameMode('multi');
-                    setGameStatus('opening_roll');
-                    setOpeningRoll(null);
-                    setRolling(false);
-                    setTurn('human');
-                    log("Both players deposited! Game Starting.");
-                });
+                // REMOVED: newSocket.on('game_start') - Logic moved to match_found direct check
 
                 newSocket.on('game_update', ({ type, payload }) => {
                     handleRemoteEvent(type, payload);
@@ -357,6 +372,55 @@
                     console.error("Deposit Failed", err);
                     alert("Deposit Failed: " + err.message);
                 }
+            };
+
+            const handleEscrowDeposit = async () => {
+                const amountStr = prompt("Enter annual amount to deposit (SOL):", "0.1");
+                if (!amountStr) return;
+                const amount = parseFloat(amountStr);
+                if (isNaN(amount) || amount <= 0) return;
+
+                // TX Logic (Reuse handleDeposit logic logic practically)
+                // For MVP, emulate success
+                try {
+                    // In real app: Send TX
+                    // setEscrowBalance(prev => prev + amount);
+                    // alert("Deposited to Escrow!");
+
+                    // Let's use real simple TX for "Real Feel"
+                    if (!wallet) return alert("Connect Wallet first");
+                    const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
+                    const transaction = new window.solanaWeb3.Transaction().add(
+                        window.solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: new window.solanaWeb3.PublicKey(wallet),
+                            toPubkey: new window.solanaWeb3.PublicKey(wallet), // Self-transfer demo
+                            lamports: amount * 1000000000,
+                        })
+                    );
+                    transaction.feePayer = new window.solanaWeb3.PublicKey(wallet);
+                    const { blockhash } = await connection.getLatestBlockhash();
+                    transaction.recentBlockhash = blockhash;
+                    const provider = window.solflare || window.solana;
+                    const { signature } = await provider.signAndSendTransaction(transaction);
+
+                    log("Escrow Deposit: " + amount + " SOL");
+                    setEscrowBalance(prev => parseFloat((prev + amount).toFixed(2)));
+
+                } catch (e) {
+                    alert("Deposit Error: " + e.message);
+                }
+            };
+
+            const handleEscrowWithdraw = () => {
+                const amountStr = prompt("Enter amount to withdraw (SOL):", "0.1");
+                if (!amountStr) return;
+                const amount = parseFloat(amountStr);
+                if (escrowBalance < amount) return alert("Insufficient Escrow Balance");
+
+                // In real app: Server sign TX to user
+                log("Withdrawal Request: " + amount + " SOL");
+                alert("Withdrawal processed (Simulated). Funds returned to wallet.");
+                setEscrowBalance(prev => parseFloat((prev - amount).toFixed(2)));
             };
 
             const handleChatSend = () => {
@@ -1528,6 +1592,20 @@
                     setGameResult('win'); // "YOU WIN"
                     playDiceSound();
                     updateStats('win');
+
+                    // Payout Logic
+                    const stake = selectedStakeRef.current;
+                    if (stake > 0) {
+                        // Win = Return Stake + Opponent Stake (minus fee?)
+                        // Simple 2x return for MVP
+                        const confirmWin = stake * 2;
+                        const fee = confirmWin * 0.02; // 2% Fee
+                        const payout = confirmWin - fee;
+
+                        setEscrowBalance(prev => parseFloat((prev + payout).toFixed(2)));
+                        log(`Won ${payout.toFixed(3)} SOL! Added to Escrow.`);
+                    }
+
                 } else if (oppPieces === 0) {
                     setGameStatus('gameover');
                     setGameResult('loss');
@@ -1781,6 +1859,21 @@
                                             </button>
                                         ))}
                                     </div>
+
+                                    {/* ESCROW CONTROLS */}
+                                    <div style={{ marginTop: '20px', paddingTop: '10px', borderTop: '1px solid #4e342e' }}>
+                                        <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '10px' }}>
+                                            Escrow Balance: <span style={{ color: '#fff', fontWeight: 'bold' }}>{escrowBalance} SOL</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                            <button className="btn-secondary" style={{ fontSize: '0.8rem', padding: '5px 10px', background: '#2e7d32' }} onClick={handleEscrowDeposit}>
+                                                + Deposit
+                                            </button>
+                                            <button className="btn-secondary" style={{ fontSize: '0.8rem', padding: '5px 10px', background: '#c62828' }} onClick={handleEscrowWithdraw}>
+                                                - Withdraw
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1792,39 +1885,7 @@
                 );
             }
 
-            if (gameStatus === 'staking') {
-                return (
-                    <div className="landing-page">
-                        <h2 className="landing-title">Deposit Stake</h2>
 
-                        <div className="card" style={{ padding: '40px', textAlign: 'center', width: '400px', border: '2px solid gold' }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⚖️</div>
-                            <h3>{selectedStake} SOL Required</h3>
-                            <p style={{ color: '#aaa', marginBottom: '20px' }}>
-                                Both players must deposit to the Escrow Smart Contract to begin.
-                                Winner takes all (minus 2% fee).
-                            </p>
-
-                            {depositTx ? (
-                                <div style={{ color: '#4caf50', fontWeight: 'bold' }}>
-                                    ✅ Deposit Confirmed!<br />
-                                    Waiting for opponent...
-                                </div>
-                            ) : (
-                                <button className="btn-primary" style={{ fontSize: '1.2rem', padding: '15px' }} onClick={handleDeposit}>
-                                    🔒 Deposit {selectedStake} SOL
-                                </button>
-                            )}
-
-                            <div style={{ marginTop: '20px', fontSize: '0.8rem', color: '#666' }}>
-                                Escrow Contract: <span style={{ fontFamily: 'monospace' }}>BgAmMon...111</span>
-                            </div>
-                        </div>
-
-                        <button className="btn-secondary" style={{ marginTop: '20px' }} onClick={() => setGameStatus('multiplayer_menu')}>Cancel</button>
-                    </div>
-                );
-            }
 
             if (gameStatus === 'leaderboard') {
                 const leaderboard = getLeaderboard();
