@@ -82,7 +82,11 @@
 
             // --- REFS FOR SOCKET HANDLERS ---
             const gameStatusRef = useRef(gameStatus);
+
             useEffect(() => { gameStatusRef.current = gameStatus; }, [gameStatus]);
+
+            const selectedStakeRef = useRef(selectedStake);
+            useEffect(() => { selectedStakeRef.current = selectedStake; }, [selectedStake]);
 
             // --- SOCKET INIT ---
             useEffect(() => {
@@ -127,7 +131,7 @@
                     console.log("Assigned Color:", colorStr, myColor);
 
                     // Start Game Logic
-                    if (selectedStake && selectedStake > 0) {
+                    if (selectedStakeRef.current && selectedStakeRef.current > 0) {
                         setGameStatus('staking');
                         log("Match Found! Deposit Stake to start.");
                     } else {
