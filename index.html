@@ -401,6 +401,15 @@
                 }
             };
 
+            const fetchBalance = async () => {
+                if (!wallet || wallet.startsWith('Guest')) return;
+                try {
+                    const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
+                    const lamports = await connection.getBalance(new window.solanaWeb3.PublicKey(wallet));
+                    setBalance((lamports / 1000000000).toFixed(2));
+                } catch (e) { console.error(e); }
+            };
+
             const handleEscrowDeposit = async () => {
                 const amountStr = prompt("Enter annual amount to deposit (SOL):", "0.1");
                 if (!amountStr) return;
@@ -432,6 +441,7 @@
 
                     log("Escrow Deposit: " + amount + " SOL");
                     setEscrowBalance(prev => parseFloat((prev + amount).toFixed(2)));
+                    setTimeout(fetchBalance, 2000); // Trigger Wallet Refresh
 
                 } catch (e) {
                     alert("Deposit Error: " + e.message);
@@ -1858,6 +1868,30 @@
             if (gameStatus === 'multiplayer_menu') {
                 return (
                     <div className="landing-page">
+                        {/* Top Right Wallet Badge (Replicated) */}
+                        {wallet && (
+                            <>
+                                <div className="wallet-badge-container">
+                                    {wallet.startsWith('Guest') ? (
+                                        <div className="wallet-badge">Guest Mode</div>
+                                    ) : (
+                                        <div className="wallet-badge">
+                                            <span>
+                                                {userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`}
+                                            </span>
+                                            <span style={{ opacity: 0.6 }}>|</span>
+                                            <span>{balance} SOL</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 1001 }}>
+                                    <button className="btn-disconnect" onClick={() => setWallet(null)}>
+                                        {wallet.startsWith('Guest') ? 'Exit Guest' : 'Disconnect'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
                         <h2 className="landing-title">Select Mode</h2>
 
                         {isSearching ? (
