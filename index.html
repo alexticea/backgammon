@@ -1956,7 +1956,10 @@
                             {/* BAR TOP - OPPONENT (AI) */}
                             <div className="bar-center">
                                 {bar[PLAYER_AI] > 0 && (
-                                    <div className="checker red" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                                    <div
+                                        className="checker red"
+                                        onClick={playerColor === PLAYER_AI ? handleBarClick : undefined}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_AI ? 'pointer' : 'default' }}>
                                         {bar[PLAYER_AI]}
                                     </div>
                                 )}
@@ -1987,8 +1990,8 @@
                                 {bar[PLAYER_HUMAN] > 0 && (
                                     <div
                                         className="checker white"
-                                        onClick={handleBarClick}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: 'pointer' }}
+                                        onClick={playerColor === PLAYER_HUMAN ? handleBarClick : undefined}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_HUMAN ? 'pointer' : 'default' }}
                                     >
                                         {bar[PLAYER_HUMAN]}
                                     </div>
