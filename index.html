@@ -1750,7 +1750,8 @@
             }
 
             // Helper for specific Perspective Rendering
-            const isFlipped = gameMode === 'multi' && playerColor === PLAYER_AI;
+            // Helper for specific Perspective Rendering
+            const isFlipped = playerColor === PLAYER_AI;
             const getLogIdx = (i) => isFlipped ? (i + 12) % 24 : i;
 
             // 2. GAME BOARD
