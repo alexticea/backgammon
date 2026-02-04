@@ -1953,10 +1953,13 @@
                                 })}
                             </div>
 
-                            {/* BAR */}
+                            {/* BAR TOP - OPPONENT (AI) */}
                             <div className="bar-center">
-                                {bar[PLAYER_AI] > 0 && <div className={`checker ${PLAYER_AI === playerColor ? 'white' : 'red'}`}>{bar[PLAYER_AI]}</div>}
-                                {bar[PLAYER_HUMAN] > 0 && <div className={`checker ${PLAYER_HUMAN === playerColor ? 'white' : 'red'}`} onClick={handleBarClick}>{bar[PLAYER_HUMAN]}</div>}
+                                {bar[PLAYER_AI] > 0 && (
+                                    <div className={`checker ${PLAYER_AI === playerColor ? 'white' : 'red'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                                        {bar[PLAYER_AI]}
+                                    </div>
+                                )}
                             </div>
 
                             {/* 18-23 */}
@@ -1979,7 +1982,18 @@
                                 })}
                             </div>
 
-                            <div className="bar-center"></div>
+                            {/* BAR BOTTOM - PLAYER (HUMAN) */}
+                            <div className="bar-center">
+                                {bar[PLAYER_HUMAN] > 0 && (
+                                    <div
+                                        className={`checker ${PLAYER_HUMAN === playerColor ? 'white' : 'red'}`}
+                                        onClick={handleBarClick}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                        {bar[PLAYER_HUMAN]}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* 5-0 */}
                             <div className="quadrant">
