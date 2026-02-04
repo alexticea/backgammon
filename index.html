@@ -1380,6 +1380,15 @@
                     setSelectedPoint(null);
                     setValidMoves([]);
 
+                    // Check if *remaining* dice have any valid moves
+                    if (newDice.length > 0 && !checkHumanCanMove(nextBoard, nextBar, newDice)) {
+                        log("No valid moves remaining. Turn ending.");
+                        // Force dice clearing to trigger end turn logic
+                        // We must update state and 'newDice' variable to ensure the next block runs
+                        newDice.length = 0; // Clear the local array to trigger the next block
+                        setDice([]); // Clear state immediately
+                    }
+
                     if (newDice.length === 0) {
                         setFinishingTurn(true);
                         setTimeout(() => {
