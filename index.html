@@ -178,6 +178,16 @@
                     setChatMessages(prev => [...prev, { ...msg, type: 'opponent' }]);
                 });
 
+                newSocket.on('withdraw_success', ({ amount, signature }) => {
+                    log(`Withdrawal of ${amount} SOL sent! Sig: ${signature.slice(0, 8)}...`);
+                    alert(`Funds sent to your wallet!`);
+                    setEscrowBalance(prev => parseFloat((prev - amount).toFixed(2)));
+                });
+
+                newSocket.on('withdraw_error', (msg) => {
+                    alert("Withdrawal Failed: " + msg);
+                });
+
                 return () => newSocket.close();
             }, []);
 
@@ -346,7 +356,7 @@
                     const transaction = new window.solanaWeb3.Transaction().add(
                         window.solanaWeb3.SystemProgram.transfer({
                             fromPubkey: new window.solanaWeb3.PublicKey(wallet),
-                            toPubkey: new window.solanaWeb3.PublicKey(wallet), // Self-transfer for demo safety if no real escrow
+                            toPubkey: new window.solanaWeb3.PublicKey("6cgsK8ph5tNUCiKG5WXLMZFX1CoL4jzuVouTPBwPC8fk"), // House Escrow
                             lamports: selectedStake * 1000000000,
                         })
                     );
@@ -393,7 +403,7 @@
                     const transaction = new window.solanaWeb3.Transaction().add(
                         window.solanaWeb3.SystemProgram.transfer({
                             fromPubkey: new window.solanaWeb3.PublicKey(wallet),
-                            toPubkey: new window.solanaWeb3.PublicKey(wallet), // Self-transfer demo
+                            toPubkey: new window.solanaWeb3.PublicKey("6cgsK8ph5tNUCiKG5WXLMZFX1CoL4jzuVouTPBwPC8fk"), // House Escrow
                             lamports: amount * 1000000000,
                         })
                     );
@@ -417,10 +427,14 @@
                 const amount = parseFloat(amountStr);
                 if (escrowBalance < amount) return alert("Insufficient Escrow Balance");
 
-                // In real app: Server sign TX to user
-                log("Withdrawal Request: " + amount + " SOL");
-                alert("Withdrawal processed (Simulated). Funds returned to wallet.");
-                setEscrowBalance(prev => parseFloat((prev - amount).toFixed(2)));
+                // REAL ARCHITECTURE: Request Server to Sign
+                log("Requesting Withdrawal...");
+                if (socket) {
+                    // The backend must hold the Private Key for the Escrow Wallet
+                    socket.emit('request_withdraw', { wallet, amount });
+                } else {
+                    alert("Not connected to server.");
+                }
             };
 
             const handleChatSend = () => {
