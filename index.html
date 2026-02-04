@@ -1781,21 +1781,10 @@
                             </div>
                         )}
 
-                        {!isSearching && (
-                            <button className="btn-primary" style={{ marginTop: '40px', background: '#3e2723' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
-                                    if (gameMode === 'multi') {
-                            setGameStatus('multiplayer_menu');
-                        handleSearchMatch(selectedStake);
-                                    } else {
-                            startGame(difficulty);
-                                    }
-                                }}>Restart</button>
-                            </div >
-                        </div >
-                    )
+                        )}
+                    </div>
+                );
             }
-                </div >
-            );
         }
 
         if (gameStatus === 'staking') {
