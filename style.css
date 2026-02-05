@@ -1275,18 +1275,31 @@ body {
 
 /* OFF TRAY (Bear Off) */
 .off-tray {
-    width: 50px;
-    min-width: 50px;
-    flex-shrink: 0;
+    width: 100%;
+    max-width: 800px;
+    height: 50px;
     background: #251e19;
-    /* Slightly darker than bar */
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     justify-content: center;
     align-items: center;
     position: relative;
-    border-left: 4px solid var(--point-dark);
+    border: 15px solid var(--point-dark);
+    /* Match Frame Thickness */
     transition: all 0.2s;
+    gap: 20px;
+}
+
+.off-tray.top {
+    border-bottom: none;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.off-tray.bottom {
+    border-top: none;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
 }
 
 .off-tray.valid {
@@ -1295,21 +1308,13 @@ body {
     border-color: #76ff03;
 }
 
-.off-tray.left {
-    border-left: none;
-    border-right: 4px solid var(--point-dark);
-}
-
 .off-tray-label {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
     color: var(--point-light);
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 600;
     letter-spacing: 2px;
     opacity: 0.7;
-    margin-bottom: 10px;
-    /* Determine rotation based on position if needed */
+    margin: 0;
 }
 
 /* Off Checker Stack (Just a visual represenation or count) */

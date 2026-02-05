@@ -2194,6 +2194,11 @@
                         </div>
 
                         {/* TOP HALF (Indices 12-23) */}
+                        <OffTray
+                            player={PLAYER_AI}
+                            count={off[PLAYER_AI]}
+                            position="top"
+                        />
                         <div className="board-row top">
                             {/* 12-17 */}
                             <div className="quadrant">
@@ -2222,7 +2227,6 @@
                                     return <Point key={i} index={i} data={board[logical]} isTop={true} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
                                 })}
                             </div>
-                            <OffTray player={PLAYER_AI} count={off[PLAYER_AI]} isLeft={false} />
                         </div>
 
                         {/* BOTTOM HALF (Indices 11-0) */}
@@ -2256,8 +2260,14 @@
                                     return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
                                 })}
                             </div>
-                            <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={false} valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN} onClick={() => handlePointClick(-1)} />
                         </div>
+                        <OffTray
+                            player={PLAYER_HUMAN}
+                            count={off[PLAYER_HUMAN]}
+                            position="bottom"
+                            valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN}
+                            onClick={() => handlePointClick(-1)}
+                        />
 
                         {/* PLAYER CONTROLS */}
                         <div className={`player-controls-bar ${turn === 'human' && (canRoll || dice.length > 0) ? 'active-turn' : ''}`}>
@@ -2353,12 +2363,12 @@
             );
         }
 
-        function OffTray({ player, count, isLeft, valid, onClick }) {
+        function OffTray({ player, count, position, valid, onClick }) {
             const isHuman = player === PLAYER_HUMAN;
 
             return (
                 <div
-                    className={`off-tray ${isLeft ? 'left' : ''} ${valid ? 'valid' : ''}`}
+                    className={`off-tray ${position} ${valid ? 'valid' : ''}`}
                     onClick={valid ? onClick : undefined}
                 >
                     <div className="off-tray-label">OFF</div>
