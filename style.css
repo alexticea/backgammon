@@ -150,6 +150,8 @@ body {
 /* BOARD GRID */
 /* The main board construction */
 .board-row {
+    box-sizing: border-box;
+    /* Match Off Tray sizing logic */
     flex: 1;
     width: 100%;
     max-width: 800px;
@@ -1275,9 +1277,12 @@ body {
 
 /* OFF TRAY (Bear Off) */
 .off-tray {
+    box-sizing: border-box;
+    /* Ensure borders are included in width */
     width: 100%;
     max-width: 800px;
-    height: 50px;
+    height: 60px;
+    /* Slightly taller for larger pieces */
     background: #251e19;
     display: flex;
     flex-direction: row;
@@ -1287,7 +1292,8 @@ body {
     border: 15px solid var(--point-dark);
     /* Match Frame Thickness */
     transition: all 0.2s;
-    gap: 20px;
+    overflow: hidden;
+    /* Keep pieces inside */
 }
 
 .off-tray.top {
@@ -1324,22 +1330,33 @@ body {
     flex-direction: row;
     align-items: center;
     flex: 1;
-    /* Fill space */
+    justify-content: center;
+    /* Center the stack */
     height: 100%;
-    margin: 0 20px;
-    gap: -10px;
-    /* Negative gap for slight overlap like real board? Or normal gap? */
-    /* Let's use slight negative gap for dense counting feel */
-    gap: 4px;
-    overflow: hidden;
+    padding: 0 10px;
 }
 
 .off-piece {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    /* Board checker size match */
+    height: 44px;
     border-radius: 50%;
     flex-shrink: 0;
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5), 0 2px 2px rgba(0, 0, 0, 0.3);
+    margin-left: -32px;
+    /* Heavy overlap "one over other" */
+    position: relative;
+    transition: margin 0.2s;
+}
+
+.off-piece:first-child {
+    margin-left: 0;
+}
+
+.off-piece:hover {
+    margin-left: -10px;
+    /* Expand on hover slightly for fun? Optional */
+    z-index: 100 !important;
 }
 
 .off-piece.white {
@@ -1353,11 +1370,14 @@ body {
 }
 
 .off-counter-text {
-    font-size: 1.5rem;
+    position: absolute;
+    right: 15px;
+    font-size: 1.2rem;
     font-weight: 800;
     color: #e8e0d5;
-    min-width: 40px;
     text-align: right;
-    margin-right: 20px;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 8px;
+    border-radius: 10px;
 }
