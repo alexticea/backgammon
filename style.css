@@ -1270,4 +1270,47 @@ body {
     .main-controls {
         transform: scale(0.9);
     }
+}/* OFF TRAY (Bear Off) */
+.off-tray {
+    width: 50px;
+    background: #251e19;
+    /* Slightly darker than bar */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    border-left: 4px solid var(--point-dark);
+}
+
+.off-tray.left {
+    border-left: none;
+    border-right: 4px solid var(--point-dark);
+}
+
+.off-tray-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    color: var(--point-light);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    opacity: 0.7;
+    margin-bottom: 10px;
+    /* Determine rotation based on position if needed */
+}
+
+/* Off Checker Stack (Just a visual represenation or count) */
+.off-count {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
 }

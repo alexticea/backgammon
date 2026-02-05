@@ -2195,6 +2195,7 @@
 
                         {/* TOP HALF (Indices 12-23) */}
                         <div className="board-row top">
+                            {isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={true} />}
                             {/* 12-17 */}
                             <div className="quadrant">
                                 {[12, 13, 14, 15, 16, 17].map(i => {
@@ -2222,11 +2223,13 @@
                                     return <Point key={i} index={i} data={board[logical]} isTop={true} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
                                 })}
                             </div>
+                            {!isFlipped && <OffTray player={PLAYER_AI} count={off[PLAYER_AI]} isLeft={false} />}
                         </div>
 
                         {/* BOTTOM HALF (Indices 11-0) */}
                         {/* Bottom Left: 11-6. Bottom Right: 5-0 */}
                         <div className="board-row bottom">
+                            {isFlipped && <OffTray player={PLAYER_AI} count={off[PLAYER_AI]} isLeft={true} />}
                             {/* 11-6 */}
                             <div className="quadrant">
                                 {[11, 10, 9, 8, 7, 6].map(i => {
@@ -2255,6 +2258,7 @@
                                     return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
                                 })}
                             </div>
+                            {!isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={false} />}
                         </div>
 
                         {/* PLAYER CONTROLS */}
@@ -2347,6 +2351,25 @@
                     </div>
                     {/* Debug Index */}
                     {/* <div className="index-label">{index}</div> */}
+                </div>
+            );
+        }
+
+        function OffTray({ player, count, isLeft }) {
+            const isHuman = player === PLAYER_HUMAN;
+
+            return (
+                <div className={`off-tray ${isLeft ? 'left' : ''}`}>
+                    <div className="off-tray-label">OFF</div>
+                    {count > 0 && (
+                        <div className="off-count" style={{
+                            background: isHuman ? 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)' : 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)',
+                            color: isHuman ? '#000' : '#fff',
+                            border: isHuman ? '1px solid #b0b0b0' : '1px solid #000'
+                        }} >
+                            {count}
+                        </div>
+                    )}
                 </div>
             );
         }
