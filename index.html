@@ -1314,7 +1314,7 @@
                                     playMoveSound();
                                     if (move.to === -1) {
                                         log("AI Bears Off.");
-                                        // playDiceSound(); 
+                                        setOff(prev => ({ ...prev, [PLAYER_AI]: prev[PLAYER_AI] + 1 }));
                                     } else {
                                         const dst = { ...nb[move.to] }; // Create a copy
                                         if (dst.player === PLAYER_HUMAN) {
@@ -2195,7 +2195,7 @@
 
                         {/* TOP HALF (Indices 12-23) */}
                         <div className="board-row top">
-                            {isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={true} />}
+                            {isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={true} valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN} onClick={() => handlePointClick(-1)} />}
                             {/* 12-17 */}
                             <div className="quadrant">
                                 {[12, 13, 14, 15, 16, 17].map(i => {
@@ -2258,7 +2258,7 @@
                                     return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
                                 })}
                             </div>
-                            {!isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={false} />}
+                            {!isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={false} valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN} onClick={() => handlePointClick(-1)} />}
                         </div>
 
                         {/* PLAYER CONTROLS */}
@@ -2355,11 +2355,14 @@
             );
         }
 
-        function OffTray({ player, count, isLeft }) {
+        function OffTray({ player, count, isLeft, valid, onClick }) {
             const isHuman = player === PLAYER_HUMAN;
 
             return (
-                <div className={`off-tray ${isLeft ? 'left' : ''}`}>
+                <div
+                    className={`off-tray ${isLeft ? 'left' : ''} ${valid ? 'valid' : ''}`}
+                    onClick={valid ? onClick : undefined}
+                >
                     <div className="off-tray-label">OFF</div>
                     {count > 0 && (
                         <div className="off-count" style={{

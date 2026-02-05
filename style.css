@@ -334,6 +334,7 @@ body {
 
 .bar-center {
     width: 40px;
+    flex-shrink: 0;
     background: #2e2620;
     /* Wood Bar */
     display: flex;
@@ -1270,9 +1271,13 @@ body {
     .main-controls {
         transform: scale(0.9);
     }
-}/* OFF TRAY (Bear Off) */
+}
+
+/* OFF TRAY (Bear Off) */
 .off-tray {
     width: 50px;
+    min-width: 50px;
+    flex-shrink: 0;
     background: #251e19;
     /* Slightly darker than bar */
     display: flex;
@@ -1281,6 +1286,13 @@ body {
     align-items: center;
     position: relative;
     border-left: 4px solid var(--point-dark);
+    transition: all 0.2s;
+}
+
+.off-tray.valid {
+    cursor: pointer;
+    box-shadow: inset 0 0 20px rgba(118, 255, 3, 0.3);
+    border-color: #76ff03;
 }
 
 .off-tray.left {
