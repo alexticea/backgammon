@@ -1316,7 +1316,7 @@ body {
 .off-count {
     width: 36px;
     height: 36px;
-    border-radius: 5px;
+    border-radius: 50%;
     background: rgba(0, 0, 0, 0.3);
     color: #fff;
     display: flex;

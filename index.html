@@ -2195,7 +2195,6 @@
 
                         {/* TOP HALF (Indices 12-23) */}
                         <div className="board-row top">
-                            {isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={true} valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN} onClick={() => handlePointClick(-1)} />}
                             {/* 12-17 */}
                             <div className="quadrant">
                                 {[12, 13, 14, 15, 16, 17].map(i => {
@@ -2223,13 +2222,12 @@
                                     return <Point key={i} index={i} data={board[logical]} isTop={true} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
                                 })}
                             </div>
-                            {!isFlipped && <OffTray player={PLAYER_AI} count={off[PLAYER_AI]} isLeft={false} />}
+                            <OffTray player={PLAYER_AI} count={off[PLAYER_AI]} isLeft={false} />
                         </div>
 
                         {/* BOTTOM HALF (Indices 11-0) */}
                         {/* Bottom Left: 11-6. Bottom Right: 5-0 */}
                         <div className="board-row bottom">
-                            {isFlipped && <OffTray player={PLAYER_AI} count={off[PLAYER_AI]} isLeft={true} />}
                             {/* 11-6 */}
                             <div className="quadrant">
                                 {[11, 10, 9, 8, 7, 6].map(i => {
@@ -2258,7 +2256,7 @@
                                     return <Point key={i} index={i} data={board[logical]} isTop={false} selected={selectedPoint === logical} isValid={validMoves.includes(logical)} onClick={() => handlePointClick(logical)} playerColor={playerColor} />
                                 })}
                             </div>
-                            {!isFlipped && <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={false} valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN} onClick={() => handlePointClick(-1)} />}
+                            <OffTray player={PLAYER_HUMAN} count={off[PLAYER_HUMAN]} isLeft={false} valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN} onClick={() => handlePointClick(-1)} />
                         </div>
 
                         {/* PLAYER CONTROLS */}
