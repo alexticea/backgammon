@@ -1318,16 +1318,46 @@ body {
 }
 
 /* Off Checker Stack (Just a visual represenation or count) */
-.off-count {
+/* Off Pieces Container */
+.off-pieces-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex: 1;
+    /* Fill space */
+    height: 100%;
+    margin: 0 20px;
+    gap: -10px;
+    /* Negative gap for slight overlap like real board? Or normal gap? */
+    /* Let's use slight negative gap for dense counting feel */
+    gap: 4px;
+    overflow: hidden;
+}
+
+.off-piece {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.3);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+    flex-shrink: 0;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5), 0 2px 2px rgba(0, 0, 0, 0.3);
+}
+
+.off-piece.white {
+    background: radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc);
+    border: 1px solid #b0b0b0;
+}
+
+.off-piece.red {
+    background: radial-gradient(circle at 30% 30%, #4a4a4a, #000000);
+    border: 1px solid #000;
+}
+
+.off-counter-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #e8e0d5;
+    min-width: 40px;
+    text-align: right;
+    margin-right: 20px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
