@@ -212,7 +212,9 @@
                 // REMOVED: newSocket.on('game_start') - Logic moved to match_found direct check
 
                 newSocket.on('game_update', ({ type, payload }) => {
-                    handleRemoteEvent(type, payload);
+                    if (handleRemoteEventRef.current) {
+                        handleRemoteEventRef.current(type, payload);
+                    }
                 });
 
                 newSocket.on('chat_message', (msg) => {
@@ -258,10 +260,17 @@
                 gameStateRef.current = { board, bar, off, dice, turn, roomId };
             }, [board, bar, off, dice, turn, roomId]);
 
+            // Ref for Event Handler to avoid stale closures
+            const handleRemoteEventRef = useRef(null);
+            useEffect(() => {
+                handleRemoteEventRef.current = handleRemoteEvent;
+            });
+
             const handleRemoteEvent = (type, payload) => {
                 const currentStatus = gameStatusRef.current;
 
                 if (type === 'opponent_disconnectING') {
+                    console.log("EVENT RECEIVED: Opponent Disconnecting");
                     log(`Opponent disconnected! Waiting ${payload.timeLeft}s...`);
                     setOpponentDisconnected(true);
                 } else if (type === 'opponent_reconnected') {
@@ -1823,6 +1832,18 @@
                         {/* Top Right Wallet Badge (Only if connected) */}
                         {wallet && (
                             <>
+                                {/* DISCONNECT STATUS BANNER - VISIBLE ALWAYS if State True */}
+                                {opponentDisconnected && (
+                                    <div style={{
+                                        position: 'fixed', top: 0, left: 0, right: 0, width: '100%',
+                                        height: '60px', background: 'red', color: 'white',
+                                        zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontWeight: 'bold', fontSize: '1.5rem'
+                                    }}>
+                                        ⚠️ OPPONENT DISCONNECTED - AUTO WIN IN 15s ⚠️
+                                    </div>
+                                )}
+
                                 {/* Top Left Wallet Info */}
                                 <div className="wallet-badge-container">
                                     {wallet.startsWith('Guest') ? (
