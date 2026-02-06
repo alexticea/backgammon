@@ -266,6 +266,24 @@
                 } else if (type === 'opponent_reconnected') {
                     log("Opponent returned! Resuming...");
                 } else if (type === 'roll') {
+                    // Robustness check: Ensure we handle Opening Roll vs Game Roll correctly
+                    // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
+                    if (currentStatus === 'opening_roll' && payload.length === 1) {
+                        // Handle Opponent Opening Roll
+                        const val = payload[0]; // sent as array [val] or just val? Let's assume array for consistency with 'roll'
+                        log(`Opponent Rolled: ${val} (Opening)`);
+                        setOpeningRoll(prev => {
+                            const newState = { ...prev, ai: val };
+                            checkMultiOpeningWinner(newState);
+                            return newState;
+                        });
+                    } else {
+                        log(`Opponent Rolled: ${payload.join(', ')}`);
+                        // Visual only - show max 2 dice even for doubles
+                        setVisualDice(payload.slice(0, 2));
+                        setDice(payload);
+                    }
+                } else if (type === 'state_update') {
                     // Full state sync from opponent (Undo, Move, etc)
                     if (payload.board) setBoard(payload.board);
                     if (payload.bar) setBar(payload.bar);
@@ -275,6 +293,7 @@
                         // Update visuals to match logic
                         setVisualDice(payload.dice);
                     }
+                    if (payload.turn) setTurn(payload.turn);
                 } else if (type === 'move') {
                     // Legacy/Simple move handler (keep for backward compat or just use state_update)
                     if (payload.board) {
