@@ -145,6 +145,17 @@ io.on('connection', (socket) => {
         socket.to(roomId).emit('chat_message', { sender, text: message });
     });
 
+    // 3b. Wallet Logic (Mock Escrow)
+    socket.on('request_withdraw', ({ wallet, amount }) => {
+        console.log(`Withdrawal request from ${wallet} for ${amount} SOL`);
+        // Simulate Processing Delay
+        setTimeout(() => {
+            // In a real app, this would sign a transaction from the server-side wallet
+            const mockSignature = "5KiW...WithdrawSig..." + Date.now();
+            socket.emit('withdraw_success', { amount, signature: mockSignature });
+        }, 1000);
+    });
+
     // 4. Disconnect
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
