@@ -80,6 +80,7 @@
             const [finishingTurn, setFinishingTurn] = useState(false);
             const [isBlocked, setIsBlocked] = useState(false);
             const [escrowBalance, setEscrowBalance] = useState(0.00);
+            const [opponentDisconnected, setOpponentDisconnected] = useState(false);
 
             // --- REFS FOR SOCKET HANDLERS ---
             const gameStatusRef = useRef(gameStatus);
@@ -262,9 +263,10 @@
 
                 if (type === 'opponent_disconnectING') {
                     log(`Opponent disconnected! Waiting ${payload.timeLeft}s...`);
-                    // Optional: Show a "Waiting..." overlay
+                    setOpponentDisconnected(true);
                 } else if (type === 'opponent_reconnected') {
                     log("Opponent returned! Resuming...");
+                    setOpponentDisconnected(false);
                 } else if (type === 'roll') {
                     // Robustness check: Ensure we handle Opening Roll vs Game Roll correctly
                     // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
@@ -2497,6 +2499,24 @@
                                 }}>
                                     Back to Menu
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+
+                    {/* OPPONENT DISCONNECT WARNING */}
+                    {opponentDisconnected && gameStatus !== 'gameover' && (
+                        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 2000 }}>
+                            <div className="card" style={{
+                                position: 'absolute', top: '25%', left: '50%', transform: 'translate(-50%, -50%)',
+                                border: '2px solid #ff9800', background: '#3e2723', padding: '30px', textAlign: 'center',
+                                boxShadow: '0 0 50px rgba(255, 152, 0, 0.4)', minWidth: '300px'
+                            }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⚠️</div>
+                                <h2 style={{ color: '#ffcc80' }}>Opponent Disconnected</h2>
+                                <p style={{ color: '#fff', margin: '15px 0', fontSize: '1.2rem' }}>Waiting for opponent to reconnect...</p>
+                                <div className="loader" style={{ margin: '20px auto', borderColor: '#ffcc80', borderTopColor: 'transparent' }}></div>
+                                <p style={{ fontSize: '0.9rem', color: '#ffecb3', marginTop: '15px', fontWeight: 'bold' }}>Auto-win in 15 seconds.</p>
                             </div>
                         </div>
                     )}
