@@ -224,35 +224,48 @@
                     setEscrowBalance(prev => parseFloat((prev - amount).toFixed(2)));
                 });
 
-                newSocket.on('withdraw_error', (msg) => {
-                    alert("Withdrawal Failed: " + msg);
+                newSocket.on('request_state_sync', () => {
+                    const state = gameStateRef.current;
+                    if (state.roomId) {
+                        log("Syncing state to opponent...");
+                        newSocket.emit('sync_state', {
+                            roomId: state.roomId,
+                            state: {
+                                board: state.board,
+                                bar: state.bar,
+                                off: state.off,
+                                dice: state.dice,
+                                turn: state.turn
+                            }
+                        });
+                    }
+                });
+
+                newSocket.on('rejoin_success', ({ roomId, color }) => {
+                    log("Rejoined match! Waiting for sync...");
+                    setRoomId(roomId);
+                    setGameMode('multi');
+                    setGameStatus('playing');
                 });
 
                 return () => newSocket.close();
             }, []);
 
+            // Ref to access state inside socket listeners (which close over initial state)
+            const gameStateRef = useRef({});
+            useEffect(() => {
+                gameStateRef.current = { board, bar, off, dice, turn, roomId };
+            }, [board, bar, off, dice, turn, roomId]);
+
             const handleRemoteEvent = (type, payload) => {
                 const currentStatus = gameStatusRef.current;
 
-                if (type === 'roll') {
-                    // Robustness check: Ensure we handle Opening Roll vs Game Roll correctly
-                    // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
-                    if (currentStatus === 'opening_roll' && payload.length === 1) {
-                        // Handle Opponent Opening Roll
-                        const val = payload[0]; // sent as array [val] or just val? Let's assume array for consistency with 'roll'
-                        log(`Opponent Rolled: ${val} (Opening)`);
-                        setOpeningRoll(prev => {
-                            const newState = { ...prev, ai: val };
-                            checkMultiOpeningWinner(newState);
-                            return newState;
-                        });
-                    } else {
-                        log(`Opponent Rolled: ${payload.join(', ')}`);
-                        // Visual only - show max 2 dice even for doubles
-                        setVisualDice(payload.slice(0, 2));
-                        setDice(payload);
-                    }
-                } else if (type === 'state_update') {
+                if (type === 'opponent_disconnectING') {
+                    log(`Opponent disconnected! Waiting ${payload.timeLeft}s...`);
+                    // Optional: Show a "Waiting..." overlay
+                } else if (type === 'opponent_reconnected') {
+                    log("Opponent returned! Resuming...");
+                } else if (type === 'roll') {
                     // Full state sync from opponent (Undo, Move, etc)
                     if (payload.board) setBoard(payload.board);
                     if (payload.bar) setBar(payload.bar);
@@ -2420,8 +2433,36 @@
                             </div>
                         </div>
 
+
                         {/* CHAT REMOVED FROM HERE */}
                     </div>
+
+                    {/* GAME OVER OVERLAY */}
+                    {gameStatus === 'gameover' && (
+                        <div className="modal-overlay">
+                            <div className="modal-content" style={{ textAlign: 'center', border: gameResult === 'win' ? '2px solid gold' : '2px solid #d32f2f' }}>
+                                <div style={{ fontSize: '4rem', marginBottom: '20px' }}>
+                                    {gameResult === 'win' ? '🏆' : '💀'}
+                                </div>
+                                <h2 style={{ fontSize: '2.5rem', marginBottom: '10px', color: gameResult === 'win' ? 'gold' : '#ef9a9a' }}>
+                                    {gameResult === 'win' ? 'YOU WON!' : 'YOU LOST'}
+                                </h2>
+                                <p style={{ color: '#aaa', marginBottom: '30px' }}>
+                                    {gameResult === 'win' ? "Congratulations! Great game." : "Better luck next time."}
+                                </p>
+
+                                <button className="btn-primary" onClick={() => {
+                                    setGameStatus('menu');
+                                    // Reset visuals
+                                    setGameResult(null);
+                                    setDice([]);
+                                    setVisualDice([]);
+                                }}>
+                                    Back to Menu
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* RIGHT SIDEBAR REMOVED */}
                 </div>
