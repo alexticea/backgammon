@@ -270,10 +270,18 @@
                     // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
                     if (currentStatus === 'opening_roll' && payload.length === 1) {
                         // Handle Opponent Opening Roll
-                        const val = payload[0]; // sent as array [val] or just val? Let's assume array for consistency with 'roll'
+                        const val = payload[0];
                         log(`Opponent Rolled: ${val} (Opening)`);
                         setOpeningRoll(prev => {
-                            const newState = { ...prev, ai: val };
+                            const newState = { ...(prev || {}), ai: val };
+
+                            // Visual Update
+                            if (newState.human) {
+                                setVisualDice([newState.human, val]);
+                            } else {
+                                setVisualDice([val]);
+                            }
+
                             checkMultiOpeningWinner(newState);
                             return newState;
                         });
@@ -756,12 +764,23 @@
 
                 // MULTIPLAYER LOGIC
                 if (gameMode === 'multi') {
+                    // Prevent double rolling
+                    if (openingRoll && openingRoll.human) return;
+
                     setTimeout(() => {
                         const hDie = Math.ceil(Math.random() * 6);
 
                         // Update Local State
                         setOpeningRoll(prev => {
                             const newState = { ...(prev || {}), human: hDie };
+
+                            // Visual Update
+                            if (newState.ai) {
+                                setVisualDice([hDie, newState.ai]);
+                            } else {
+                                setVisualDice([hDie]);
+                            }
+
                             checkMultiOpeningWinner(newState);
                             return newState;
                         });
@@ -769,7 +788,6 @@
                         log(`You Rolled: ${hDie} (Opening)`);
 
                         // Emit to Opponent
-                        // We reuse standard 'roll' event but context is opening_roll
                         emitGameEvent('roll', [hDie]);
 
                     }, 600);
