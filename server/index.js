@@ -152,25 +152,21 @@ io.on('connection', (socket) => {
         // Remove from Queue
         if (waitingPlayer && waitingPlayer.socketId === socket.id) {
             waitingPlayer = null;
+            console.log("Removed from queue");
         }
 
         // Handle Active Games
-        // Find game where this socket is a player
         for (const [roomId, game] of Object.entries(games)) {
             if (game.players.includes(socket.id)) {
+                console.log(`Found active game ${roomId} for disconnected user.`);
 
-                // Identify user wallet to set timer
                 const myData = game.playerData[socket.id];
-                // If it's a guest or no wallet, maybe instant loss? But let's support it if they have name.
-                // Assuming wallet is key. If no wallet (guest), we might fail to reconnect easily without ID.
-                // Fallback to socket ID which is useless on reconnect.
-                // So this only works effectively for Wallet Users.
                 const wallet = myData ? myData.wallet : null;
 
                 if (wallet) {
-                    console.log(`Player ${wallet} disconnected. Starting grace period...`);
+                    console.log(`Player ${wallet} disconnected. Emitting 'opponent_disconnectING' to room.`);
 
-                    // Notify opponent of "Waiting..."
+                    // Notify opponent - ensure roomId is valid string
                     socket.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 15 } });
 
                     disconnectTimers[wallet] = {
