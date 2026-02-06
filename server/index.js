@@ -17,6 +17,7 @@ const io = new Server(server, {
 // Store active games and queuing players
 let waitingPlayer = null; // { socketId, name, wallet } (Simple 1v1 queue)
 const games = {}; // roomId -> { players: [socketId1, socketId2], board: ..., turn: ... }
+const disconnectTimers = {}; // wallet -> { timeout, roomId, oldSocketId }
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -24,8 +25,65 @@ io.on('connection', (socket) => {
     // 1. Matchmaking
     socket.on('find_match', (userData) => {
         // userData = { name, wallet }
-        console.log(`Player ${userData.name} looking for match...`);
+        console.log(`Player ${userData.name} (${userData.wallet || 'No Wallet'}) looking for match...`);
 
+        // RECONNECTION LOGIC
+        let existingGameId = null;
+        let existingGame = null;
+
+        if (userData.wallet) {
+            for (const [rid, game] of Object.entries(games)) {
+                const pIds = Object.keys(game.playerData);
+                for (const pid of pIds) {
+                    if (game.playerData[pid].wallet === userData.wallet) {
+                        existingGameId = rid;
+                        existingGame = game;
+                        break;
+                    }
+                }
+                if (existingGameId) break;
+            }
+        }
+
+        if (existingGameId) {
+            // REJOINING
+            console.log(`Player ${userData.name} rejoining game ${existingGameId}`);
+
+            if (disconnectTimers[userData.wallet]) {
+                clearTimeout(disconnectTimers[userData.wallet].timeout);
+                delete disconnectTimers[userData.wallet];
+                console.log("Disconnect timer cancelled.");
+            }
+
+            const oldSocketId = Object.keys(existingGame.playerData).find(pid => existingGame.playerData[pid].wallet === userData.wallet);
+            const opponentSocketId = existingGame.players.find(id => id !== oldSocketId);
+
+            const myData = existingGame.playerData[oldSocketId];
+            delete existingGame.playerData[oldSocketId];
+            existingGame.playerData[socket.id] = myData;
+
+            // Remove old socket id from players array, add new one
+            existingGame.players = existingGame.players.filter(id => id !== oldSocketId);
+            existingGame.players.push(socket.id);
+
+            socket.join(existingGameId);
+
+            socket.to(existingGameId).emit('game_update', { type: 'opponent_reconnected', payload: {} });
+
+            // Ask opponent to sync state to us
+            socket.to(existingGameId).emit('request_state_sync', {});
+
+            // Use 'rejoin_success' or just 'assign_color' again?
+            // Existing client logic handles 'match_found' well? Or we replicate it.
+            // Client expects 'assign_color' to set 'playerColor'.
+            const myColor = myData.color;
+            socket.emit('rejoin_success', { roomId: existingGameId, color: myData.color }); // Client might need to handle this
+            socket.emit('assign_color', myData.color); // Re-trigger setup if needed
+
+            return;
+        }
+
+        // NORMAL MATCHMAKING
         if (waitingPlayer) {
             // Match Found!
             const opponent = waitingPlayer;
@@ -77,6 +135,11 @@ io.on('connection', (socket) => {
         socket.to(roomId).emit('game_update', { type, payload });
     });
 
+    // 2b. State Sync Relay
+    socket.on('sync_state', ({ roomId, state }) => {
+        socket.to(roomId).emit('game_update', { type: 'state_update', payload: state });
+    });
+
     // 3. Chat Relay
     socket.on('chat_message', ({ roomId, message, sender }) => {
         socket.to(roomId).emit('chat_message', { sender, text: message });
@@ -85,10 +148,61 @@ io.on('connection', (socket) => {
     // 4. Disconnect
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+
+        // Remove from Queue
         if (waitingPlayer && waitingPlayer.socketId === socket.id) {
             waitingPlayer = null;
         }
-        // Ideally handle game forfeit here
+
+        // Handle Active Games
+        // Find game where this socket is a player
+        for (const [roomId, game] of Object.entries(games)) {
+            if (game.players.includes(socket.id)) {
+
+                // Identify user wallet to set timer
+                const myData = game.playerData[socket.id];
+                // If it's a guest or no wallet, maybe instant loss? But let's support it if they have name.
+                // Assuming wallet is key. If no wallet (guest), we might fail to reconnect easily without ID.
+                // Fallback to socket ID which is useless on reconnect.
+                // So this only works effectively for Wallet Users.
+                const wallet = myData ? myData.wallet : null;
+
+                if (wallet) {
+                    console.log(`Player ${wallet} disconnected. Starting grace period...`);
+
+                    // Notify opponent of "Waiting..."
+                    socket.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 15 } });
+
+                    disconnectTimers[wallet] = {
+                        roomId,
+                        oldSocketId: socket.id,
+                        timeout: setTimeout(() => {
+                            // TIMEOUT REACHED - FINAL DISCONNECT
+                            console.log(`Grace period expired for ${wallet}. Ending game.`);
+
+                            // Check if game still exists (might have reconnected)
+                            if (games[roomId]) {
+                                // Notify actual game over
+                                io.to(roomId).emit('game_update', {
+                                    type: 'opponent_disconnected',
+                                    payload: {}
+                                });
+                                delete games[roomId];
+                            }
+                            delete disconnectTimers[wallet];
+                        }, 15000) // 15 Seconds
+                    };
+                } else {
+                    // Guest / No Wallet -> Instant Loss (Cannot reliably identify RE-connect)
+                    socket.to(roomId).emit('game_update', {
+                        type: 'opponent_disconnected',
+                        payload: {}
+                    });
+                    delete games[roomId];
+                }
+                break;
+            }
+        }
     });
 });
 
