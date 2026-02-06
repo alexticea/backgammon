@@ -147,6 +147,26 @@
                             setGameMode('multi');
                             setGameStatus('opening_roll');
                             setOpeningRoll(null);
+
+                            // RESET GAME STATE
+                            const resetBoard = Array(24).fill(null).map(() => ({ count: 0, player: 0 }));
+                            const placeReset = (idx, count, player) => { resetBoard[idx] = { count, player }; };
+                            placeReset(23, 2, PLAYER_HUMAN);
+                            placeReset(12, 5, PLAYER_HUMAN);
+                            placeReset(7, 3, PLAYER_HUMAN);
+                            placeReset(5, 5, PLAYER_HUMAN);
+                            placeReset(0, 2, PLAYER_AI);
+                            placeReset(11, 5, PLAYER_AI);
+                            placeReset(16, 3, PLAYER_AI);
+                            placeReset(18, 5, PLAYER_AI);
+
+                            setBoard(resetBoard);
+                            setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                            setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                            setDice([]);
+                            setVisualDice([]);
+                            setHistory([]);
+
                             setRolling(false);
                             setTurn('human');
                             log("Match Found! Roll for the first turn.");
@@ -161,6 +181,26 @@
                         setGameMode('multi');
                         setGameStatus('opening_roll');
                         setOpeningRoll(null);
+
+                        // RESET GAME STATE
+                        const resetBoard = Array(24).fill(null).map(() => ({ count: 0, player: 0 }));
+                        const placeReset = (idx, count, player) => { resetBoard[idx] = { count, player }; };
+                        placeReset(23, 2, PLAYER_HUMAN);
+                        placeReset(12, 5, PLAYER_HUMAN);
+                        placeReset(7, 3, PLAYER_HUMAN);
+                        placeReset(5, 5, PLAYER_HUMAN);
+                        placeReset(0, 2, PLAYER_AI);
+                        placeReset(11, 5, PLAYER_AI);
+                        placeReset(16, 3, PLAYER_AI);
+                        placeReset(18, 5, PLAYER_AI);
+
+                        setBoard(resetBoard);
+                        setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                        setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                        setDice([]);
+                        setVisualDice([]);
+                        setHistory([]);
+
                         setRolling(false);
                         setTurn('human');
                         log("Match Found! Roll for the first turn.");
