@@ -238,6 +238,11 @@
                     log("Opponent Resigned! You Win!");
                     playDiceSound();
                     updateStats('win');
+                } else if (type === 'opponent_disconnected') {
+                    setGameStatus('gameover');
+                    setGameResult('win');
+                    log("Opponent Disconnected! You Win!");
+                    // Ensure overlays show up
                 }
             };
 
@@ -1030,29 +1035,55 @@
                                     }
                                 }
 
+                                // Check for Opponent Presence in AI Home Board (18-23)
+                                let opponentInHouse = false;
+                                for (let i = 18; i < 24; i++) {
+                                    if (bd[i].player === PLAYER_HUMAN && bd[i].count > 0) {
+                                        opponentInHouse = true;
+                                        break;
+                                    }
+                                }
+
                                 if (allHome) {
-                                    // STRATEGY: Bear Off + Safety (Avoid Blots)
+                                    // STRATEGY: Bear Off Phase
+
                                     let piecesOnBoard = 0;
                                     for (let i = 18; i < 24; i++) {
                                         if (bd[i].player === PLAYER_AI) piecesOnBoard += bd[i].count;
                                     }
-                                    // Huge Bonus for every piece removed (15 total start)
+
+                                    // Base Score: Maximizing pieces removed
+                                    // (15 total start). Each removal is a huge step to winning.
                                     score += (15 - piecesOnBoard) * 100000;
 
-                                    // Safety Check
-                                    for (let i = 18; i < 24; i++) {
-                                        if (bd[i].player === PLAYER_AI && bd[i].count === 1) {
-                                            // BLOT PENALTY
-                                            // Very dangerous if opponent has pieces on bar or in our home board
-                                            score -= 50000;
+                                    if (opponentInHouse) {
+                                        // CONDITION A: Opponent is lurking! SAFETY FIRST.
+                                        // "Focus on bear off without letting any pieces uncovered"
+                                        for (let i = 18; i < 24; i++) {
+                                            if (bd[i].player === PLAYER_AI && bd[i].count === 1) {
+                                                // BLOT PENALTY: EXTREME
+                                                // Must be higher than the reward for bearing off to discourage unsafe moves
+                                                // unless absolutely forced.
+                                                // BearOff Reward = 100,000. Penalty must be > 100,000.
+                                                score -= 200000;
+                                            }
                                         }
+                                    } else {
+                                        // CONDITION B: Coast is clear. SPEED FIRST.
+                                        // "Bear off as fast as possible"
+                                        // No penalty for blots. Just race!
+                                        // We can add a tiny bonus for having FEWER points occupied (stacking to high points is bad for speed),
+                                        // but the main driver is (15 - piecesOnBoard).
                                     }
+
                                     return score;
                                 }
 
                                 // --- NORMAL STRATEGY ---
-                                // 1. Hitting Opponent (Opponent on Bar)
-                                score += (br[PLAYER_HUMAN] * 10000);
+                                // "Defensive... try to bring all his pieces in his house making gates where is possible"
+
+                                // 1. Hitting Opponent (Opponent on Bar) - Still always good to set them back
+                                score += (br[PLAYER_HUMAN] * 12000);
 
                                 // 2. Board Analysis
                                 for (let i = 0; i < 24; i++) {
@@ -1060,15 +1091,33 @@
                                     if (p.player === PLAYER_AI) {
                                         if (p.count === 1) {
                                             // BLOT (Danger)
-                                            score -= 2000;
+                                            // Penalize heavily if opponent is ahead of us or can hit us
+                                            score -= 4000;
                                         } else if (p.count > 1) {
                                             // GATE/POINT (Good)
-                                            score += 1000;
-                                            if (i >= 18) score += 2000; // House Priority
-                                            if (i >= 7 && i <= 12) score += 500; // Prime Priority
+                                            // Base Gate Bonus
+                                            score += 2000;
+
+                                            // Home Board Gate (18-23) - Highest Priority ("Building House")
+                                            if (i >= 18) score += 3000;
+
+                                            // Outer Board Gate (12-17) - Blocking
+                                            if (i >= 12 && i < 18) score += 1000;
                                         }
                                     }
                                 }
+
+                                // 3. Distance to Home (Encourage moving forward)
+                                // We want to minimize the pip count (sum of indices for AI? No, AI moves 0->24).
+                                // AI Home is 18-23 (High Indices). We want to INCREASE total index sum.
+                                let totalDistance = 0;
+                                for (let i = 0; i < 24; i++) {
+                                    if (bd[i].player === PLAYER_AI) {
+                                        totalDistance += (i * bd[i].count);
+                                    }
+                                }
+                                score += totalDistance * 10; // Small tie-breaker to prefer forward motion
+
                                 return score;
                             };
 
