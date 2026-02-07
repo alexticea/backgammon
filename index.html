@@ -96,7 +96,7 @@
             // --- SOCKET INIT ---
             useEffect(() => {
                 // Determine Server URL: Local vs Production
-                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
                 // For Vercel deployment, you will replace the second string with your Render/Railway backend URL.
                 const SERVER_URL = isLocal ? 'http://localhost:3001' : 'https://backgammon-usxq.onrender.com';
 
