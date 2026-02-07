@@ -180,7 +180,7 @@ io.on('connection', (socket) => {
                     console.log(`Player ${wallet} disconnected. Emitting 'opponent_disconnectING' to room ${roomId}.`);
 
                     // Notify opponent - ensure roomId is valid string
-                    io.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 15 } });
+                    io.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 30 } });
 
                     disconnectTimers[wallet] = {
                         roomId,
@@ -199,7 +199,7 @@ io.on('connection', (socket) => {
                                 delete games[roomId];
                             }
                             delete disconnectTimers[wallet];
-                        }, 15000) // 15 Seconds
+                        }, 30000) // 30 Seconds
                     };
                 } else {
                     // Guest / No Wallet -> Instant Loss (Cannot reliably identify RE-connect)
