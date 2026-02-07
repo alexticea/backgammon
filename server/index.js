@@ -22,6 +22,26 @@ const disconnectTimers = {}; // wallet -> { timeout, roomId, oldSocketId }
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
+    socket.on('check_active_game', (wallet) => {
+        console.log(`[SERVER] Checking active game for wallet: ${wallet}`);
+        let found = false;
+        // Check active games for this wallet
+        for (const [rid, game] of Object.entries(games)) {
+            const pIds = Object.keys(game.playerData);
+            for (const pid of pIds) {
+                if (game.playerData[pid].wallet === wallet) {
+                    found = true;
+                    // Trigger rejoin logic via find_match or custom event
+                    // Let's just tell client they can rejoin
+                    socket.emit('active_game_found', { roomId: rid });
+                    console.log(`[SERVER] Active game found for ${wallet}: ${rid}`);
+                    break;
+                }
+            }
+            if (found) break;
+        }
+    });
+
     // 1. Matchmaking
     socket.on('find_match', (userData) => {
         // userData = { name, wallet }
@@ -192,7 +212,7 @@ io.on('connection', (socket) => {
                     console.log(`Player ${wallet} disconnected. Emitting 'opponent_disconnectING' to room ${roomId}.`);
 
                     // Notify opponent - ensure roomId is valid string
-                    io.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 30 } });
+                    io.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 60 } });
 
                     disconnectTimers[wallet] = {
                         roomId,
@@ -211,7 +231,7 @@ io.on('connection', (socket) => {
                                 delete games[roomId];
                             }
                             delete disconnectTimers[wallet];
-                        }, 30000) // 30 Seconds
+                        }, 60000) // 60 Seconds
                     };
                 } else {
                     // Guest / No Wallet -> Instant Loss (Cannot reliably identify RE-connect)

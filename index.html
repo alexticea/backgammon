@@ -117,6 +117,14 @@
                     setLogs(prev => ["Waiting for an opponent...", ...prev]);
                 });
 
+                newSocket.on('active_game_found', ({ roomId }) => {
+                    console.log("Found Active Game:", roomId);
+                    // Auto-Trigger Rejoin
+                    if (wallet && !isSearching) {
+                        handleSearchMatch(null); // Stake doesn't matter for rejoin
+                    }
+                });
+
                 newSocket.on('match_found', (data) => {
                     console.log("Match Found Event Data:", data);
                     console.log("My Socket ID:", newSocket.id);
@@ -741,6 +749,11 @@
                             }
                         } else {
                             profileData = { name: '', avatar: null, stats: { level: 1, wins: 0, losses: 0, xp: 0 } };
+                        }
+
+                        // Check for active game on wallet connect
+                        if (socket && gameStatus === 'menu') {
+                            socket.emit('check_active_game', wallet);
                         }
 
                         // Check for Seeker .skr Name or typical wallet name
@@ -2216,7 +2229,7 @@
                             textAlign: 'center'
                         }}>
                             <div style={{ marginBottom: '5px', fontSize: '1.2rem' }}>⚠️ Connection Lost</div>
-                            <div>Waiting for opponent to reconnect... (30s)</div>
+                            <div>Waiting for opponent to reconnect... (60s)</div>
                         </div>
                     )}
                     {/* SIDEBAR */}
