@@ -253,7 +253,7 @@
                     }
                 });
 
-                newSocket.on('rejoin_success', ({ roomId, color }) => {
+                newSocket.on('rejoin_success', ({ roomId, color, players }) => {
                     log("Rejoined match! Waiting for sync...");
                     const myColor = color === 'white' ? PLAYER_HUMAN : PLAYER_AI;
                     setPlayerColor(myColor);
@@ -262,6 +262,18 @@
                     setGameStatus('playing');
                     setOpeningRoll(null);
                     setOpponentDisconnected(false);
+
+                    // Re-resolve opp name
+                    if (players) {
+                        const pIds = Object.keys(players);
+                        const oppId = pIds.find(id => players[id].wallet !== wallet); // Simple check: not me
+                        if (oppId) {
+                            const oppName = players[oppId]?.name || "Opponent";
+                            setOpponentName(oppName);
+                            setOpponentWallet(players[oppId]?.wallet || null);
+                            console.log("Opponent Updated (Rejoin):", oppName);
+                        }
+                    }
                 });
 
                 return () => newSocket.close();

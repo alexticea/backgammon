@@ -76,7 +76,11 @@ io.on('connection', (socket) => {
             // Use 'rejoin_success' or just 'assign_color' again?
             // Client expects 'assign_color' to set 'playerColor'.
             const myColor = myData.color;
-            socket.emit('rejoin_success', { roomId: existingGameId, color: myData.color }); // Client might need to handle this
+            socket.emit('rejoin_success', {
+                roomId: existingGameId,
+                color: myData.color,
+                players: existingGame.playerData
+            });
 
             return;
         }
