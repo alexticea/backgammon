@@ -110,16 +110,23 @@ io.on('connection', (socket) => {
                 turn: null
             };
 
-            // Notify Players
-            io.to(roomId).emit('match_found', {
+            // Notify Players Individually to ensure delivery
+            io.to(opponent.socketId).emit('match_found', {
                 roomId,
                 players: games[roomId].playerData,
-                yourColor: 'red' // Default payload, overridden below for specific socket
+                yourColor: 'white'
+            });
+            io.to(socket.id).emit('match_found', {
+                roomId,
+                players: games[roomId].playerData,
+                yourColor: 'red'
             });
 
-            // Send specific color assignments
-            io.to(opponent.socketId).emit('assign_color', 'white');
-            io.to(socket.id).emit('assign_color', 'red');
+            // Send specific color assignments with slight delay to allow React to render match screen first
+            setTimeout(() => {
+                io.to(opponent.socketId).emit('assign_color', 'white');
+                io.to(socket.id).emit('assign_color', 'red');
+            }, 500);
 
             console.log(`Match created: ${roomId}`);
 
