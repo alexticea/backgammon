@@ -41,22 +41,44 @@ io.on('connection', (socket) => {
                         console.warn(`[SERVER] Timer not found for ${wallet} during check_active_game! Keys: ${Object.keys(disconnectTimers)}`);
                     }
 
-                    // Trigger rejoin logic via find_match or custom event
-                    // Let's just tell client they can rejoin
-                    socket.emit('active_game_found', { roomId: rid });
-                    console.log(`[SERVER] Active game found for ${wallet}: ${rid}`);
+                    // SWAP SOCKETS TO PREVENT DISCONNECT LOGIC FROM TRIGGERING ON OLD SOCKET
+                    const oldSocketId = pid;
+                    const newSocketId = socket.id;
 
-                    // NOTIFY OPPONENT DIRECTLY
-                    // The 'game' object still has the OLD socket ID for the reconnecting player.
-                    // We need to find the OTHER player.
-                    const otherPlayerSocketId = game.players.find(pid => game.playerData[pid].wallet !== wallet);
+                    console.log(`[SERVER] Swapping socket ${oldSocketId} -> ${newSocketId} for wallet ${wallet}`);
+
+                    // 1. Update Player Data
+                    const myData = game.playerData[oldSocketId];
+                    delete game.playerData[oldSocketId];
+                    game.playerData[newSocketId] = myData;
+
+                    // 2. Update Players Array
+                    game.players = game.players.filter(id => id !== oldSocketId);
+                    game.players.push(newSocketId);
+
+                    // 3. Join Room
+                    socket.join(rid);
+
+                    // 4. Notify Opponent Reconnection
+                    const otherPlayerSocketId = game.players.find(id => id !== newSocketId);
                     if (otherPlayerSocketId) {
                         io.to(otherPlayerSocketId).emit('game_update', { type: 'opponent_reconnected', payload: {} });
-                        console.log(`[SERVER] Sent opponent_reconnected to specific socket ${otherPlayerSocketId}`);
-                    } else {
-                        // Fallback
-                        io.to(rid).emit('game_update', { type: 'opponent_reconnected', payload: {} });
+                        // Ask for sync
+                        io.to(otherPlayerSocketId).emit('request_state_sync', {});
+                        console.log(`[SERVER] Sent opponent_reconnected to ${otherPlayerSocketId}`);
                     }
+
+                    // 5. Emit Rejoin Success to Client
+                    socket.emit('rejoin_success', {
+                        roomId: rid,
+                        color: myData.color,
+                        players: game.playerData
+                    });
+
+                    // We don't need 'active_game_found' anymore as we handled it here.
+                    // socket.emit('active_game_found', { roomId: rid }); 
+
+                    console.log(`[SERVER] Rejoin complete for ${wallet} in check_active_game.`);
 
                     break;
                 }
