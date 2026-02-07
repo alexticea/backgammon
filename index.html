@@ -349,18 +349,24 @@
                         setDice(payload);
                     }
                 } else if (type === 'state_update') {
-                    // Full state sync from opponent (Undo, Move, etc)
+                    console.log("Applying State Sync:", payload);
                     if (payload.board) setBoard(payload.board);
                     if (payload.bar) setBar(payload.bar);
                     if (payload.off) setOff(payload.off);
-                    if (payload.dice) {
-                        setDice(payload.dice);
-                        // Update visuals to match logic
-                        setVisualDice(payload.dice);
+                    if (payload.dice) setDice(payload.dice);
+
+                    // Determine Turn: 
+                    // If Opponent (sender) says turn is 'human' (themselves), then for me it is 'ai'.
+                    // If Opponent says turn is 'ai' (me), then for me it is 'human'.
+                    if (payload.turn) {
+                        const newTurn = payload.turn === 'human' ? 'ai' : 'human';
+                        setTurn(newTurn);
                     }
-                    if (payload.turn) setTurn(payload.turn);
+
+                    log("Game State Synchronized.");
+
                 } else if (type === 'move') {
-                    // Legacy/Simple move handler (keep for backward compat or just use state_update)
+                    // Legacy/Simple move handler
                     if (payload.board) {
                         setBoard(payload.board);
                         setBar(payload.bar);
