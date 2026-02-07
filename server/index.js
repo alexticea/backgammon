@@ -25,7 +25,7 @@ io.on('connection', (socket) => {
     // 1. Matchmaking
     socket.on('find_match', (userData) => {
         // userData = { name, wallet }
-        console.log(`Player ${userData.name} (${userData.wallet || 'No Wallet'}) looking for match...`);
+        console.log(`[SERVER] find_match received for socket ${socket.id}`, userData);
 
         // RECONNECTION LOGIC
         let existingGameId = null;
@@ -74,7 +74,6 @@ io.on('connection', (socket) => {
             socket.to(existingGameId).emit('request_state_sync', {});
 
             // Use 'rejoin_success' or just 'assign_color' again?
-            // Existing client logic handles 'match_found' well? Or we replicate it.
             // Client expects 'assign_color' to set 'playerColor'.
             const myColor = myData.color;
             socket.emit('rejoin_success', { roomId: existingGameId, color: myData.color }); // Client might need to handle this
@@ -85,6 +84,8 @@ io.on('connection', (socket) => {
         // NORMAL MATCHMAKING
         if (waitingPlayer) {
             // Match Found!
+            console.log(`[SERVER] Match found: ${waitingPlayer.userData.name} vs ${userData.name}`);
+
             const opponent = waitingPlayer;
             waitingPlayer = null;
 
@@ -120,6 +121,7 @@ io.on('connection', (socket) => {
 
         } else {
             // Queue Player
+            console.log(`[SERVER] Queued player: ${userData.name}`);
             waitingPlayer = {
                 socketId: socket.id,
                 userData

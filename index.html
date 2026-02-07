@@ -118,16 +118,22 @@
                 });
 
                 newSocket.on('match_found', (data) => {
-                    console.log("Match Found!", data);
+                    console.log("Match Found Event Data:", data);
+                    console.log("My Socket ID:", newSocket.id);
                     setRoomId(data.roomId);
                     setIsSearching(false);
                     // Identify Opponent Name
-                    const oppId = Object.keys(data.players).find(id => id !== newSocket.id);
+                    const pIds = Object.keys(data.players);
+                    const oppId = pIds.find(id => id !== newSocket.id);
+                    console.log("Opponent ID found:", oppId);
+
                     const oppName = data.players[oppId]?.name || "Opponent";
+                    console.log("Opponent Name resolved:", oppName);
+
                     setOpponentName(oppName);
                     setOpponentWallet(data.players[oppId]?.wallet || null);
 
-                    alert(`Match Found! Playing against ${oppName}`);
+                    // alert(`Match Found! Playing against ${oppName}`); // Remove alert for smoother flow
                 });
 
                 newSocket.on('assign_color', (colorStr) => {
