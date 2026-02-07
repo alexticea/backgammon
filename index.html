@@ -353,6 +353,9 @@
                         setVisualDice(payload.slice(0, 2));
                         setDice(payload);
                     }
+                } else if (type === 'opponent_reconnected') {
+                    console.log("Opponent returned! Resuming...");
+                    setOpponentDisconnected(false);
                 } else if (type === 'state_update') {
                     console.log("Applying State Sync:", payload);
                     if (payload.board) setBoard(payload.board);
