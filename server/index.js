@@ -178,6 +178,12 @@ io.on('connection', (socket) => {
         socket.to(roomId).emit('game_update', { type, payload });
     });
 
+    // 3. State Sync Request
+    socket.on('sync_state', ({ roomId, state }) => {
+        // Relay state to the OTHER player (the one who just rejoined)
+        socket.to(roomId).emit('game_update', { type: 'state_update', payload: state });
+    });
+
     // 2b. State Sync Relay
     socket.on('sync_state', ({ roomId, state }) => {
         socket.to(roomId).emit('game_update', { type: 'state_update', payload: state });
