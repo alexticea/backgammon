@@ -37,6 +37,8 @@ io.on('connection', (socket) => {
                         clearTimeout(disconnectTimers[wallet].timeout);
                         delete disconnectTimers[wallet];
                         console.log(`[SERVER] Cancelled disconnect timer for ${wallet} in check_active_game.`);
+                    } else {
+                        console.warn(`[SERVER] Timer not found for ${wallet} during check_active_game! Keys: ${Object.keys(disconnectTimers)}`);
                     }
 
                     // Trigger rejoin logic via find_match or custom event
@@ -44,11 +46,17 @@ io.on('connection', (socket) => {
                     socket.emit('active_game_found', { roomId: rid });
                     console.log(`[SERVER] Active game found for ${wallet}: ${rid}`);
 
-                    // Also proactively notify room that opponent is back (to clear banner immediately)
-                    // But we need to JOIN the room first? No, socket is not in room yet.
-                    // But we can emit to the room (opponent is still in it).
-                    io.to(rid).emit('game_update', { type: 'opponent_reconnected', payload: {} });
-                    console.log(`[SERVER] Notified room ${rid} of opponent return (via check).`);
+                    // NOTIFY OPPONENT DIRECTLY
+                    // The 'game' object still has the OLD socket ID for the reconnecting player.
+                    // We need to find the OTHER player.
+                    const otherPlayerSocketId = game.players.find(pid => game.playerData[pid].wallet !== wallet);
+                    if (otherPlayerSocketId) {
+                        io.to(otherPlayerSocketId).emit('game_update', { type: 'opponent_reconnected', payload: {} });
+                        console.log(`[SERVER] Sent opponent_reconnected to specific socket ${otherPlayerSocketId}`);
+                    } else {
+                        // Fallback
+                        io.to(rid).emit('game_update', { type: 'opponent_reconnected', payload: {} });
+                    }
 
                     break;
                 }
