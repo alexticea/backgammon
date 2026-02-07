@@ -76,6 +76,7 @@
             const [opponentName, setOpponentName] = useState('Opponent (Waiting)');
             const [opponentWallet, setOpponentWallet] = useState(null);
             const [opponentLevel, setOpponentLevel] = useState(1);
+            const [opponentStats, setOpponentStats] = useState({ wins: 0, losses: 0 });
             const [socket, setSocket] = useState(null);
             const [finishingTurn, setFinishingTurn] = useState(false);
             const [isBlocked, setIsBlocked] = useState(false);
@@ -149,6 +150,10 @@
 
                     setOpponentName(oppName);
                     setOpponentWallet(data.players[oppId]?.wallet || null);
+                    if (data.players[oppId]) {
+                        setOpponentLevel(data.players[oppId].level || 1);
+                        setOpponentStats(data.players[oppId].stats || { wins: 0, losses: 0 });
+                    }
 
                     if (data.isRejoin) {
                         return;
@@ -660,15 +665,20 @@
 
                 // REAL SOCKET MATCHMAKING
                 if (socket) {
-                    // Use Wallet short address if name is empty
-                    const displayName = userProfile.name && userProfile.name.trim() !== ''
-                        ? userProfile.name
-                        : `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+                    const profile = userProfile;
+                    const walletStr = wallet; // wallet is already a string
+                    const displayName = (profile.name && profile.name.trim() !== '')
+                        ? profile.name
+                        : `${walletStr.slice(0, 4)}...${walletStr.slice(-4)}`;
 
                     socket.emit('find_match', {
                         name: displayName,
-                        wallet: wallet,
-                        level: userProfile.stats ? userProfile.stats.level : 1
+                        wallet: walletStr,
+                        level: profile.stats?.level || 1,
+                        stats: {
+                            wins: profile.stats?.wins || 0,
+                            losses: profile.stats?.losses || 0
+                        }
                     });
                 } else {
                     alert("Server connection failed. Retrying...");
@@ -2332,6 +2342,9 @@
                                                 )}
                                                 {opponentWallet && (!opponentName || !opponentName.includes('...')) && <span>•</span>}
                                                 <span>Lvl {opponentLevel}</span>
+                                                <span>•</span>
+                                                <span className="stats-badge" style={{ color: '#81c784' }}>W: {opponentStats.wins}</span>
+                                                <span className="stats-badge" style={{ color: '#e57373', marginLeft: '4px' }}>L: {opponentStats.losses}</span>
                                             </>
                                         ) : (
                                             'Level 100'
