@@ -93,6 +93,9 @@
             const escrowBalanceRef = useRef(escrowBalance);
             useEffect(() => { escrowBalanceRef.current = escrowBalance; }, [escrowBalance]);
 
+            const walletRef = useRef(wallet);
+            useEffect(() => { walletRef.current = wallet; }, [wallet]);
+
             // --- SOCKET INIT ---
             useEffect(() => {
                 // Determine Server URL: Local vs Production
@@ -106,6 +109,12 @@
                 newSocket.on('connect', () => {
                     console.log("Connected to Game Server:", newSocket.id);
                     setLogs(prev => ["Connected to Server!", ...prev]); // Visual Confirm
+
+                    // Auto-Check for Active Game if Wallet is already "connected" (e.g. after internet drop)
+                    if (walletRef.current) {
+                        console.log("Reconnected to socket. Checking for active game for:", walletRef.current);
+                        newSocket.emit('check_active_game', walletRef.current);
+                    }
                 });
 
                 newSocket.on('connect_error', (err) => {
