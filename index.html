@@ -141,6 +141,10 @@
                     setOpponentName(oppName);
                     setOpponentWallet(data.players[oppId]?.wallet || null);
 
+                    if (data.isRejoin) {
+                        return;
+                    }
+
                     // alert(`Match Found! Playing against ${oppName}`); // Remove alert for smoother flow
                 });
 

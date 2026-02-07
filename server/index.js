@@ -107,6 +107,17 @@ io.on('connection', (socket) => {
 
         // NORMAL MATCHMAKING
         if (waitingPlayer) {
+            // Check if matching with self (e.g. double click or race condition)
+            if (waitingPlayer.socketId === socket.id) {
+                console.log("[SERVER] Player tried to match with themselves. Ignoring.");
+                return;
+            }
+            if (waitingPlayer.userData.wallet && waitingPlayer.userData.wallet === userData.wallet) {
+                console.log("[SERVER] Wallet tried to match with itself. Ignoring.");
+                waitingPlayer.socketId = socket.id; // Update socket just in case
+                return;
+            }
+
             // Match Found!
             console.log(`[SERVER] Match found: ${waitingPlayer.userData.name} vs ${userData.name}`);
 
