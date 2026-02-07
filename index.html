@@ -249,9 +249,13 @@
 
                 newSocket.on('rejoin_success', ({ roomId, color }) => {
                     log("Rejoined match! Waiting for sync...");
+                    const myColor = color === 'white' ? PLAYER_HUMAN : PLAYER_AI;
+                    setPlayerColor(myColor);
                     setRoomId(roomId);
                     setGameMode('multi');
                     setGameStatus('playing');
+                    setOpeningRoll(null);
+                    setOpponentDisconnected(false);
                 });
 
                 return () => newSocket.close();

@@ -78,7 +78,6 @@ io.on('connection', (socket) => {
             // Client expects 'assign_color' to set 'playerColor'.
             const myColor = myData.color;
             socket.emit('rejoin_success', { roomId: existingGameId, color: myData.color }); // Client might need to handle this
-            socket.emit('assign_color', myData.color); // Re-trigger setup if needed
 
             return;
         }
