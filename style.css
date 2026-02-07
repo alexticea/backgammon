@@ -150,6 +150,8 @@ body {
 /* BOARD GRID */
 /* The main board construction */
 .board-row {
+    box-sizing: border-box;
+    /* Match Off Tray sizing logic */
     flex: 1;
     width: 100%;
     max-width: 800px;
@@ -334,6 +336,7 @@ body {
 
 .bar-center {
     width: 40px;
+    flex-shrink: 0;
     background: #2e2620;
     /* Wood Bar */
     display: flex;
@@ -1270,4 +1273,111 @@ body {
     .main-controls {
         transform: scale(0.9);
     }
+}
+
+/* OFF TRAY (Bear Off) */
+.off-tray {
+    box-sizing: border-box;
+    /* Ensure borders are included in width */
+    width: 100%;
+    max-width: 800px;
+    height: 45px;
+    /* Reduced for smaller pieces */
+    background: #251e19;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    border: 15px solid var(--point-dark);
+    /* Match Frame Thickness */
+    transition: all 0.2s;
+    overflow: hidden;
+    /* Keep pieces inside */
+}
+
+.off-tray.top {
+    border-bottom: none;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.off-tray.bottom {
+    border-top: none;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+.off-tray.valid {
+    cursor: pointer;
+    box-shadow: inset 0 0 20px rgba(118, 255, 3, 0.3);
+    border-color: #76ff03;
+}
+
+.off-tray-label {
+    color: var(--point-light);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    opacity: 0.7;
+    margin: 0;
+}
+
+/* Off Checker Stack (Just a visual represenation or count) */
+/* Off Pieces Container */
+.off-pieces-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex: 1;
+    justify-content: center;
+    /* Center the stack */
+    height: 100%;
+    padding: 0 10px;
+}
+
+.off-piece {
+    width: 31px;
+    /* 30% smaller than 44px */
+    height: 31px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5), 0 2px 2px rgba(0, 0, 0, 0.3);
+    margin-left: -22px;
+    /* Overlap adjusted */
+    position: relative;
+    transition: margin 0.2s;
+}
+
+.off-piece:first-child {
+    margin-left: 0;
+}
+
+.off-piece:hover {
+    margin-left: -10px;
+    /* Expand on hover slightly for fun? Optional */
+    z-index: 100 !important;
+}
+
+.off-piece.white {
+    background: radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc);
+    border: 1px solid #b0b0b0;
+}
+
+.off-piece.red {
+    background: radial-gradient(circle at 30% 30%, #4a4a4a, #000000);
+    border: 1px solid #000;
+}
+
+.off-counter-text {
+    position: absolute;
+    right: 15px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #e8e0d5;
+    text-align: right;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 8px;
+    border-radius: 10px;
 }

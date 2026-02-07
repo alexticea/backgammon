@@ -74,13 +74,29 @@
             const [playerColor, setPlayerColor] = useState(PLAYER_HUMAN); // In multi: assigned by server
             const [roomId, setRoomId] = useState(null);
             const [opponentName, setOpponentName] = useState('AI');
+            const [opponentWallet, setOpponentWallet] = useState(null);
             const [opponentLevel, setOpponentLevel] = useState(1);
             const [socket, setSocket] = useState(null);
+            const [finishingTurn, setFinishingTurn] = useState(false);
+            const [isBlocked, setIsBlocked] = useState(false);
+            const [escrowBalance, setEscrowBalance] = useState(0.00);
+            const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+
+            // --- REFS FOR SOCKET HANDLERS ---
+            const gameStatusRef = useRef(gameStatus);
+
+            useEffect(() => { gameStatusRef.current = gameStatus; }, [gameStatus]);
+
+            const selectedStakeRef = useRef(selectedStake);
+            useEffect(() => { selectedStakeRef.current = selectedStake; }, [selectedStake]);
+
+            const escrowBalanceRef = useRef(escrowBalance);
+            useEffect(() => { escrowBalanceRef.current = escrowBalance; }, [escrowBalance]);
 
             // --- SOCKET INIT ---
             useEffect(() => {
                 // Determine Server URL: Local vs Production
-                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
                 // For Vercel deployment, you will replace the second string with your Render/Railway backend URL.
                 const SERVER_URL = isLocal ? 'http://localhost:3001' : 'https://backgammon-usxq.onrender.com';
 
@@ -89,6 +105,12 @@
 
                 newSocket.on('connect', () => {
                     console.log("Connected to Game Server:", newSocket.id);
+                    setLogs(prev => ["Connected to Server!", ...prev]); // Visual Confirm
+                });
+
+                newSocket.on('connect_error', (err) => {
+                    console.error("Connection Error:", err);
+                    setLogs(prev => ["Connection Failed! Check Server URL.", ...prev]);
                 });
 
                 newSocket.on('waiting_for_match', () => {
@@ -103,6 +125,7 @@
                     const oppId = Object.keys(data.players).find(id => id !== newSocket.id);
                     const oppName = data.players[oppId]?.name || "Opponent";
                     setOpponentName(oppName);
+                    setOpponentWallet(data.players[oppId]?.wallet || null);
 
                     alert(`Match Found! Playing against ${oppName}`);
                 });
@@ -113,54 +136,191 @@
                     console.log("Assigned Color:", colorStr, myColor);
 
                     // Start Game Logic
-                    setGameMode('multi');
-                    setGameStatus('playing'); // Skip opening roll for simplicity in v1
-                    setBoard(initialBoard);
-                    if (myColor === PLAYER_HUMAN) {
-                        setTurn('human');
-                        log("Game Started! You are Player 1. You move first.");
-                        setCanRoll(true);
+                    const stake = selectedStakeRef.current;
+                    if (stake && stake > 0) {
+                        const balance = escrowBalanceRef.current || 0;
+                        if (balance >= stake) {
+                            // Deduct Stake
+                            setEscrowBalance(prev => parseFloat((prev - stake).toFixed(2)));
+                            log(`Staked ${stake} SOL from Escrow Balance.`);
+
+                            // Start Game
+                            setGameMode('multi');
+                            setGameStatus('opening_roll');
+                            setOpeningRoll(null);
+
+                            // RESET GAME STATE
+                            const resetBoard = Array(24).fill(null).map(() => ({ count: 0, player: 0 }));
+                            const placeReset = (idx, count, player) => { resetBoard[idx] = { count, player }; };
+                            placeReset(23, 2, PLAYER_HUMAN);
+                            placeReset(12, 5, PLAYER_HUMAN);
+                            placeReset(7, 3, PLAYER_HUMAN);
+                            placeReset(5, 5, PLAYER_HUMAN);
+                            placeReset(0, 2, PLAYER_AI);
+                            placeReset(11, 5, PLAYER_AI);
+                            placeReset(16, 3, PLAYER_AI);
+                            placeReset(18, 5, PLAYER_AI);
+
+                            setBoard(resetBoard);
+                            setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                            setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                            setDice([]);
+                            setVisualDice([]);
+                            setHistory([]);
+
+                            setRolling(false);
+                            setTurn('human');
+                            log("Match Found! Roll for the first turn.");
+                        } else {
+                            alert(`Insufficient Escrow Balance! You need ${stake} SOL. Please deposit.`);
+                            setGameStatus('multiplayer_menu');
+                            // Ideally emit 'leave_match' here
+                            return;
+                        }
                     } else {
-                        setTurn('opponent'); // Special turn state
-                        log("Game Started! You are Player 2. Opponent moves first.");
-                        setCanRoll(false);
+                        // Free Play
+                        setGameMode('multi');
+                        setGameStatus('opening_roll');
+                        setOpeningRoll(null);
+
+                        // RESET GAME STATE
+                        const resetBoard = Array(24).fill(null).map(() => ({ count: 0, player: 0 }));
+                        const placeReset = (idx, count, player) => { resetBoard[idx] = { count, player }; };
+                        placeReset(23, 2, PLAYER_HUMAN);
+                        placeReset(12, 5, PLAYER_HUMAN);
+                        placeReset(7, 3, PLAYER_HUMAN);
+                        placeReset(5, 5, PLAYER_HUMAN);
+                        placeReset(0, 2, PLAYER_AI);
+                        placeReset(11, 5, PLAYER_AI);
+                        placeReset(16, 3, PLAYER_AI);
+                        placeReset(18, 5, PLAYER_AI);
+
+                        setBoard(resetBoard);
+                        setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                        setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+                        setDice([]);
+                        setVisualDice([]);
+                        setHistory([]);
+
+                        setRolling(false);
+                        setTurn('human');
+                        log("Match Found! Roll for the first turn.");
                     }
+
                 });
 
+                // REMOVED: newSocket.on('game_start') - Logic moved to match_found direct check
+
                 newSocket.on('game_update', ({ type, payload }) => {
-                    handleRemoteEvent(type, payload);
+                    console.log(`[CLIENT] Received game_update: ${type}`, payload);
+                    if (handleRemoteEventRef.current) {
+                        handleRemoteEventRef.current(type, payload);
+                    } else {
+                        console.error("[CLIENT] handleRemoteEventRef is null!");
+                    }
                 });
 
                 newSocket.on('chat_message', (msg) => {
                     setChatMessages(prev => [...prev, { ...msg, type: 'opponent' }]);
                 });
 
+                newSocket.on('withdraw_success', ({ amount, signature }) => {
+                    log(`Withdrawal of ${amount} SOL sent! Sig: ${signature.slice(0, 8)}...`);
+                    alert(`Funds sent to your wallet!`);
+                    setEscrowBalance(prev => parseFloat((prev - amount).toFixed(2)));
+                });
+
+                newSocket.on('request_state_sync', () => {
+                    const state = gameStateRef.current;
+                    if (state.roomId) {
+                        log("Syncing state to opponent...");
+                        newSocket.emit('sync_state', {
+                            roomId: state.roomId,
+                            state: {
+                                board: state.board,
+                                bar: state.bar,
+                                off: state.off,
+                                dice: state.dice,
+                                turn: state.turn
+                            }
+                        });
+                    }
+                });
+
+                newSocket.on('rejoin_success', ({ roomId, color }) => {
+                    log("Rejoined match! Waiting for sync...");
+                    setRoomId(roomId);
+                    setGameMode('multi');
+                    setGameStatus('playing');
+                });
+
                 return () => newSocket.close();
             }, []);
 
-            const handleRemoteEvent = (type, payload) => {
-                if (type === 'roll') {
-                    log(`Opponent Rolled: ${payload.join(', ')}`);
-                    // Visual only - show max 2 dice even for doubles
-                    setVisualDice(payload.slice(0, 2));
-                    setDice(payload);
-                } else if (type === 'move') {
-                    // payload = { from, to, dieVal } (Assuming simplistic relay for now)
-                    // We need to mirror this move on our board
-                    // Since specific coordinate geometries are tricky (Human vs AI view), 
-                    // we usually flip the board index: index -> 23 - index.
-                    // BUT: Our internal logic already uses PLAYER_AI as -1.
-                    // If we are Human, Opponent is AI.
-                    // If Opponent sends "I moved 23 to 21", they mean THEIR 23 to 21.
-                    // We need to map that. 
+            // Ref to access state inside socket listeners (which close over initial state)
+            const gameStateRef = useRef({});
+            useEffect(() => {
+                gameStateRef.current = { board, bar, off, dice, turn, roomId };
+            }, [board, bar, off, dice, turn, roomId]);
 
-                    // For MVP simplicity: Let's trust the Board State sent entirely?
-                    // Better: Send the NEW BOARD STATE.
+            // Ref for Event Handler to avoid stale closures
+            const handleRemoteEventRef = useRef(null);
+            useEffect(() => {
+                handleRemoteEventRef.current = handleRemoteEvent;
+            });
+
+            const handleRemoteEvent = (type, payload) => {
+                const currentStatus = gameStatusRef.current;
+
+                if (type === 'opponent_disconnectING') {
+                    console.log("EVENT RECEIVED: Opponent Disconnecting");
+                    log(`Opponent disconnected! Waiting ${payload.timeLeft}s...`);
+                    setOpponentDisconnected(true);
+                } else if (type === 'opponent_reconnected') {
+                    log("Opponent returned! Resuming...");
+                    setOpponentDisconnected(false);
+                } else if (type === 'roll') {
+                    // Robustness check: Ensure we handle Opening Roll vs Game Roll correctly
+                    // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
+                    if (currentStatus === 'opening_roll' && payload.length === 1) {
+                        // Handle Opponent Opening Roll
+                        const val = payload[0];
+                        log(`Opponent Rolled: ${val} (Opening)`);
+                        setOpeningRoll(prev => {
+                            const newState = { ...(prev || {}), ai: val };
+
+                            // Visual Update
+                            if (newState.human) {
+                                setVisualDice([newState.human, val]);
+                            } else {
+                                setVisualDice([val]);
+                            }
+
+                            checkMultiOpeningWinner(newState);
+                            return newState;
+                        });
+                    } else {
+                        log(`Opponent Rolled: ${payload.join(', ')}`);
+                        // Visual only - show max 2 dice even for doubles
+                        setVisualDice(payload.slice(0, 2));
+                        setDice(payload);
+                    }
+                } else if (type === 'state_update') {
+                    // Full state sync from opponent (Undo, Move, etc)
+                    if (payload.board) setBoard(payload.board);
+                    if (payload.bar) setBar(payload.bar);
+                    if (payload.off) setOff(payload.off);
+                    if (payload.dice) {
+                        setDice(payload.dice);
+                        // Update visuals to match logic
+                        setVisualDice(payload.dice);
+                    }
+                    if (payload.turn) setTurn(payload.turn);
+                } else if (type === 'move') {
+                    // Legacy/Simple move handler (keep for backward compat or just use state_update)
                     if (payload.board) {
                         setBoard(payload.board);
                         setBar(payload.bar);
-                        // setDice(payload.dice - moved);
-                        // playMoveSound();
                     }
                 } else if (type === 'end_turn') {
                     log("Opponent finished turn.");
@@ -172,6 +332,11 @@
                     log("Opponent Resigned! You Win!");
                     playDiceSound();
                     updateStats('win');
+                } else if (type === 'opponent_disconnected') {
+                    setGameStatus('gameover');
+                    setGameResult('win');
+                    log("Opponent Disconnected! You Win!");
+                    setOpponentDisconnected(false);
                 }
             };
 
@@ -204,7 +369,9 @@
                         });
                     }, 1000);
                 } else {
-                    setTurnTimer(180); // Reset when not human turn
+                    setTurnTimer(180); // Reset timer on undo
+                    // Clear blocked state if we undo
+                    setIsBlocked(false);
                 }
                 return () => clearInterval(interval);
             }, [turn, gameStatus]);
@@ -232,10 +399,27 @@
                     } else {
                         setUserProfile({ name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
                     }
+
+                    // LOAD ESCROW BALANCE
+                    const savedBalance = localStorage.getItem('escrow_balance_' + wallet);
+                    if (savedBalance) {
+                        setEscrowBalance(parseFloat(savedBalance));
+                    } else {
+                        setEscrowBalance(0.00);
+                    }
+
                 } else if (wallet && wallet.startsWith('Guest')) {
                     setUserProfile({ name: 'Guest', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
+                    setEscrowBalance(0.00);
                 }
             }, [wallet]);
+
+            // Persist Escrow Balance
+            useEffect(() => {
+                if (wallet && !wallet.startsWith('Guest')) {
+                    localStorage.setItem('escrow_balance_' + wallet, escrowBalance.toString());
+                }
+            }, [escrowBalance, wallet]);
 
             const updateStats = (result) => {
                 if (!wallet || wallet.startsWith('Guest')) return; // Guests don't save stats
@@ -274,6 +458,123 @@
             const [chatMessages, setChatMessages] = useState([{ sender: 'System', text: 'Welcome to the chat!' }]);
             const [chatInput, setChatInput] = useState('');
             const [gameResult, setGameResult] = useState(null); // 'win' or 'loss'
+            const [depositTx, setDepositTx] = useState(null);
+
+            const handleDeposit = async () => {
+                if (!selectedStake) return;
+
+                try {
+                    // MOCK ESCROW / HOUSE WALLET (In real app, simpler to use a PDA)
+                    const ESCROW_PUBKEY = "Escrow7123981239812398123981239812398123";
+
+                    // Native Transfer Logic
+                    const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
+                    const transaction = new window.solanaWeb3.Transaction().add(
+                        window.solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: new window.solanaWeb3.PublicKey(wallet),
+                            toPubkey: new window.solanaWeb3.PublicKey("6cgsK8ph5tNUCiKG5WXLMZFX1CoL4jzuVouTPBwPC8fk"), // House Escrow
+                            lamports: selectedStake * 1000000000,
+                        })
+                    );
+
+                    transaction.feePayer = new window.solanaWeb3.PublicKey(wallet);
+                    const { blockhash } = await connection.getLatestBlockhash();
+                    transaction.recentBlockhash = blockhash;
+
+                    // Provider Sign
+                    let provider = window.solflare || window.solana;
+                    if (!provider) throw new Error("No Wallet");
+
+                    const { signature } = await provider.signAndSendTransaction(transaction);
+                    log("Deposit Sent! Sig: " + signature.slice(0, 8) + "...");
+                    setDepositTx(signature);
+
+                    // Notify Server
+                    if (socket && roomId) {
+                        socket.emit('deposit_stake', { roomId, signature });
+                    }
+
+                } catch (err) {
+                    console.error("Deposit Failed", err);
+                    alert("Deposit Failed: " + err.message);
+                }
+            };
+
+            const fetchBalance = async () => {
+                if (!wallet || wallet.startsWith('Guest')) return;
+                try {
+                    const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
+                    const lamports = await connection.getBalance(new window.solanaWeb3.PublicKey(wallet));
+                    setBalance((lamports / 1000000000).toFixed(2));
+                } catch (e) { console.error(e); }
+            };
+
+            const handleEscrowDeposit = async () => {
+                const amountStr = prompt("Enter annual amount to deposit (SOL):", "0.1");
+                if (!amountStr) return;
+                const amount = parseFloat(amountStr);
+                if (isNaN(amount) || amount <= 0) return;
+
+                // TX Logic (Reuse handleDeposit logic logic practically)
+                // For MVP, emulate success
+                try {
+                    // In real app: Send TX
+                    // setEscrowBalance(prev => prev + amount);
+                    // alert("Deposited to Escrow!");
+
+                    // Let's use real simple TX for "Real Feel"
+                    if (!wallet) return alert("Connect Wallet first");
+                    const connection = new window.solanaWeb3.Connection(window.solanaWeb3.clusterApiUrl('devnet'));
+                    const transaction = new window.solanaWeb3.Transaction().add(
+                        window.solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: new window.solanaWeb3.PublicKey(wallet),
+                            toPubkey: new window.solanaWeb3.PublicKey("6cgsK8ph5tNUCiKG5WXLMZFX1CoL4jzuVouTPBwPC8fk"), // House Escrow
+                            lamports: amount * 1000000000,
+                        })
+                    );
+                    transaction.feePayer = new window.solanaWeb3.PublicKey(wallet);
+                    const { blockhash } = await connection.getLatestBlockhash();
+                    transaction.recentBlockhash = blockhash;
+                    const provider = window.solflare || window.solana;
+                    const { signature } = await provider.signAndSendTransaction(transaction);
+
+                    log("Escrow Deposit: " + amount + " SOL");
+                    setEscrowBalance(prev => parseFloat((prev + amount).toFixed(2)));
+                    setTimeout(fetchBalance, 2000); // Trigger Wallet Refresh
+
+                } catch (e) {
+                    alert("Deposit Error: " + e.message);
+                }
+            };
+
+            const handleEscrowWithdraw = () => {
+                const amountStr = prompt("Enter amount to withdraw (SOL):", "0.1");
+                if (!amountStr) return;
+                const amount = parseFloat(amountStr);
+
+                if (isNaN(amount) || amount <= 0) {
+                    alert("Please enter a valid amount.");
+                    return;
+                }
+
+                if (escrowBalance < amount) {
+                    alert(`Insufficient Escrow Balance (Current: ${escrowBalance} SOL)`);
+                    return;
+                }
+
+                // REAL ARCHITECTURE: Request Server to Sign
+                log(`Requesting Withdrawal of ${amount} SOL...`);
+                console.log("Emitting request_withdraw", { wallet, amount });
+
+                if (socket && socket.connected) {
+                    // The backend must hold the Private Key for the Escrow Wallet
+                    socket.emit('request_withdraw', { wallet, amount });
+                } else {
+                    alert("Not connected to server. Please try refreshing or checking connection.");
+                    // Attempt Reconnect
+                    if (socket) socket.connect();
+                }
+            };
 
             const handleChatSend = () => {
                 if (!chatInput.trim()) return;
@@ -488,6 +789,40 @@
                 playDiceSound();
                 setRolling(true);
 
+                // MULTIPLAYER LOGIC
+                if (gameMode === 'multi') {
+                    // Prevent double rolling
+                    if (openingRoll && openingRoll.human) return;
+
+                    setTimeout(() => {
+                        const hDie = Math.ceil(Math.random() * 6);
+
+                        // Update Local State
+                        setOpeningRoll(prev => {
+                            const newState = { ...(prev || {}), human: hDie };
+
+                            // Visual Update
+                            if (newState.ai) {
+                                setVisualDice([hDie, newState.ai]);
+                            } else {
+                                setVisualDice([hDie]);
+                            }
+
+                            checkMultiOpeningWinner(newState);
+                            return newState;
+                        });
+                        setRolling(false);
+                        log(`You Rolled: ${hDie} (Opening)`);
+
+                        // Emit to Opponent
+                        emitGameEvent('roll', [hDie]);
+
+                    }, 600);
+                    return;
+                }
+
+                // SINGLE PLAYER LOGIC
+
                 setTimeout(() => {
                     const hDie = Math.ceil(Math.random() * 6);
                     const aDie = Math.ceil(Math.random() * 6);
@@ -497,23 +832,56 @@
                     if (hDie > aDie) {
                         log(`You rolled ${hDie}, AI rolled ${aDie}. You start!`);
                         setTurn('human');
-                        setDice([hDie, aDie]); // Winner plays both dice
-                        setVisualDice([hDie, aDie]);
+                        setDice([]); // Reset for re-roll
+                        setVisualDice([]);
+                        setCanRoll(true); // Winner rolls again
                         setTimeout(() => setGameStatus('playing'), 1500);
                     } else if (aDie > hDie) {
                         log(`You rolled ${hDie}, AI rolled ${aDie}. AI starts!`);
                         setTurn('ai');
-                        setDice([aDie, hDie]);
-                        setVisualDice([aDie, hDie]); // AI plays, visualization helps
+                        setDice([]); // Reset for re-roll
+                        setVisualDice([]);
                         setTimeout(() => {
                             setGameStatus('playing');
-                            // Trigger AI Logic if it's AI turn (useEffect monitors turn='ai' & gameStatus='playing')
+                            // Trigger AI Logic
                         }, 1500);
                     } else {
                         log(`Tie (${hDie}-${aDie})! Rerolling...`);
                         setTimeout(handleOpeningRoll, 1000);
                     }
                 }, 600);
+            };
+
+            const checkMultiOpeningWinner = (rolls) => {
+                if (rolls && rolls.human && rolls.ai) {
+                    setTimeout(() => {
+                        const h = rolls.human;
+                        const a = rolls.ai;
+
+                        if (h > a) {
+                            log(`You won opening roll (${h} vs ${a})! You start.`);
+                            setTurn('human');
+                            setDice([]); // Winner rolls again
+                            setVisualDice([]);
+                            setCanRoll(true);
+                            setGameStatus('playing');
+                            setOpeningRoll(null);
+                        } else if (a > h) {
+                            log(`Opponent won opening roll (${a} vs ${h}). Opponent starts.`);
+                            setTurn('opponent');
+                            setDice([]); // Wait for opponent re-roll
+                            setVisualDice([]);
+                            setGameStatus('playing');
+                            setOpeningRoll(null);
+                        } else {
+                            log(`Tie (${h}-${a})! Re-rolling...`);
+                            setTimeout(() => {
+                                setOpeningRoll(null);
+                                log("Click Roll to try again.");
+                            }, 1500);
+                        }
+                    }, 1000);
+                }
             };
 
             const handleManualRoll = () => {
@@ -523,6 +891,7 @@
                     setCanRoll(false);
                     // Snapshot state after roll
                     setHistory([]);
+                    setIsBlocked(false); // Reset blocked state on new roll
 
                     if (gameMode === 'multi') {
                         emitGameEvent('roll', d);
@@ -531,18 +900,28 @@
             };
 
             const handleUndo = () => {
-                if (history.length === 0) return;
+                if (history.length === 0 || finishingTurn) return;
                 const lastState = history[history.length - 1];
                 setBoard(lastState.board);
                 setBar(lastState.bar);
                 setDice(lastState.dice);
                 setTurn(lastState.turn);
                 // Don't restore canRoll usually, as we undoing moves after roll.
+                setIsBlocked(false); // Undo should always unblock
 
                 setHistory(prev => prev.slice(0, -1));
                 setValidMoves([]);
                 setSelectedPoint(null);
                 log("Undo last move.");
+
+                // MULTIPLAYER SYNC
+                if (gameMode === 'multi') {
+                    emitGameEvent('state_update', {
+                        board: lastState.board,
+                        bar: lastState.bar,
+                        dice: lastState.dice
+                    });
+                }
             };
 
             // --- GAME LOGIC ---
@@ -633,19 +1012,39 @@
 
 
 
+            const handlePassTurn = () => {
+                setDice([]);
+                setIsBlocked(false);
+                setFinishingTurn(true);
+                setTimeout(() => {
+                    setFinishingTurn(false);
+                    if (gameMode === 'multi') {
+                        log("Turn Finished. Waiting for opponent...");
+                        setTurn('opponent');
+                        emitGameEvent('end_turn', {});
+                    } else {
+                        log("Turn Finished. AI Moving...");
+                        setTurn('ai');
+                    }
+                }, 2000);
+            };
+
             // CHECK HUMAN MOVES LOGIC
             const checkHumanCanMove = (currentBoard, currentBar, currentDice) => {
                 if (currentDice.length === 0) return true; // Handled elsewhere
 
                 const uniqueDice = [...new Set(currentDice)];
+                const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
+                const direction = playerColor === PLAYER_HUMAN ? -1 : 1;
 
                 // 1. Check Bar
-                if (currentBar[PLAYER_HUMAN] > 0) {
+                if (currentBar[playerColor] > 0) {
                     return uniqueDice.some(d => {
-                        const target = 24 - d;
+                        // White (1): 24-d. Red (-1): d-1
+                        const target = playerColor === PLAYER_HUMAN ? 24 - d : d - 1;
                         if (target >= 0 && target <= 23) {
                             const dest = currentBoard[target];
-                            return !(dest.player === PLAYER_AI && dest.count > 1);
+                            return !(dest.player === opponent && dest.count > 1);
                         }
                         return false;
                     });
@@ -653,10 +1052,13 @@
 
                 // 2. Check Board
                 let canBearOff = true;
-                if (currentBar[PLAYER_HUMAN] > 0) canBearOff = false;
+                if (currentBar[playerColor] > 0) canBearOff = false;
                 else {
-                    for (let i = 6; i < 24; i++) {
-                        if (currentBoard[i].player === PLAYER_HUMAN && currentBoard[i].count > 0) {
+                    // White: 6-23. Red: 0-17.
+                    const start = playerColor === PLAYER_HUMAN ? 6 : 0;
+                    const end = playerColor === PLAYER_HUMAN ? 23 : 17;
+                    for (let i = start; i <= end; i++) {
+                        if (currentBoard[i].player === playerColor && currentBoard[i].count > 0) {
                             canBearOff = false;
                             break;
                         }
@@ -664,22 +1066,31 @@
                 }
 
                 for (let i = 0; i < 24; i++) {
-                    if (currentBoard[i].player === PLAYER_HUMAN && currentBoard[i].count > 0) {
+                    if (currentBoard[i].player === playerColor && currentBoard[i].count > 0) {
                         for (let d of uniqueDice) {
-                            const target = i - d;
+                            const target = i + (d * direction);
                             // Normal Move
-                            if (target >= 0) {
+                            if (target >= 0 && target <= 23) {
                                 const dest = currentBoard[target];
-                                if (!(dest.player === PLAYER_AI && dest.count > 1)) return true;
+                                if (!(dest.player === opponent && dest.count > 1)) return true;
                             }
                             // Bear Off Move
                             else if (canBearOff) {
-                                if (target === -1) return true;
-                                let higherPieces = false;
-                                for (let h = i + 1; h <= 5; h++) {
-                                    if (currentBoard[h].player === PLAYER_HUMAN && currentBoard[h].count > 0) higherPieces = true;
+                                if (playerColor === PLAYER_HUMAN) {
+                                    if (target === -1) return true;
+                                    let higherPieces = false;
+                                    for (let h = i + 1; h <= 5; h++) {
+                                        if (currentBoard[h].player === playerColor && currentBoard[h].count > 0) higherPieces = true;
+                                    }
+                                    if (!higherPieces) return true;
+                                } else {
+                                    if (target === 24) return true;
+                                    let higherPieces = false;
+                                    for (let h = 18; h < i; h++) {
+                                        if (currentBoard[h].player === playerColor && currentBoard[h].count > 0) higherPieces = true;
+                                    }
+                                    if (!higherPieces) return true;
                                 }
-                                if (!higherPieces) return true;
                             }
                         }
                     }
@@ -692,16 +1103,14 @@
                 if (turn === 'human' && !rolling && dice.length > 0) {
                     const canMove = checkHumanCanMove(board, bar, dice);
                     if (!canMove) {
-                        log("No valid moves possible. Turn ends.");
-                        const timer = setTimeout(() => {
-                            setTurn('ai');
-                            setDice([]);
-                            setVisualDice([]);
-                        }, 2000);
-                        return () => clearTimeout(timer);
+                        log("No valid moves possible. Undo to retry, or Pass.");
+                        setIsBlocked(true);
+                        // Do NOT auto-end. Let user decide.
+                    } else {
+                        setIsBlocked(false); // If moves are possible, ensure not blocked
                     }
                 }
-            }, [dice, turn, rolling, board, bar]);
+            }, [dice, turn, rolling, board, bar, playerColor]);
 
             // AI TURN
             useEffect(() => {
@@ -743,29 +1152,55 @@
                                     }
                                 }
 
+                                // Check for Opponent Presence in AI Home Board (18-23)
+                                let opponentInHouse = false;
+                                for (let i = 18; i < 24; i++) {
+                                    if (bd[i].player === PLAYER_HUMAN && bd[i].count > 0) {
+                                        opponentInHouse = true;
+                                        break;
+                                    }
+                                }
+
                                 if (allHome) {
-                                    // STRATEGY: Bear Off + Safety (Avoid Blots)
+                                    // STRATEGY: Bear Off Phase
+
                                     let piecesOnBoard = 0;
                                     for (let i = 18; i < 24; i++) {
                                         if (bd[i].player === PLAYER_AI) piecesOnBoard += bd[i].count;
                                     }
-                                    // Huge Bonus for every piece removed (15 total start)
+
+                                    // Base Score: Maximizing pieces removed
+                                    // (15 total start). Each removal is a huge step to winning.
                                     score += (15 - piecesOnBoard) * 100000;
 
-                                    // Safety Check
-                                    for (let i = 18; i < 24; i++) {
-                                        if (bd[i].player === PLAYER_AI && bd[i].count === 1) {
-                                            // BLOT PENALTY
-                                            // Very dangerous if opponent has pieces on bar or in our home board
-                                            score -= 50000;
+                                    if (opponentInHouse) {
+                                        // CONDITION A: Opponent is lurking! SAFETY FIRST.
+                                        // "Focus on bear off without letting any pieces uncovered"
+                                        for (let i = 18; i < 24; i++) {
+                                            if (bd[i].player === PLAYER_AI && bd[i].count === 1) {
+                                                // BLOT PENALTY: EXTREME
+                                                // Must be higher than the reward for bearing off to discourage unsafe moves
+                                                // unless absolutely forced.
+                                                // BearOff Reward = 100,000. Penalty must be > 100,000.
+                                                score -= 200000;
+                                            }
                                         }
+                                    } else {
+                                        // CONDITION B: Coast is clear. SPEED FIRST.
+                                        // "Bear off as fast as possible"
+                                        // No penalty for blots. Just race!
+                                        // We can add a tiny bonus for having FEWER points occupied (stacking to high points is bad for speed),
+                                        // but the main driver is (15 - piecesOnBoard).
                                     }
+
                                     return score;
                                 }
 
                                 // --- NORMAL STRATEGY ---
-                                // 1. Hitting Opponent (Opponent on Bar)
-                                score += (br[PLAYER_HUMAN] * 10000);
+                                // "Defensive... try to bring all his pieces in his house making gates where is possible"
+
+                                // 1. Hitting Opponent (Opponent on Bar) - Still always good to set them back
+                                score += (br[PLAYER_HUMAN] * 12000);
 
                                 // 2. Board Analysis
                                 for (let i = 0; i < 24; i++) {
@@ -773,15 +1208,33 @@
                                     if (p.player === PLAYER_AI) {
                                         if (p.count === 1) {
                                             // BLOT (Danger)
-                                            score -= 2000;
+                                            // Penalize heavily if opponent is ahead of us or can hit us
+                                            score -= 4000;
                                         } else if (p.count > 1) {
                                             // GATE/POINT (Good)
-                                            score += 1000;
-                                            if (i >= 18) score += 2000; // House Priority
-                                            if (i >= 7 && i <= 12) score += 500; // Prime Priority
+                                            // Base Gate Bonus
+                                            score += 2000;
+
+                                            // Home Board Gate (18-23) - Highest Priority ("Building House")
+                                            if (i >= 18) score += 3000;
+
+                                            // Outer Board Gate (12-17) - Blocking
+                                            if (i >= 12 && i < 18) score += 1000;
                                         }
                                     }
                                 }
+
+                                // 3. Distance to Home (Encourage moving forward)
+                                // We want to minimize the pip count (sum of indices for AI? No, AI moves 0->24).
+                                // AI Home is 18-23 (High Indices). We want to INCREASE total index sum.
+                                let totalDistance = 0;
+                                for (let i = 0; i < 24; i++) {
+                                    if (bd[i].player === PLAYER_AI) {
+                                        totalDistance += (i * bd[i].count);
+                                    }
+                                }
+                                score += totalDistance * 10; // Small tie-breaker to prefer forward motion
+
                                 return score;
                             };
 
@@ -1027,7 +1480,7 @@
                                     playMoveSound();
                                     if (move.to === -1) {
                                         log("AI Bears Off.");
-                                        // playDiceSound(); 
+                                        setOff(prev => ({ ...prev, [PLAYER_AI]: prev[PLAYER_AI] + 1 }));
                                     } else {
                                         const dst = { ...nb[move.to] }; // Create a copy
                                         if (dst.player === PLAYER_HUMAN) {
@@ -1224,13 +1677,13 @@
                     const dieIdx = dice.indexOf(dieUsed);
 
                     // Update Board
-                    // Calculate Next State
                     const nextBoard = [...board];
-                    let nextBar = { ...bar };
+                    const nextBar = { ...bar };
+                    const nextOff = { ...off };
+                    // const source = nextBoard[selectedPoint]; // Original line, now handled in else block
 
-                    // Source Logic
                     if (selectedPoint === 'bar') {
-                        nextBar[playerColor] = nextBar[playerColor] - 1;
+                        nextBar[playerColor]--;
                     } else {
                         const source = { ...nextBoard[selectedPoint] };
                         source.count--;
@@ -1238,10 +1691,10 @@
                         nextBoard[selectedPoint] = source;
                     }
 
-                    // Dest Logic
                     if (index === -1) {
-                        log("Checkers born off!");
-                        playDiceSound();
+                        // Bear Off
+                        log("Bearing Off!");
+                        nextOff[playerColor]++;
                     } else {
                         const dest = { ...nextBoard[index] };
                         const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
@@ -1254,7 +1707,7 @@
                             dest.count = 1;
                         } else {
                             dest.player = playerColor;
-                            dest.count++;
+                            dest.count += 1;
                         }
                         nextBoard[index] = dest;
                     }
@@ -1262,6 +1715,7 @@
                     // Apply State
                     setBoard(nextBoard);
                     setBar(nextBar);
+                    setOff(nextOff);
 
                     // 3. Consume Dice
                     const newDice = [...dice];
@@ -1269,22 +1723,23 @@
                     setDice(newDice);
 
                     if (gameMode === 'multi') {
-                        emitGameEvent('move', { board: nextBoard, bar: nextBar });
+                        // Use state_update to include dice (so opponent sees dice consumed)
+                        emitGameEvent('state_update', { board: nextBoard, bar: nextBar, off: nextOff, dice: newDice });
                     }
 
                     // Reset
                     setSelectedPoint(null);
                     setValidMoves([]);
 
+                    // Check if *remaining* dice have any valid moves
+                    if (newDice.length > 0 && !checkHumanCanMove(nextBoard, nextBar, newDice)) {
+                        log("No valid moves left. Undo to retry, or Pass.");
+                        setIsBlocked(true);
+                        // Do NOT auto-end. Let user decide.
+                    }
+
                     if (newDice.length === 0) {
-                        log("Turn Finished. Waiting for opponent...");
-                        setTurn('opponent'); // Wait for remote turn
-                        if (gameMode === 'multi') {
-                            emitGameEvent('end_turn', {});
-                        } else {
-                            log("Turn Finished. AI Moving...");
-                            setTurn('ai');
-                        }
+                        handlePassTurn();
                     }
                 }
             };
@@ -1335,15 +1790,35 @@
                 const countHuman = board.reduce((acc, p) => p.player === PLAYER_HUMAN ? acc + p.count : acc, 0) + bar[PLAYER_HUMAN];
                 const countAI = board.reduce((acc, p) => p.player === PLAYER_AI ? acc + p.count : acc, 0) + bar[PLAYER_AI];
 
-                if (countHuman === 0) {
+                // Determine "My" pieces and "Opponent" pieces
+                const myPieces = playerColor === PLAYER_HUMAN ? countHuman : countAI;
+                const oppPieces = playerColor === PLAYER_HUMAN ? countAI : countHuman;
+
+                if (myPieces === 0) {
                     setGameStatus('gameover');
                     setGameResult('win'); // "YOU WIN"
                     playDiceSound();
-                } else if (countAI === 0) {
+                    updateStats('win');
+
+                    // Payout Logic
+                    const stake = selectedStakeRef.current;
+                    if (stake > 0) {
+                        // Win = Return Stake + Opponent Stake (minus fee?)
+                        // Simple 2x return for MVP
+                        const confirmWin = stake * 2;
+                        const fee = confirmWin * 0.02; // 2% Fee
+                        const payout = confirmWin - fee;
+
+                        setEscrowBalance(prev => parseFloat((prev + payout).toFixed(2)));
+                        log(`Won ${payout.toFixed(3)} SOL! Added to Escrow.`);
+                    }
+
+                } else if (oppPieces === 0) {
                     setGameStatus('gameover');
                     setGameResult('loss');
+                    updateStats('loss');
                 }
-            }, [board, bar, gameStatus]);
+            }, [board, bar, gameStatus, playerColor]);
 
             // RENDER
             // 1. LANDING PAGE
@@ -1373,6 +1848,18 @@
                         {/* Top Right Wallet Badge (Only if connected) */}
                         {wallet && (
                             <>
+                                {/* DISCONNECT STATUS BANNER - VISIBLE ALWAYS if State True */}
+                                {opponentDisconnected && (
+                                    <div style={{
+                                        position: 'fixed', top: 0, left: 0, right: 0, width: '100%',
+                                        height: '60px', background: 'red', color: 'white',
+                                        zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontWeight: 'bold', fontSize: '1.5rem'
+                                    }}>
+                                        ⚠️ OPPONENT DISCONNECTED - AUTO WIN IN 15s ⚠️
+                                    </div>
+                                )}
+
                                 {/* Top Left Wallet Info */}
                                 <div className="wallet-badge-container">
                                     {wallet.startsWith('Guest') ? (
@@ -1495,11 +1982,13 @@
 
                         {!wallet ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                <button className="btn-primary" style={{ fontSize: '1.2rem', padding: '15px 60px' }} onClick={handleGuestLogin}>
-                                    Guest Mode
+                                <button className="btn-primary" style={{ fontSize: '1.2rem', padding: '15px 30px', display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'center', minWidth: '250px' }} onClick={handleGuestLogin}>
+                                    <span style={{ fontSize: '1.4rem' }}>👤</span>
+                                    <span>Guest Mode</span>
                                 </button>
-                                <button className="btn-primary" style={{ fontSize: '1.2rem', padding: '15px 60px', background: 'transparent', border: '1px solid #8d6e63' }} onClick={connectWallet}>
-                                    Connect Wallet
+                                <button className="btn-primary" style={{ fontSize: '1.2rem', padding: '15px 30px', background: 'transparent', border: '1px solid #8d6e63', display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'center', minWidth: '250px' }} onClick={connectWallet}>
+                                    <span style={{ fontSize: '1.4rem' }}>🔗</span>
+                                    <span>Connect Wallet</span>
                                 </button>
                             </div>
                         ) : (
@@ -1525,25 +2014,28 @@
                                     </div>
                                 </div>
 
-                                <button className="btn-mode" onClick={() => {
-                                    if (wallet.startsWith('Guest')) {
-                                        alert("Please connect a Solana Wallet to play Multiplayer!");
-                                    } else {
-                                        setGameStatus('multiplayer_menu');
-                                    }
-                                }}>
-                                    <span>Multiplayer</span>
-                                    <span className="icon">👥</span>
+                                <button className="btn-mode" onClick={() => setGameStatus('multiplayer_menu')}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span className="icon">👥</span>
+                                        <span>Multiplayer</span>
+                                    </div>
+                                    <span></span> {/* Spacer for flex-between */}
                                 </button>
 
-                                <button className="btn-mode" onClick={() => alert("Tournament Mode coming soon!")}>
-                                    <span>Tournament</span>
-                                    <span className="icon">🏆</span>
+                                <button className="btn-mode" disabled>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span className="icon">🏆</span>
+                                        <span>Tournament</span>
+                                    </div>
+                                    <span></span>
                                 </button>
 
                                 <button className="btn-mode" onClick={() => setGameStatus('leaderboard')}>
-                                    <span>Stats / Leaderboard</span>
-                                    <span className="icon">📊</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span className="icon">📊</span>
+                                        <span>Stats / Leaderboard</span>
+                                    </div>
+                                    <span></span>
                                 </button>
                             </div>
                         )}
@@ -1554,6 +2046,30 @@
             if (gameStatus === 'multiplayer_menu') {
                 return (
                     <div className="landing-page">
+                        {/* Top Right Wallet Badge (Replicated) */}
+                        {wallet && (
+                            <>
+                                <div className="wallet-badge-container">
+                                    {wallet.startsWith('Guest') ? (
+                                        <div className="wallet-badge">Guest Mode</div>
+                                    ) : (
+                                        <div className="wallet-badge">
+                                            <span>
+                                                {userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`}
+                                            </span>
+                                            <span style={{ opacity: 0.6 }}>|</span>
+                                            <span>{balance} SOL</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 1001 }}>
+                                    <button className="btn-disconnect" onClick={() => setWallet(null)}>
+                                        {wallet.startsWith('Guest') ? 'Exit Guest' : 'Disconnect'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
                         <h2 className="landing-title">Select Mode</h2>
 
                         {isSearching ? (
@@ -1586,6 +2102,21 @@
                                             </button>
                                         ))}
                                     </div>
+
+                                    {/* ESCROW CONTROLS */}
+                                    <div style={{ marginTop: '20px', paddingTop: '10px', borderTop: '1px solid #4e342e' }}>
+                                        <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '10px' }}>
+                                            Escrow Balance: <span style={{ color: '#fff', fontWeight: 'bold' }}>{escrowBalance} SOL</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                            <button className="btn-secondary" style={{ fontSize: '0.8rem', padding: '5px 10px', background: '#2e7d32' }} onClick={handleEscrowDeposit}>
+                                                + Deposit
+                                            </button>
+                                            <button className="btn-secondary" style={{ fontSize: '0.8rem', padding: '5px 10px', background: '#c62828' }} onClick={handleEscrowWithdraw}>
+                                                - Withdraw
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1596,6 +2127,8 @@
                     </div>
                 );
             }
+
+
 
             if (gameStatus === 'leaderboard') {
                 const leaderboard = getLeaderboard();
@@ -1642,12 +2175,26 @@
             }
 
             // Helper for specific Perspective Rendering
-            const isFlipped = gameMode === 'multi' && playerColor === PLAYER_AI;
+            // Helper for specific Perspective Rendering
+            const isFlipped = playerColor === PLAYER_AI;
             const getLogIdx = (i) => isFlipped ? (i + 12) % 24 : i;
 
             // 2. GAME BOARD
             return (
                 <div className="app-container">
+                    {opponentDisconnected && (
+                        <div style={{
+                            position: 'fixed', top: '10%', left: '50%', transform: 'translate(-50%, 0)',
+                            width: '80%', padding: '20px',
+                            background: '#d32f2f', color: '#fff',
+                            zIndex: 2147483647, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 'bold', fontSize: '1.5rem',
+                            border: '4px solid #fff', borderRadius: '12px',
+                            boxShadow: '0 0 50px rgba(0,0,0,0.8)'
+                        }}>
+                            ⚠️ OPPONENT DISCONNECTED - AUTO WIN IN 15s ⚠️
+                        </div>
+                    )}
                     {/* SIDEBAR */}
                     <div className="sidebar">
                         <div className="logo">
@@ -1660,7 +2207,9 @@
 
                         <div className="card">
                             <div className="label">Status</div>
-                            <div className="value">{turn === 'human' ? 'Your Turn' : 'AI Thinking...'}</div>
+                            <div className="value">
+                                {turn === 'human' ? 'Your Turn' : (gameMode === 'multi' ? 'Wait...' : 'AI Thinking...')}
+                            </div>
                             {turn === 'human' && (
                                 <div style={{ marginTop: '5px', fontSize: '0.9rem', color: turnTimer < 30 ? '#ff5252' : '#aaa' }}>
                                     Time: {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
@@ -1682,14 +2231,17 @@
                         <div className="card"
                             style={{ marginTop: 'auto', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3e2723', borderColor: '#4e342e' }}
                             onClick={() => {
-                                if (gameStatus === 'playing') {
-                                    if (window.confirm("Are you sure you want to resign? You will lose this game.")) {
+                                if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
+                                    if (window.confirm("Are you sure you want to resign?")) {
                                         handleForfeit();
                                     }
                                 } else {
                                     setGameStatus('menu');
                                     setBoard(initialBoard);
                                     setGameResult(null);
+                                    setVisualDice([]);
+                                    setDice([]);
+                                    setOpponentDisconnected(false);
                                 }
                             }}>
                             {gameStatus === 'playing' ? (
@@ -1706,11 +2258,28 @@
                         {/* OPPONENT BAR */}
                         <div className={`opponent-bar ${turn === 'ai' || turn === 'opponent' ? 'active-turn' : ''}`}>
                             <div className="opponent-info">
-                                <div className="opponent-avatar"></div>
+                                <div className="opponent-avatar" style={{
+                                    background: playerColor === PLAYER_HUMAN
+                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // If I am White, Opponent is Red (Black/Red styling)
+                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // If I am Red, Opponent is White
+                                    borderColor: playerColor === PLAYER_HUMAN ? '#000' : '#b0b0b0'
+                                }}></div>
                                 <div className="opponent-name">
-                                    {gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}
-                                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px' }}>
-                                        {gameMode === 'multi' ? `Lvl ${opponentLevel}` : 'Level 100'}
+                                    <div style={{ fontWeight: 'bold' }}>{gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}</div>
+                                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {gameMode === 'multi' ? (
+                                            <>
+                                                {opponentWallet && (!opponentName || !opponentName.includes('...')) && (
+                                                    <span style={{ fontFamily: 'monospace', color: '#ffecb3', opacity: 0.8 }}>
+                                                        {opponentWallet.slice(0, 4)}...{opponentWallet.slice(-4)}
+                                                    </span>
+                                                )}
+                                                {opponentWallet && (!opponentName || !opponentName.includes('...')) && <span>•</span>}
+                                                <span>Lvl {opponentLevel}</span>
+                                            </>
+                                        ) : (
+                                            'Level 100'
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1730,13 +2299,20 @@
                                         setGameStatus('menu');
                                         setBoard(initialBoard);
                                         setGameResult(null);
+                                        setOpponentDisconnected(false);
                                     }}>Back to Menu</button>
-
                                     <button className="btn-primary" style={{ background: '#4caf50', border: '1px solid #81c784' }} onClick={() => {
                                         setBoard(initialBoard);
                                         setBar({ 0: 0, 1: 0 });
                                         setGameResult(null);
-                                        startGame(difficulty);
+                                        setOpponentDisconnected(false);
+
+                                        if (gameMode === 'multi') {
+                                            setGameStatus('multiplayer_menu');
+                                            handleSearchMatch(selectedStake);
+                                        } else {
+                                            startGame(difficulty);
+                                        }
                                     }}>Play Again</button>
                                 </div>
                             </div>
@@ -1750,29 +2326,41 @@
                                     Roll to decide who moves first!
                                 </div>
 
-                                {openingRoll ? (
+                                {(openingRoll || rolling) ? (
                                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '60px', margin: '30px 0' }}>
                                         <div style={{ textAlign: 'center' }}>
                                             <div style={{ color: '#fff', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>YOU</div>
-                                            <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.human}</div>
+                                            {(openingRoll && openingRoll.human) ? (
+                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.human}</div>
+                                            ) : (
+                                                rolling ? (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }}></div>
+                                                ) : (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #666', background: 'transparent', color: '#666', fontSize: '2rem' }}>?</div>
+                                                )
+                                            )}
                                         </div>
                                         <div style={{ fontSize: '1.5rem', color: '#aaa', paddingTop: '20px' }}>vs</div>
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>AI</div>
-                                            <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
+                                            <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>{gameMode === 'multi' ? opponentName : 'AI'}</div>
+                                            {(openingRoll && openingRoll.ai) ? (
+                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
+                                            ) : (
+                                                (gameMode === 'single' && rolling) ? (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear', borderColor: '#d32f2f' }}></div>
+                                                ) : (
+                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d32f2f', background: 'transparent', color: '#d32f2f', fontSize: '2rem' }}>{gameMode === 'multi' ? '...' : '?'}</div>
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                 ) : (
                                     <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '30px 0' }}>
-                                        {rolling ? (
-                                            <div className="die-3d" style={{ animation: 'spin 1s infinite linear' }}></div>
-                                        ) : (
-                                            <div style={{ fontSize: '4rem' }}>🎲</div>
-                                        )}
+                                        <div style={{ fontSize: '4rem' }}>🎲</div>
                                     </div>
                                 )}
 
-                                {!openingRoll && !rolling && (
+                                {(!openingRoll || !openingRoll.human) && !rolling && (
                                     <button className="btn-primary" style={{ fontSize: '1.3rem', padding: '15px 50px' }} onClick={handleOpeningRoll}>ROLL FOR FIRST TURN</button>
                                 )}
                             </div>
@@ -1781,7 +2369,7 @@
                         {/* DICE TABLE OVERLAY */}
                         <div className={`dice-table-overlay ${rolling ? 'rolling' : ''}`}>
                             {/* Turn Notification */}
-                            {turn === 'human' && canRoll && !rolling && (
+                            {turn === 'human' && (canRoll || dice.length > 0) && !rolling && (
                                 <div className="turn-message">YOUR TURN!</div>
                             )}
 
@@ -1800,6 +2388,11 @@
                         </div>
 
                         {/* TOP HALF (Indices 12-23) */}
+                        <OffTray
+                            player={PLAYER_AI}
+                            count={off[PLAYER_AI]}
+                            position="top"
+                        />
                         <div className="board-row top">
                             {/* 12-17 */}
                             <div className="quadrant">
@@ -1809,10 +2402,16 @@
                                 })}
                             </div>
 
-                            {/* BAR */}
+                            {/* BAR TOP - OPPONENT (AI) */}
                             <div className="bar-center">
-                                {bar[PLAYER_AI] > 0 && <div className={`checker ${PLAYER_AI === playerColor ? 'white' : 'red'}`}>{bar[PLAYER_AI]}</div>}
-                                {bar[PLAYER_HUMAN] > 0 && <div className={`checker ${PLAYER_HUMAN === playerColor ? 'white' : 'red'}`} onClick={handleBarClick}>{bar[PLAYER_HUMAN]}</div>}
+                                {bar[PLAYER_AI] > 0 && (
+                                    <div
+                                        className="checker red"
+                                        onClick={playerColor === PLAYER_AI ? handleBarClick : undefined}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_AI ? 'pointer' : 'default', color: '#fff', fontSize: '1.2rem', position: 'relative', zIndex: 5 }}>
+                                        {bar[PLAYER_AI]}
+                                    </div>
+                                )}
                             </div>
 
                             {/* 18-23 */}
@@ -1835,7 +2434,18 @@
                                 })}
                             </div>
 
-                            <div className="bar-center"></div>
+                            {/* BAR BOTTOM - PLAYER (HUMAN) */}
+                            <div className="bar-center">
+                                {bar[PLAYER_HUMAN] > 0 && (
+                                    <div
+                                        className="checker white"
+                                        onClick={playerColor === PLAYER_HUMAN ? handleBarClick : undefined}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: playerColor === PLAYER_HUMAN ? 'pointer' : 'default', color: '#000', fontSize: '1.2rem', position: 'relative', zIndex: 5 }}
+                                    >
+                                        {bar[PLAYER_HUMAN]}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* 5-0 */}
                             <div className="quadrant">
@@ -1845,23 +2455,42 @@
                                 })}
                             </div>
                         </div>
+                        <OffTray
+                            player={PLAYER_HUMAN}
+                            count={off[PLAYER_HUMAN]}
+                            position="bottom"
+                            valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN}
+                            onClick={() => handlePointClick(-1)}
+                        />
 
                         {/* PLAYER CONTROLS */}
-                        <div className={`player-controls-bar ${turn === 'human' && canRoll ? 'active-turn' : ''}`}>
+                        <div className={`player-controls-bar ${turn === 'human' && (canRoll || dice.length > 0) ? 'active-turn' : ''}`}>
                             <div className="player-info">
                                 <div className="player-avatar" style={{
                                     background: playerColor === PLAYER_AI
-                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)'
-                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)',
+                                        ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // I am Red (Black/Red styling)
+                                        : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // I am White
                                     borderColor: playerColor === PLAYER_AI ? '#000' : '#b0b0b0'
                                 }}>
                                     {userProfile.avatar && <img src={userProfile.avatar} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />}
                                 </div>
                                 <div className="player-name">
-                                    {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`)) : 'Player 1'}
+                                    <div style={{ fontWeight: 'bold' }}>
+                                        {wallet ? (wallet.startsWith('Guest') ? 'Guest' : (userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`)) : 'Player 1'}
+                                    </div>
                                     {wallet && !wallet.startsWith('Guest') && userProfile.stats && (
-                                        <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px' }}>
-                                            Lvl {userProfile.stats.level} • {userProfile.stats.wins}W / {userProfile.stats.losses}L
+                                        <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {userProfile.name && (
+                                                <>
+                                                    <span style={{ fontFamily: 'monospace', color: '#8d6e63' }}>
+                                                        {wallet.slice(0, 4)}...{wallet.slice(-4)}
+                                                    </span>
+                                                    <span>•</span>
+                                                </>
+                                            )}
+                                            <span>Lvl {userProfile.stats.level}</span>
+                                            <span>•</span>
+                                            <span>{userProfile.stats.wins}W / {userProfile.stats.losses}L</span>
                                         </div>
                                     )}
                                 </div>
@@ -1871,7 +2500,7 @@
                                 <button
                                     className="btn-action"
                                     onClick={handleUndo}
-                                    disabled={history.length === 0}
+                                    disabled={turn !== 'human' || history.length === 0 || finishingTurn || dice.length === 0}
                                 >
                                     Undo
                                 </button>
@@ -1886,17 +2515,64 @@
                                 ) : (
                                     <button
                                         className="btn-action"
-                                        onClick={handleManualRoll}
-                                        disabled={!canRoll || turn !== 'human'}
+                                        onClick={() => isBlocked ? handlePassTurn() : handleManualRoll()}
+                                        disabled={(!canRoll && !isBlocked) || turn !== 'human'}
+                                        style={(dice.length > 0 && turn === 'human') ? { background: isBlocked ? '#d32f2f' : '#2e7d32', color: '#fff', border: isBlocked ? '1px solid #b71c1c' : '1px solid #66bb6a', cursor: 'pointer' } : {}}
                                     >
-                                        Roll Dice
+                                        {isBlocked ? "Pass Turn (Blocked)" : ((dice.length > 0 && turn === 'human') ? "Make Your Moves" : "Roll Dice")}
                                     </button>
                                 )}
                             </div>
                         </div>
 
+
                         {/* CHAT REMOVED FROM HERE */}
                     </div>
+
+                    {/* GAME OVER OVERLAY */}
+                    {gameStatus === 'gameover' && (
+                        <div className="modal-overlay">
+                            <div className="modal-content" style={{ textAlign: 'center', border: gameResult === 'win' ? '2px solid gold' : '2px solid #d32f2f' }}>
+                                <div style={{ fontSize: '4rem', marginBottom: '20px' }}>
+                                    {gameResult === 'win' ? '🏆' : '💀'}
+                                </div>
+                                <h2 style={{ fontSize: '2.5rem', marginBottom: '10px', color: gameResult === 'win' ? 'gold' : '#ef9a9a' }}>
+                                    {gameResult === 'win' ? 'YOU WON!' : 'YOU LOST'}
+                                </h2>
+                                <p style={{ color: '#aaa', marginBottom: '30px' }}>
+                                    {gameResult === 'win' ? "Congratulations! Great game." : "Better luck next time."}
+                                </p>
+
+                                <button className="btn-primary" onClick={() => {
+                                    setGameStatus('menu');
+                                    // Reset visuals
+                                    setGameResult(null);
+                                    setDice([]);
+                                    setVisualDice([]);
+                                }}>
+                                    Back to Menu
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+
+                    {/* OPPONENT DISCONNECT WARNING */}
+                    {opponentDisconnected && gameStatus !== 'gameover' && (
+                        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 2000 }}>
+                            <div className="card" style={{
+                                position: 'absolute', top: '25%', left: '50%', transform: 'translate(-50%, -50%)',
+                                border: '2px solid #ff9800', background: '#3e2723', padding: '30px', textAlign: 'center',
+                                boxShadow: '0 0 50px rgba(255, 152, 0, 0.4)', minWidth: '300px'
+                            }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⚠️</div>
+                                <h2 style={{ color: '#ffcc80' }}>Opponent Disconnected</h2>
+                                <p style={{ color: '#fff', margin: '15px 0', fontSize: '1.2rem' }}>Waiting for opponent to reconnect...</p>
+                                <div className="loader" style={{ margin: '20px auto', borderColor: '#ffcc80', borderTopColor: 'transparent' }}></div>
+                                <p style={{ fontSize: '0.9rem', color: '#ffecb3', marginTop: '15px', fontWeight: 'bold' }}>Auto-win in 15 seconds.</p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* RIGHT SIDEBAR REMOVED */}
                 </div>
@@ -1923,6 +2599,29 @@
                     </div>
                     {/* Debug Index */}
                     {/* <div className="index-label">{index}</div> */}
+                </div>
+            );
+        }
+
+        function OffTray({ player, count, position, valid, onClick }) {
+            const isHuman = player === PLAYER_HUMAN;
+
+            // Create array for visual pieces, capped if needed to prevent rendering issues, 
+            // though 15 checks fit easily.
+            const pieces = Array.from({ length: count });
+
+            return (
+                <div
+                    className={`off-tray ${position} ${valid ? 'valid' : ''}`}
+                    onClick={valid ? onClick : undefined}
+                >
+                    <div className="off-tray-label">OFF</div>
+                    <div className="off-pieces-row">
+                        {pieces.map((_, i) => (
+                            <div key={i} className={`off-piece ${isHuman ? 'white' : 'red'}`} style={{ zIndex: i }}></div>
+                        ))}
+                    </div>
+                    {count > 0 && <div className="off-counter-text">{count}</div>}
                 </div>
             );
         }

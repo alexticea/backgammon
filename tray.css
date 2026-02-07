@@ -1,0 +1,92 @@
+
+/* BEAR OFF TRAY */
+.bear-off-tray {
+    width: 60px;
+    height: 100%;
+    background: #231b15;
+    border-left: 2px solid #3e2723;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px 0;
+    position: absolute; /* Place on right of flex */
+    right: 0;
+    top: 0;
+}
+
+/* Adjust board wrapper to make space if needed, 
+   but currently board-wrapper is flex-column inside, 
+   so absolute positioning of tray on the right is easiest 
+   integration without breaking flex layout of board rows.
+   However, board-row width might overlap.
+   We should wrap the "BOARD ROWS" in a container vs Tray. 
+   Or just place it absolutely inside board-wrapper which is relative.
+*/
+
+.tray-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-bottom: 1px solid #3e2723; /* Separator if needed */
+    padding: 10px 0;
+}
+
+.tray-section.top {
+    justify-content: flex-start;
+}
+
+.tray-section.bottom {
+    justify-content: flex-end;
+    border-bottom: none;
+    border-top: 1px solid #3e2723;
+}
+
+.tray-label {
+    font-size: 0.7rem;
+    color: #8d6e63;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.tray-section.bottom .tray-label {
+    margin-top: 5px;
+    margin-bottom: 0;
+}
+
+.off-count {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: 5px 0;
+}
+
+.tray-checkers {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.mini-checker {
+    width: 30px;
+    height: 8px; /* Flat view */
+    border-radius: 2px;
+    border: 1px solid #000;
+    margin: 1px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.mini-checker.white {
+    background: #e0e0e0;
+    border-color: #9e9e9e;
+}
+
+.mini-checker.red {
+    background: #d32f2f;
+    border-color: #8b0000;
+}
+
+/* Adjust Board Wrapper to make room for Tray */
+.board-wrapper {
+    padding-right: 70px; /* Space for absolute tray */
+}
