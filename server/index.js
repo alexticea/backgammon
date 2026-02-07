@@ -174,11 +174,13 @@ io.on('connection', (socket) => {
                 const myData = game.playerData[socket.id];
                 const wallet = myData ? myData.wallet : null;
 
+                console.log(`Processing disconnect for wallet: ${wallet}`);
+
                 if (wallet) {
-                    console.log(`Player ${wallet} disconnected. Emitting 'opponent_disconnectING' to room.`);
+                    console.log(`Player ${wallet} disconnected. Emitting 'opponent_disconnectING' to room ${roomId}.`);
 
                     // Notify opponent - ensure roomId is valid string
-                    socket.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 15 } });
+                    io.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 15 } });
 
                     disconnectTimers[wallet] = {
                         roomId,
@@ -201,6 +203,7 @@ io.on('connection', (socket) => {
                     };
                 } else {
                     // Guest / No Wallet -> Instant Loss (Cannot reliably identify RE-connect)
+                    console.log(`Guest disconnected. Ending game ${roomId} immediately.`);
                     socket.to(roomId).emit('game_update', {
                         type: 'opponent_disconnected',
                         payload: {}
