@@ -333,7 +333,7 @@
                     setGameStatus('gameover');
                     setGameResult('win');
                     log("Opponent Disconnected! You Win!");
-                    // Ensure overlays show up
+                    setOpponentDisconnected(false);
                 }
             };
 
@@ -548,15 +548,28 @@
                 const amountStr = prompt("Enter amount to withdraw (SOL):", "0.1");
                 if (!amountStr) return;
                 const amount = parseFloat(amountStr);
-                if (escrowBalance < amount) return alert("Insufficient Escrow Balance");
+
+                if (isNaN(amount) || amount <= 0) {
+                    alert("Please enter a valid amount.");
+                    return;
+                }
+
+                if (escrowBalance < amount) {
+                    alert(`Insufficient Escrow Balance (Current: ${escrowBalance} SOL)`);
+                    return;
+                }
 
                 // REAL ARCHITECTURE: Request Server to Sign
-                log("Requesting Withdrawal...");
-                if (socket) {
+                log(`Requesting Withdrawal of ${amount} SOL...`);
+                console.log("Emitting request_withdraw", { wallet, amount });
+
+                if (socket && socket.connected) {
                     // The backend must hold the Private Key for the Escrow Wallet
                     socket.emit('request_withdraw', { wallet, amount });
                 } else {
-                    alert("Not connected to server.");
+                    alert("Not connected to server. Please try refreshing or checking connection.");
+                    // Attempt Reconnect
+                    if (socket) socket.connect();
                 }
             };
 
@@ -2166,6 +2179,16 @@
             // 2. GAME BOARD
             return (
                 <div className="app-container">
+                    {opponentDisconnected && (
+                        <div style={{
+                            position: 'fixed', top: 0, left: 0, right: 0,
+                            height: '60px', background: 'red', color: 'white',
+                            zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 'bold', fontSize: '1.5rem'
+                        }}>
+                            ⚠️ OPPONENT DISCONNECTED - AUTO WIN IN 15s ⚠️
+                        </div>
+                    )}
                     {/* SIDEBAR */}
                     <div className="sidebar">
                         <div className="logo">
@@ -2212,6 +2235,7 @@
                                     setGameResult(null);
                                     setVisualDice([]);
                                     setDice([]);
+                                    setOpponentDisconnected(false);
                                 }
                             }}>
                             {gameStatus === 'playing' ? (
@@ -2269,11 +2293,13 @@
                                         setGameStatus('menu');
                                         setBoard(initialBoard);
                                         setGameResult(null);
+                                        setOpponentDisconnected(false);
                                     }}>Back to Menu</button>
                                     <button className="btn-primary" style={{ background: '#4caf50', border: '1px solid #81c784' }} onClick={() => {
                                         setBoard(initialBoard);
                                         setBar({ 0: 0, 1: 0 });
                                         setGameResult(null);
+                                        setOpponentDisconnected(false);
 
                                         if (gameMode === 'multi') {
                                             setGameStatus('multiplayer_menu');
