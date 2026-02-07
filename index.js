@@ -180,7 +180,7 @@ io.on('connection', (socket) => {
                     console.log(`Player ${wallet} disconnected. Emitting 'opponent_disconnectING' to room ${roomId}.`);
 
                     // Notify opponent - ensure roomId is valid string
-                    socket.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 15 } });
+                    io.to(roomId).emit('game_update', { type: 'opponent_disconnectING', payload: { timeLeft: 15 } });
 
                     disconnectTimers[wallet] = {
                         roomId,
