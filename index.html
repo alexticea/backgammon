@@ -2377,6 +2377,16 @@
                                             <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#ff5252', marginBottom: '5px' }}>LOCKED</div>
                                             <div style={{ fontSize: '0.9rem', color: '#ddd' }}>Reach <span style={{ color: '#ffd700' }}>Level 5</span> to Unlock</div>
                                             <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '5px' }}>Current: Lvl {userProfile.stats.level}</div>
+                                            <button
+                                                className="btn-secondary"
+                                                style={{ marginTop: '10px', fontSize: '0.8rem', padding: '5px 10px', pointerEvents: 'auto', cursor: 'pointer', background: 'rgba(255,255,255,0.1)', border: '1px solid #777' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    alert("🏆 LEVEL 5 REQUIREMENTS 🏆\n\nTotal XP Needed: 400\n\n• You earn 20 XP per Win\n• You earn 5 XP per Loss\n\nKeep playing Free matches to level up!");
+                                                }}
+                                            >
+                                                ℹ️ View Conditions
+                                            </button>
                                         </div>
                                     </div>
                                 ) : (
