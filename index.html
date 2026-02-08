@@ -372,6 +372,23 @@
                     if (payload.turn) {
                         const newTurn = payload.turn === 'human' ? 'ai' : 'human';
                         setTurn(newTurn);
+
+                        // FIX: Unfreeze UI if it's my turn
+                        if (newTurn === 'human') {
+                            // If no dice, I must roll
+                            if (!payload.dice || payload.dice.length === 0) {
+                                setCanRoll(true);
+                                setRolling(false);
+                                log("It's your turn. Please Roll.");
+                            } else {
+                                // Dice exist, I must move
+                                setCanRoll(false);
+                                setRolling(false);
+                                log("It's your turn. Please Move.");
+                            }
+                        } else {
+                            setCanRoll(false);
+                        }
                     }
 
                     log("Game State Synchronized.");
