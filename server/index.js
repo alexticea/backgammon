@@ -19,7 +19,7 @@ const getUser = (wallet) => {
     const user = db.get('users').find({ wallet }).value();
     if (!user) {
         console.log(`[SERVER] Creating new user for ${wallet}`);
-        const newUser = { wallet, wins: 0, losses: 0, xp: 0, level: 1, name: '' };
+        const newUser = { wallet, wins: 0, losses: 0, xp: 0, level: 1, name: '', avatar: null };
         db.get('users').push(newUser).write();
         return newUser;
     }
@@ -374,11 +374,26 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 6. User Registration (for Leaderboard visibility)
-    socket.on('register_user', (wallet) => {
+    // 6. User Registration (for Leaderboard visibility + Profile Sync)
+    socket.on('register_user', (data) => {
+        const wallet = (typeof data === 'string') ? data : data.wallet;
+        const name = (typeof data === 'object') ? data.name : null;
+        const avatar = (typeof data === 'object') ? data.avatar : null;
+
         if (wallet && !wallet.startsWith('Guest')) {
-            getUser(wallet); // Ensures user exists in DB
-            console.log(`[SERVER] Registered user: ${wallet}`);
+            getUser(wallet); // Ensures user exists
+
+            // Update Profile if provided
+            if (name || avatar) {
+                const updates = {};
+                if (name && name.trim() !== '') updates.name = name;
+                if (avatar && avatar.trim() !== '') updates.avatar = avatar;
+
+                db.get('users').find({ wallet }).assign(updates).write();
+                console.log(`[SERVER] Updated profile for ${wallet}: ${name}`);
+            } else {
+                console.log(`[SERVER] Registered user: ${wallet}`);
+            }
         }
     });
 

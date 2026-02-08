@@ -520,13 +520,27 @@
             };
 
             const handleSaveProfile = (name, avatarBase64) => {
-                const newProfile = { name, avatar: avatarBase64 };
-                setUserProfile(newProfile);
+                // Preserve stats from current profile
+                const updated = { ...userProfile, name, avatar: avatarBase64 };
+                setUserProfile(updated);
+
                 if (wallet && !wallet.startsWith('Guest')) {
                     try {
-                        localStorage.setItem('bg_profile_' + wallet, JSON.stringify(newProfile));
+                        localStorage.setItem('bg_profile_' + wallet, JSON.stringify(updated));
+
+                        // Sync with Server
+                        if (socket) {
+                            socket.emit('register_user', {
+                                wallet,
+                                name,
+                                avatar: avatarBase64
+                            });
+                            // Refresh leaderboard
+                            setTimeout(() => fetchLeaderboard(), 500);
+                        }
                     } catch (e) {
-                        alert("Image too large! Use a smaller image.");
+                        alert("Image too large/Error saving profile.");
+                        console.error(e);
                     }
                 }
                 setIsProfileModalOpen(false);
@@ -724,7 +738,7 @@
                     // Format for UI
                     const formatted = data.map(u => ({
                         name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
-                        avatar: null,
+                        avatar: u.avatar || null,
                         stats: {
                             level: u.level || 1,
                             wins: u.wins || 0,
@@ -788,17 +802,11 @@
                         }
 
                         // 3. Authenticate
-                        setWallet(pubKey);
+                        const pKeyStr = pubKey.toString();
+                        setWallet(pKeyStr);
 
-                        // Register with Server for Leaderboard
-                        if (socket) {
-                            socket.emit('register_user', pubKey);
-                            // Refresh leaderboard after registration
-                            setTimeout(() => fetchLeaderboard(), 500);
-                        }
-
-                        // Load Profile Logic
-                        const existing = localStorage.getItem('bg_profile_' + pubKey);
+                        // Load / Init Profile
+                        const existing = localStorage.getItem('bg_profile_' + pKeyStr);
                         let profileData;
                         if (existing) {
                             try {
@@ -810,18 +818,29 @@
                             profileData = { name: '', avatar: null, stats: { level: 1, wins: 0, losses: 0, xp: 0 } };
                         }
 
-                        // Check for active game on wallet connect
-                        if (socket && gameStatus === 'menu') {
-                            socket.emit('check_active_game', wallet);
-                        }
-
-                        // Check for Seeker .skr Name or typical wallet name
+                        // Check for Seeker .skr / specific wallet names
                         const candidateName = resp.name || resp.label || resp.domain || resp.id;
                         if (candidateName && typeof candidateName === 'string' && candidateName.endsWith('.skr')) {
                             profileData.name = candidateName;
                         }
 
                         setUserProfile(profileData);
+
+                        // Register with Server (Sync Profile)
+                        if (socket) {
+                            socket.emit('register_user', {
+                                wallet: pKeyStr,
+                                name: profileData.name,
+                                avatar: profileData.avatar
+                            });
+                            // Refresh leaderboard after registration
+                            setTimeout(() => fetchLeaderboard(), 500);
+                        }
+
+                        // Check for active game
+                        if (socket && gameStatus === 'menu') {
+                            socket.emit('check_active_game', pKeyStr);
+                        }
 
                         // Fetch Real Balance (Devnet)
                         try {
