@@ -742,6 +742,7 @@
                         stats: {
                             level: u.level || 1,
                             wins: u.wins || 0,
+                            losses: u.losses || 0,
                             xp: u.xp || 0
                         }
                     }));
@@ -2290,7 +2291,9 @@
                                         {p.avatar ? <img src={p.avatar} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #5d4037', objectFit: 'cover' }} /> : <div className="dot" style={{ width: '40px', height: '40px', position: 'static', background: '#3e2723' }}></div>}
                                         <div>
                                             <div style={{ fontWeight: 'bold', color: '#e8e0d5' }}>{p.name || 'Unknown'}</div>
-                                            <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Lvl {p.stats?.level || 1} • {p.stats?.wins || 0} Wins</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#aaa' }}>
+                                                Lvl {p.stats?.level || 1} • <span style={{ color: '#81c784' }}>{p.stats?.wins || 0}W</span> / <span style={{ color: '#e57373' }}>{p.stats?.losses || 0}L</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>
