@@ -31,6 +31,12 @@
         const { useState, useEffect, useRef } = React;
 
         function App() {
+            // --- CONFIG ---
+            // Determine Server URL: Local vs Production
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+            // REPLACE THIS WITH YOUR DEPLOYED BACKEND URL
+            const SERVER_URL = isLocal ? 'http://localhost:3001' : 'https://backgammon-usxq.onrender.com';
+
             // --- STATE ---
             const [wallet, setWallet] = useState(null);
             const [balance, setBalance] = useState(0);
@@ -99,11 +105,6 @@
 
             // --- SOCKET INIT ---
             useEffect(() => {
-                // Determine Server URL: Local vs Production
-                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
-                // For Vercel deployment, you will replace the second string with your Render/Railway backend URL.
-                const SERVER_URL = isLocal ? 'http://localhost:3001' : 'https://backgammon-usxq.onrender.com';
-
                 const newSocket = io(SERVER_URL);
                 setSocket(newSocket);
 
