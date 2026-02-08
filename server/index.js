@@ -221,6 +221,12 @@ io.on('connection', (socket) => {
     socket.on('game_event', ({ roomId, type, payload }) => {
         // Simple Relay: If User A sends 'roll', send 'opponent_roll' to User B
         socket.to(roomId).emit('game_update', { type, payload });
+
+        // CLEANUP GAME ON END
+        if (type === 'resign') {
+            console.log(`[SERVER] Game ${roomId} ended via resignation. Deleting game.`);
+            delete games[roomId];
+        }
     });
 
     // 3. State Sync Request
