@@ -15,8 +15,10 @@ db.defaults({ users: [] }).write();
 
 // Helper to get or create user
 const getUser = (wallet) => {
+    // Force Read from disk to be sure? No, lowdb is sync.
     const user = db.get('users').find({ wallet }).value();
     if (!user) {
+        console.log(`[SERVER] Creating new user for ${wallet}`);
         const newUser = { wallet, wins: 0, losses: 0, xp: 0, level: 1, name: '' };
         db.get('users').push(newUser).write();
         return newUser;
@@ -44,13 +46,14 @@ const updateStats = (wallet, result) => {
 
 // API: Get Leaderboard
 app.get('/leaderboard', (req, res) => {
-    // Get top 100 users sorted by XP (desc)
-    // Filter out Guests (though DB shouldn't have them)
-    // Filter out invalid wallets if any
-    const users = db.get('users').value()
+    const rawUsers = db.get('users').value();
+    console.log(`[SERVER] Leaderboard request. Total users in DB: ${rawUsers.length}`);
+
+    const users = rawUsers
         .filter(u => u.wallet && !u.wallet.startsWith('Guest'))
         .sort((a, b) => b.xp - a.xp)
         .slice(0, 100);
+
     res.json(users);
 });
 
