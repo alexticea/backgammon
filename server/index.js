@@ -388,10 +388,27 @@ io.on('connection', (socket) => {
         const avatar = (typeof data === 'object') ? data.avatar : null;
 
         if (wallet && !wallet.startsWith('Guest')) {
-            await getUser(wallet); // Ensure exists
+            const user = await getUser(wallet); // Ensure exists
+
+            // Update Profile if provided
             if (name || avatar) {
                 await updateUserProfile(wallet, name, avatar);
+                if (name && name.trim() !== '') user.name = name;
+                if (avatar && avatar.trim() !== '') user.avatar = avatar;
             }
+
+            // Emit back authoritative stats from DB
+            socket.emit('user_profile_update', {
+                name: user.name,
+                avatar: user.avatar,
+                stats: {
+                    wins: user.wins || 0,
+                    losses: user.losses || 0,
+                    xp: user.xp || 0,
+                    level: user.level || 1
+                }
+            });
+            console.log(`[SERVER] Sent user_profile_update to ${socket.id} (${wallet})`);
         }
     });
 
