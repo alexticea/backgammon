@@ -397,6 +397,14 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 8. State Sync Relay (for reconnection)
+    socket.on('sync_state', ({ roomId, state }) => {
+        if (roomId && state) {
+            socket.to(roomId).emit('sync_state_received', state);
+            console.log(`[SERVER] Relayed sync_state for room ${roomId} from ${socket.id}`);
+        }
+    });
+
     // 7. Single Player Stats
     socket.on('update_single_player_stats', ({ wallet, result }) => {
         console.log(`[SERVER] Single Player Update: ${wallet} (${result})`);

@@ -280,6 +280,17 @@
                     }
                 });
 
+                newSocket.on('sync_state_received', (state) => {
+                    log("Game State Synced!");
+                    setBoard(state.board);
+                    setBar(state.bar);
+                    setOff(state.off);
+                    setDice(state.dice);
+                    setTurn(state.turn);
+                    // Also clear any loading/waiting overlays if stuck
+                    setOpponentDisconnected(false);
+                });
+
                 newSocket.on('rejoin_success', ({ roomId, color, players }) => {
                     log("Rejoined match! Waiting for sync...");
                     const myColor = color === 'white' ? PLAYER_HUMAN : PLAYER_AI;
@@ -293,7 +304,7 @@
                     // Re-resolve opp name
                     if (players) {
                         const pIds = Object.keys(players);
-                        const oppId = pIds.find(id => players[id].wallet !== wallet); // Simple check: not me
+                        const oppId = pIds.find(id => players[id].wallet !== walletRef.current); // Use ref for current wallet
                         if (oppId) {
                             const oppName = players[oppId]?.name || "Opponent";
                             setOpponentName(oppName);
@@ -303,7 +314,28 @@
                     }
                 });
 
-                return () => newSocket.close();
+                // Handle Mobile Background/Foreground
+                const handleVisibilityChange = () => {
+                    if (document.visibilityState === 'visible') {
+                        console.log("App returned to foreground.");
+                        if (!newSocket.connected) {
+                            console.log("Socket disconnected. Reconnecting...");
+                            newSocket.connect();
+                        } else {
+                            // If connected, force check active game to ensure state is fresh
+                            // But throttle this? No, manual check is safer.
+                            if (walletRef.current) {
+                                newSocket.emit('check_active_game', walletRef.current);
+                            }
+                        }
+                    }
+                };
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+
+                return () => {
+                    newSocket.close();
+                    document.removeEventListener('visibilitychange', handleVisibilityChange);
+                };
             }, []);
 
             // Ref to access state inside socket listeners (which close over initial state)
