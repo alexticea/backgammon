@@ -514,7 +514,7 @@
             };
 
             // --- PROFILE LOGIC ---
-            const [userProfile, setUserProfile] = useState({ name: '', avatar: null });
+            const [userProfile, setUserProfile] = useState({ name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
             const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
             const [isWalletSelectorOpen, setIsWalletSelectorOpen] = useState(false); // Mobile Wallet Selector
 
@@ -782,10 +782,11 @@
             const [isSearching, setIsSearching] = useState(false);
             const [selectedStake, setSelectedStake] = useState(null); // null = free, number = SOL
             const [isConditionsOpen, setIsConditionsOpen] = useState(false);
+            const [showGuestPopup, setShowGuestPopup] = useState(false);
 
             const handleSearchMatch = (stake) => {
                 if (!wallet || wallet.startsWith('Guest')) {
-                    alert("You must connect a real wallet to play Multiplayer!");
+                    setShowGuestPopup(true);
                     return;
                 }
                 setSelectedStake(stake);
