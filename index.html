@@ -2019,13 +2019,14 @@
                                     {wallet.startsWith('Guest') ? (
                                         <div className="wallet-badge">Guest Mode</div>
                                     ) : (
-                                        <div className="wallet-badge" onClick={() => setIsProfileModalOpen(true)} style={{ cursor: 'pointer' }} title="Edit Profile">
-                                            <span>
+                                        <div className="wallet-badge" onClick={() => setIsProfileModalOpen(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }} title="Edit Profile">
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
                                                 {userProfile.avatar && (
-                                                    <img src={userProfile.avatar} style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px', verticalAlign: 'middle' }} />
+                                                    <img src={userProfile.avatar} style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px' }} />
                                                 )}
-                                                {userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`}
-                                            </span>
+                                                <span>{userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`}</span>
+                                                <span style={{ fontSize: '0.8rem', marginLeft: '5px', opacity: 0.7 }}>✏️</span>
+                                            </div>
                                             <span style={{ opacity: 0.6 }}>|</span>
                                             <span>{balance} SOL</span>
                                         </div>
