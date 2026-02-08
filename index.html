@@ -202,7 +202,7 @@
 
                             setRolling(false);
                             setTurn('human');
-                            log("Match Found! Roll for the first turn.");
+                            log(`Match Found against ${oppName}! Good luck!`);
                         } else {
                             alert(`Insufficient Escrow Balance! You need ${stake} SOL. Please deposit.`);
                             setGameStatus('multiplayer_menu');
@@ -236,7 +236,7 @@
 
                         setRolling(false);
                         setTurn('human');
-                        log("Match Found! Roll for the first turn.");
+                        log(`Match Found against ${oppName}! Have fun!`);
                     }
 
                 });
