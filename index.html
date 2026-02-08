@@ -716,28 +716,28 @@
             // --- LEADERBOARD LOGIC ---
             const [leaderboardData, setLeaderboardData] = useState([]);
 
-            useEffect(() => {
-                const fetchLeaderboard = async () => {
-                    try {
-                        const res = await fetch(`${SERVER_URL}/leaderboard`);
-                        const data = await res.json();
-                        // Format for UI
-                        const formatted = data.map(u => ({
-                            name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
-                            avatar: null,
-                            stats: {
-                                level: u.level || 1,
-                                wins: u.wins || 0,
-                                xp: u.xp || 0
-                            }
-                        }));
-                        setLeaderboardData(formatted);
-                    } catch (e) {
-                        console.error("Failed to fetch leaderboard:", e);
-                        setLeaderboardData([]); // Empty if fail
-                    }
-                };
+            const fetchLeaderboard = async () => {
+                try {
+                    const res = await fetch(`${SERVER_URL}/leaderboard`);
+                    const data = await res.json();
+                    // Format for UI
+                    const formatted = data.map(u => ({
+                        name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
+                        avatar: null,
+                        stats: {
+                            level: u.level || 1,
+                            wins: u.wins || 0,
+                            xp: u.xp || 0
+                        }
+                    }));
+                    setLeaderboardData(formatted);
+                } catch (e) {
+                    console.error("Failed to fetch leaderboard:", e);
+                    setLeaderboardData([]); // Empty if fail
+                }
+            };
 
+            useEffect(() => {
                 fetchLeaderboard();
                 const interval = setInterval(fetchLeaderboard, 10000); // 10s refresh
                 return () => clearInterval(interval);
@@ -792,6 +792,8 @@
                         // Register with Server for Leaderboard
                         if (socket) {
                             socket.emit('register_user', pubKey);
+                            // Refresh leaderboard after registration
+                            setTimeout(() => fetchLeaderboard(), 500);
                         }
 
                         // Load Profile Logic
