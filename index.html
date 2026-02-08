@@ -2213,10 +2213,10 @@
 
 
             if (gameStatus === 'leaderboard') {
-                const leaderboard = getLeaderboard();
+                const leaderboard = leaderboardData;
                 return (
                     <div className="landing-page">
-                        <h2 className="landing-title" style={{ fontSize: '2.5rem', marginBottom: '20px' }}>Top 20 Players</h2>
+                        <h2 className="landing-title" style={{ fontSize: '2.5rem', marginBottom: '20px' }}>Top 100 Players</h2>
                         <div style={{
                             background: 'rgba(44, 36, 27, 0.95)',
                             padding: '20px',
@@ -2228,6 +2228,12 @@
                             marginBottom: '20px',
                             border: '1px solid #5d4037'
                         }}>
+                            {leaderboard.length === 0 && (
+                                <div style={{ color: '#fff', textAlign: 'center', padding: '20px' }}>
+                                    No players found yet. Be the first! <br />
+                                    (Connect your wallet to appear)
+                                </div>
+                            )}
                             {leaderboard.map((p, i) => (
                                 <div key={i} style={{
                                     display: 'flex',
