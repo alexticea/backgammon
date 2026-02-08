@@ -2275,11 +2275,11 @@
                                                     <span style={{ fontWeight: 'bold' }}>{userProfile.name || `${wallet.slice(0, 4)}...`}</span>
                                                     <span style={{ fontSize: '0.8rem', marginLeft: '5px', opacity: 0.7 }}>✏️</span>
                                                 </div>
-                                                <span style={{ color: '#ffd700', fontSize: '0.9rem' }}>Lvl {userProfile.stats.level}</span>
+                                                <span style={{ fontWeight: 'bold' }}>{balance} SOL</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '0.85rem', opacity: 0.9, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px' }}>
-                                                <span>Stats: <span style={{ color: '#66bb6a' }}>{userProfile.stats.wins}W</span> - <span style={{ color: '#ef5350' }}>{userProfile.stats.losses}L</span></span>
-                                                <span style={{ fontWeight: 'bold' }}>{balance} SOL</span>
+                                                <span style={{ color: '#ffd700' }}>Lvl {userProfile.stats.level}</span>
+                                                <span><span style={{ color: '#66bb6a' }}>{userProfile.stats.wins}W</span> - <span style={{ color: '#ef5350' }}>{userProfile.stats.losses}L</span></span>
                                             </div>
                                         </div>
                                     )}
