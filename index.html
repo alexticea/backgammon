@@ -2338,43 +2338,85 @@
                                 </div>
 
                                 {/* STAKE PLAY */}
-                                <div className="card" style={{
-                                    textAlign: 'center',
-                                    width: '90%',
-                                    maxWidth: '400px',
-                                    border: '2px solid gold',
-                                    background: 'rgba(62, 39, 35, 0.95)',
-                                    padding: '20px',
-                                    boxSizing: 'border-box'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
-                                        <div style={{ fontSize: '2rem' }}>💰</div>
-                                        <h3 style={{ margin: 0 }}>Ranked / Stake</h3>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                        {[0.01, 0.02, 0.03, 0.04].map(amt => (
-                                            <button key={amt} className="btn-secondary" style={{ background: '#3e2723', border: '1px solid gold', padding: '10px' }} onClick={() => handleSearchMatch(amt)}>
-                                                {amt} SOL
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* ESCROW CONTROLS - Simplified */}
-                                    <div style={{ marginTop: '15px', paddingTop: '10px', borderTop: '1px solid #4e342e' }}>
-                                        <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span>Escrow: <span style={{ color: '#fff', fontWeight: 'bold' }}>{escrowBalance} SOL</span></span>
+                                {/* STAKE PLAY - LOCKED / UNLOCKED */}
+                                {userProfile.stats.level < 5 ? (
+                                    <div className="card" style={{
+                                        textAlign: 'center',
+                                        width: '90%',
+                                        maxWidth: '400px',
+                                        border: '2px solid #555',
+                                        background: 'rgba(30, 30, 30, 0.95)',
+                                        padding: '20px',
+                                        boxSizing: 'border-box',
+                                        position: 'relative',
+                                        opacity: 0.8,
+                                        cursor: 'not-allowed'
+                                    }}>
+                                        <div style={{ filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
+                                                <div style={{ fontSize: '2rem', filter: 'grayscale(100%)' }}>💰</div>
+                                                <h3 style={{ margin: 0, color: '#aaa' }}>Ranked / Stake</h3>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                {[0.01, 0.02].map(amt => (
+                                                    <button key={amt} className="btn-secondary" disabled style={{ background: '#333', border: '1px solid #555', color: '#777' }}>
+                                                        {amt} SOL
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                            <button className="btn-secondary" style={{ flex: 1, fontSize: '0.8rem', padding: '8px', background: '#2e7d32' }} onClick={handleEscrowDeposit}>
-                                                + Deposit
-                                            </button>
-                                            <button className="btn-secondary" style={{ flex: 1, fontSize: '0.8rem', padding: '8px', background: '#c62828' }} onClick={handleEscrowWithdraw}>
-                                                - Withdraw
-                                            </button>
+
+                                        <div style={{
+                                            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                                            width: '100%', textAlign: 'center', color: '#fff', textShadow: '0 2px 4px #000',
+                                            padding: '10px',
+                                            background: 'rgba(0,0,0,0.6)',
+                                            borderRadius: '10px'
+                                        }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '5px' }}>🔒</div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#ff5252', marginBottom: '5px' }}>LOCKED</div>
+                                            <div style={{ fontSize: '0.9rem', color: '#ddd' }}>Reach <span style={{ color: '#ffd700' }}>Level 5</span> to Unlock</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '5px' }}>Current: Lvl {userProfile.stats.level}</div>
                                         </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="card" style={{
+                                        textAlign: 'center',
+                                        width: '90%',
+                                        maxWidth: '400px',
+                                        border: '2px solid gold',
+                                        background: 'rgba(62, 39, 35, 0.95)',
+                                        padding: '20px',
+                                        boxSizing: 'border-box'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
+                                            <div style={{ fontSize: '2rem' }}>💰</div>
+                                            <h3 style={{ margin: 0 }}>Ranked / Stake</h3>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                            {[0.01, 0.02, 0.03, 0.04].map(amt => (
+                                                <button key={amt} className="btn-secondary" style={{ background: '#3e2723', border: '1px solid gold', padding: '10px' }} onClick={() => handleSearchMatch(amt)}>
+                                                    {amt} SOL
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div style={{ marginTop: '15px', paddingTop: '10px', borderTop: '1px solid #4e342e' }}>
+                                            <div style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span>Escrow: <span style={{ color: '#fff', fontWeight: 'bold' }}>{escrowBalance} SOL</span></span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                                <button className="btn-secondary" style={{ flex: 1, fontSize: '0.8rem', padding: '8px', background: '#2e7d32' }} onClick={handleEscrowDeposit}>
+                                                    + Deposit
+                                                </button>
+                                                <button className="btn-secondary" style={{ flex: 1, fontSize: '0.8rem', padding: '8px', background: '#c62828' }} onClick={handleEscrowWithdraw}>
+                                                    - Withdraw
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <button className="btn-primary" style={{ marginTop: '5px', background: '#3e2723', width: '90%', maxWidth: '400px', padding: '15px' }} onClick={() => setGameStatus('menu')}>Back to Main Menu</button>
                             </div>
