@@ -1986,8 +1986,11 @@
                                     {wallet.startsWith('Guest') ? (
                                         <div className="wallet-badge">Guest Mode</div>
                                     ) : (
-                                        <div className="wallet-badge">
+                                        <div className="wallet-badge" onClick={() => setIsProfileModalOpen(true)} style={{ cursor: 'pointer' }} title="Edit Profile">
                                             <span>
+                                                {userProfile.avatar && (
+                                                    <img src={userProfile.avatar} style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px', verticalAlign: 'middle' }} />
+                                                )}
                                                 {userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`}
                                             </span>
                                             <span style={{ opacity: 0.6 }}>|</span>
