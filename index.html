@@ -490,6 +490,8 @@
                 } else if (type === 'end_turn') {
                     log("Opponent finished turn.");
                     setTurn('human');
+                    setDice([]); // Clear any opponent dice
+                    setVisualDice([]);
                     setCanRoll(true);
                 } else if (type === 'resign') {
                     setGameStatus('gameover');
@@ -2146,38 +2148,7 @@
                         )}
 
                         {/* CONDITIONS MODAL */}
-                        {isConditionsOpen && (
-                            <div className="modal-overlay">
-                                <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🏆</div>
-                                    <h3 style={{ margin: '0 0 15px' }}>Level 5 Requirements</h3>
 
-                                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '1.1rem' }}>
-                                            <span>Target XP:</span>
-                                            <span style={{ color: '#ffd700', fontWeight: 'bold' }}>400 XP</span>
-                                        </div>
-                                        <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '10px 0' }} />
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                            <span>Reward per Win:</span>
-                                            <span style={{ color: '#66bb6a', fontWeight: 'bold' }}>+20 XP</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>Reward per Loss:</span>
-                                            <span style={{ color: '#ef5350', fontWeight: 'bold' }}>+5 XP</span>
-                                        </div>
-                                    </div>
-
-                                    <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '20px' }}>
-                                        Keep playing "Free Play" matches to earn XP. Even losses help you progress!
-                                    </p>
-
-                                    <button className="btn-primary" onClick={() => setIsConditionsOpen(false)}>
-                                        Got it!
-                                    </button>
-                                </div>
-                            </div>
-                        )}
 
                         {/* WALLET SELECTOR MODAL (Mobile) */}
                         {isWalletSelectorOpen && (
@@ -2465,6 +2436,38 @@
                                 )}
 
                                 <button className="btn-primary" style={{ marginTop: '5px', background: '#3e2723', width: '90%', maxWidth: '400px', padding: '15px' }} onClick={() => setGameStatus('menu')}>Back to Main Menu</button>
+                            </div>
+                        )}
+                        {isConditionsOpen && (
+                            <div className="modal-overlay">
+                                <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🏆</div>
+                                    <h3 style={{ margin: '0 0 15px' }}>Level 5 Requirements</h3>
+
+                                    <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '15px', marginBottom: '20px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '1.1rem' }}>
+                                            <span>Target XP:</span>
+                                            <span style={{ color: '#ffd700', fontWeight: 'bold' }}>400 XP</span>
+                                        </div>
+                                        <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '10px 0' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                            <span>Reward per Win:</span>
+                                            <span style={{ color: '#66bb6a', fontWeight: 'bold' }}>+20 XP</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Reward per Loss:</span>
+                                            <span style={{ color: '#ef5350', fontWeight: 'bold' }}>+5 XP</span>
+                                        </div>
+                                    </div>
+
+                                    <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '20px' }}>
+                                        Keep playing "Free Play" matches to earn XP. Even losses help you progress!
+                                    </p>
+
+                                    <button className="btn-primary" onClick={() => setIsConditionsOpen(false)}>
+                                        Got it!
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
