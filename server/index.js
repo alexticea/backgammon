@@ -236,6 +236,10 @@ io.on('connection', (socket) => {
             }
             if (found) break;
         }
+
+        if (!found) {
+            socket.emit('active_game_not_found');
+        }
     });
 
     // 1. MATCHMAKING
@@ -437,8 +441,25 @@ io.on('connection', (socket) => {
 
                     disconnectTimers[wallet] = {
                         roomId,
-                        timeout: setTimeout(() => {
+                        timeout: setTimeout(async () => {
                             if (games[roomId]) {
+                                const game = games[roomId];
+                                // Identify Winner (The one who stayed)
+                                const winnerSocketId = game.players.find(pid => {
+                                    return game.playerData[pid] && game.playerData[pid].wallet !== wallet;
+                                });
+
+                                if (winnerSocketId) {
+                                    const wData = game.playerData[winnerSocketId];
+                                    if (wData && wData.wallet && !wData.wallet.startsWith('Guest')) {
+                                        await updateStats(wData.wallet, 'win');
+                                    }
+                                }
+                                // Update Loser (The one who disconnected)
+                                if (wallet && !wallet.startsWith('Guest')) {
+                                    await updateStats(wallet, 'loss');
+                                }
+
                                 io.to(roomId).emit('game_update', { type: 'opponent_disconnected', payload: {} });
                                 delete games[roomId];
                             }
