@@ -371,6 +371,22 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 6. User Registration (for Leaderboard visibility)
+    socket.on('register_user', (wallet) => {
+        if (wallet && !wallet.startsWith('Guest')) {
+            getUser(wallet); // Ensures user exists in DB
+            console.log(`[SERVER] Registered user: ${wallet}`);
+        }
+    });
+
+    // 7. Single Player Stats
+    socket.on('update_single_player_stats', ({ wallet, result }) => {
+        console.log(`[SERVER] Single Player Update: ${wallet} (${result})`);
+        if (wallet && !wallet.startsWith('Guest')) {
+            updateStats(wallet, result);
+        }
+    });
+
     // 4. Disconnect
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);

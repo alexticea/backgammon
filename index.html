@@ -772,6 +772,11 @@
                         // 3. Authenticate
                         setWallet(pubKey);
 
+                        // Register with Server for Leaderboard
+                        if (socket) {
+                            socket.emit('register_user', pubKey);
+                        }
+
                         // Load Profile Logic
                         const existing = localStorage.getItem('bg_profile_' + pubKey);
                         let profileData;
@@ -1872,6 +1877,9 @@
                     // Notify Server of Win (for rankings)
                     if (gameMode === 'multi' && socket) {
                         socket.emit('finish_game', { roomId, result: 'win' });
+                    } else if (gameMode === 'single' && socket && wallet && !wallet.startsWith('Guest')) {
+                        // Allow Single Player progress if Wallet connected
+                        socket.emit('update_single_player_stats', { wallet, result: 'win' });
                     }
 
                     // Payout Logic
