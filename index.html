@@ -695,37 +695,36 @@
             };
 
             // --- LEADERBOARD ---
-            const getLeaderboard = () => {
-                const players = [];
-                // 1. Local Profiles
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key.startsWith('bg_profile_')) {
-                        try {
-                            const p = JSON.parse(localStorage.getItem(key));
-                            if (p.stats) players.push(p);
-                        } catch (e) { }
+
+            // --- LEADERBOARD LOGIC ---
+            const [leaderboardData, setLeaderboardData] = useState([]);
+
+            useEffect(() => {
+                const fetchLeaderboard = async () => {
+                    try {
+                        const res = await fetch(`${SERVER_URL}/leaderboard`);
+                        const data = await res.json();
+                        // Format for UI
+                        const formatted = data.map(u => ({
+                            name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
+                            avatar: null,
+                            stats: {
+                                level: u.level || 1,
+                                wins: u.wins || 0,
+                                xp: u.xp || 0
+                            }
+                        }));
+                        setLeaderboardData(formatted);
+                    } catch (e) {
+                        console.error("Failed to fetch leaderboard:", e);
+                        setLeaderboardData([]); // Empty if fail
                     }
-                }
-                // 2. Mock Global Players (to fill Top 20)
-                const mockPlayers = [
-                    { name: 'SolanaKing', stats: { level: 50, wins: 402, xp: 25000 }, avatar: null },
-                    { name: 'BackgammonPro', stats: { level: 42, wins: 310, xp: 21000 }, avatar: null },
-                    { name: 'CryptoWhale', stats: { level: 35, wins: 205, xp: 17500 }, avatar: null },
-                    { name: 'LuckyDice', stats: { level: 28, wins: 150, xp: 14000 }, avatar: null },
-                    { name: 'DevNet_User', stats: { level: 10, wins: 45, xp: 5000 }, avatar: null },
-                    { name: 'BearMarket', stats: { level: 8, wins: 33, xp: 4000 }, avatar: null },
-                    { name: 'BullRun', stats: { level: 5, wins: 20, xp: 2500 }, avatar: null },
-                    { name: 'HODLer', stats: { level: 15, wins: 60, xp: 7500 }, avatar: null },
-                ];
+                };
 
-                // Merge and Sort
-                const all = [...players, ...mockPlayers];
-                // Deduplicate by name (simple check)
-                const unique = Array.from(new Map(all.map(item => [item.name, item])).values());
-
-                return unique.sort((a, b) => (b.stats.level || 0) - (a.stats.level || 0)).slice(0, 20);
-            };
+                fetchLeaderboard();
+                const interval = setInterval(fetchLeaderboard, 10000); // 10s refresh
+                return () => clearInterval(interval);
+            }, []);
 
             // --- WALLET ---
             const connectWallet = async () => {

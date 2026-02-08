@@ -42,6 +42,18 @@ const updateStats = (wallet, result) => {
     }
 };
 
+// API: Get Leaderboard
+app.get('/leaderboard', (req, res) => {
+    // Get top 100 users sorted by XP (desc)
+    // Filter out Guests (though DB shouldn't have them)
+    // Filter out invalid wallets if any
+    const users = db.get('users').value()
+        .filter(u => u.wallet && !u.wallet.startsWith('Guest'))
+        .sort((a, b) => b.xp - a.xp)
+        .slice(0, 100);
+    res.json(users);
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
