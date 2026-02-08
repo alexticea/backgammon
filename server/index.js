@@ -6,6 +6,42 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 
+// --- DATABASE SETUP ---
+const low = require('lowdb');
+const FileSync = require('lowdb/adapters/FileSync');
+const adapter = new FileSync('db.json');
+const db = low(adapter);
+db.defaults({ users: [] }).write();
+
+// Helper to get or create user
+const getUser = (wallet) => {
+    const user = db.get('users').find({ wallet }).value();
+    if (!user) {
+        const newUser = { wallet, wins: 0, losses: 0, xp: 0, level: 1, name: '' };
+        db.get('users').push(newUser).write();
+        return newUser;
+    }
+    return user;
+};
+
+// Helper to update stats
+const updateStats = (wallet, result) => {
+    // result = 'win' or 'loss'
+    const user = db.get('users').find({ wallet });
+    if (user.value()) {
+        if (result === 'win') {
+            user.assign({ wins: user.value().wins + 1, xp: user.value().xp + 20 }).write();
+        } else {
+            user.assign({ losses: user.value().losses + 1, xp: user.value().xp + 5 }).write();
+        }
+        // Level up logic (simple: level = floor(xp / 100) + 1)
+        const newLevel = Math.floor(user.value().xp / 100) + 1;
+        if (newLevel > user.value().level) {
+            user.assign({ level: newLevel }).write();
+        }
+    }
+};
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -88,14 +124,33 @@ io.on('connection', (socket) => {
     });
 
     // 1. Matchmaking
-    socket.on('find_match', (userData) => {
-        // userData = { name, wallet }
-        console.log(`[SERVER] find_match received for socket ${socket.id}`, userData);
+    socket.on('find_match', (clientUserData) => {
+        // clientUserData = { name, wallet, ... }
+        console.log(`[SERVER] find_match received for socket ${clientUserData.name}`, clientUserData.wallet);
+
+        let user;
+        if (clientUserData.wallet && !clientUserData.wallet.startsWith('Guest')) {
+            user = getUser(clientUserData.wallet);
+            // Update name if changed
+            if (clientUserData.name && clientUserData.name !== user.name) {
+                db.get('users').find({ wallet: clientUserData.wallet }).assign({ name: clientUserData.name }).write();
+                user.name = clientUserData.name;
+            }
+        } else {
+            // Guest User (No DB persistence)
+            user = { ...clientUserData, wins: 0, losses: 0, level: 1 };
+        }
+
+        const userData = {
+            ...clientUserData,
+            // Override stats with DB values
+            level: user.level,
+            stats: { wins: user.wins || 0, losses: user.losses || 0, xp: user.xp || 0 }
+        };
 
         // RECONNECTION LOGIC
         let existingGameId = null;
         let existingGame = null;
-
         if (userData.wallet) {
             for (const [rid, game] of Object.entries(games)) {
                 const pIds = Object.keys(game.playerData);
@@ -224,7 +279,23 @@ io.on('connection', (socket) => {
 
         // CLEANUP GAME ON END
         if (type === 'resign') {
-            console.log(`[SERVER] Game ${roomId} ended via resignation. Deleting game.`);
+            console.log(`[SERVER] Game ${roomId} ended via resignation. Updating stats.`);
+
+            const game = games[roomId];
+            if (game) {
+                const loserSocketId = socket.id;
+                const winnerSocketId = game.players.find(pid => pid !== loserSocketId);
+
+                if (game.playerData && game.playerData[loserSocketId] && game.playerData[winnerSocketId]) {
+                    const lWallet = game.playerData[loserSocketId].wallet;
+                    const wWallet = game.playerData[winnerSocketId].wallet;
+
+                    if (lWallet && !lWallet.startsWith('Guest')) updateStats(lWallet, 'loss');
+                    if (wWallet && !wWallet.startsWith('Guest')) updateStats(wWallet, 'win');
+
+                    console.log(`[SERVER] Stats updated (Resign): ${wWallet} (W) vs ${lWallet} (L)`);
+                }
+            }
             delete games[roomId];
         }
     });
@@ -254,6 +325,38 @@ io.on('connection', (socket) => {
             const mockSignature = "5KiW...WithdrawSig..." + Date.now();
             socket.emit('withdraw_success', { amount, signature: mockSignature });
         }, 1000);
+    });
+
+    // 5. Game Over / Result Handler
+    socket.on('finish_game', ({ roomId, result }) => {
+        // result = 'win' (sender claims win)
+        console.log(`[SERVER] Game FINISH claimed: ${result} by ${socket.id} in ${roomId}`);
+
+        const game = games[roomId];
+        if (game) {
+            // Identify Winner and Loser
+            const winnerSocketId = socket.id;
+            const loserSocketId = game.players.find(pid => pid !== winnerSocketId);
+
+            if (winnerSocketId && loserSocketId && game.playerData) {
+                const wData = game.playerData[winnerSocketId];
+                const lData = game.playerData[loserSocketId];
+
+                if (wData && lData) {
+                    const winnerWallet = wData.wallet;
+                    const loserWallet = lData.wallet;
+
+                    // Update DB Stats
+                    if (winnerWallet && !winnerWallet.startsWith('Guest')) updateStats(winnerWallet, 'win');
+                    if (loserWallet && !loserWallet.startsWith('Guest')) updateStats(loserWallet, 'loss');
+
+                    console.log(`[SERVER] Stats updated: ${winnerWallet} (W) vs ${loserWallet} (L)`);
+                }
+            }
+
+            // Delete Game immediately to prevent rejoin loop
+            delete games[roomId];
+        }
     });
 
     // 4. Disconnect

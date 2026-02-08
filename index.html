@@ -1870,6 +1870,11 @@
                     playDiceSound();
                     updateStats('win');
 
+                    // Notify Server of Win (for rankings)
+                    if (gameMode === 'multi' && socket) {
+                        socket.emit('finish_game', { roomId, result: 'win' });
+                    }
+
                     // Payout Logic
                     const stake = selectedStakeRef.current;
                     if (stake > 0) {
