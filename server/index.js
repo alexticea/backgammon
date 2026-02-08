@@ -16,10 +16,20 @@ let db;   // LowDB Instance
 // Check for MongoDB
 if (process.env.MONGO_URI) {
     dbType = 'mongo';
-    console.log('[SERVER] MONGO_URI found. Connecting to MongoDB...');
-    mongoose.connect(process.env.MONGO_URI)
+    // Mask password for safety in logs
+    const uriMasked = process.env.MONGO_URI.replace(/:([^:@]+)@/, ':****@');
+    console.log(`[SERVER] MONGO_URI found: ${uriMasked}`);
+    console.log('[SERVER] Connecting to MongoDB...');
+
+    mongoose.connect(process.env.MONGO_URI, {
+        serverSelectionTimeoutMS: 5000 // Fail fast if network is blocked
+    })
         .then(() => console.log('[SERVER] Connected to MongoDB'))
-        .catch(err => console.error('[SERVER] MongoDB Connection Error:', err));
+        .catch(err => {
+            console.error('[SERVER] MongoDB Connection Error:', err.message);
+            console.error('[SERVER] CHECK: 1. Network Access in Atlas (0.0.0.0/0)');
+            console.error('[SERVER] CHECK: 2. Database User Password');
+        });
 
     const userSchema = new mongoose.Schema({
         wallet: { type: String, required: true, unique: true },
