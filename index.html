@@ -285,9 +285,34 @@
                     setBoard(state.board);
                     setBar(state.bar);
                     setOff(state.off);
-                    setDice(state.dice);
-                    setTurn(state.turn);
-                    // Also clear any loading/waiting overlays if stuck
+
+                    // Turn Logic Inversion (Relative to Sender)
+                    // If sender says 'human', it means THEY are playing. So I am 'opponent'.
+                    const myTurnStr = state.turn === 'human' ? 'opponent' : 'human';
+                    setTurn(myTurnStr);
+
+                    if (myTurnStr === 'human') {
+                        if (state.dice && state.dice.length > 0) {
+                            setDice(state.dice);
+                            setVisualDice(state.dice.slice(0, 2)); // Visuals
+                            setCanRoll(false);
+                            log("Your Turn! Resume moving.");
+                        } else {
+                            setDice([]);
+                            setVisualDice([]);
+                            setCanRoll(true);
+                            log("Your Turn! Please Roll.");
+                        }
+                    } else {
+                        if (state.dice && state.dice.length > 0) {
+                            setVisualDice(state.dice.slice(0, 2));
+                            setDice([]);
+                        } else {
+                            setVisualDice([]);
+                            setDice([]);
+                        }
+                        log("Waiting for opponent...");
+                    }
                     setOpponentDisconnected(false);
                 });
 
