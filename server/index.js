@@ -118,8 +118,8 @@ const updateStats = async (wallet, result) => {
 const updateUserProfile = async (wallet, name, avatar) => {
     if (dbType === 'mongo') {
         const updates = {};
-        if (name && name.trim() !== '') updates.name = name;
-        if (avatar && avatar.trim() !== '') updates.avatar = avatar;
+        if (name !== undefined) updates.name = name;
+        if (avatar !== undefined) updates.avatar = avatar;
 
         if (Object.keys(updates).length > 0) {
             await User.updateOne({ wallet }, updates);
@@ -127,8 +127,8 @@ const updateUserProfile = async (wallet, name, avatar) => {
         }
     } else {
         const updates = {};
-        if (name && name.trim() !== '') updates.name = name;
-        if (avatar && avatar.trim() !== '') updates.avatar = avatar;
+        if (name !== undefined) updates.name = name;
+        if (avatar !== undefined) updates.avatar = avatar;
 
         if (Object.keys(updates).length > 0) {
             db.get('users').find({ wallet }).assign(updates).write();
@@ -388,17 +388,19 @@ io.on('connection', (socket) => {
     // 7. REGISTER / SYNC PROFILE
     socket.on('register_user', async (data) => {
         const wallet = (typeof data === 'string') ? data : data.wallet;
-        const name = (typeof data === 'object') ? data.name : null;
-        const avatar = (typeof data === 'object') ? data.avatar : null;
+
+        // Detect presence of fields to distinguish "not updating" vs "clearing"
+        const name = (typeof data === 'object' && 'name' in data) ? data.name : undefined;
+        const avatar = (typeof data === 'object' && 'avatar' in data) ? data.avatar : undefined;
 
         if (wallet && !wallet.startsWith('Guest')) {
             const user = await getUser(wallet); // Ensure exists
 
             // Update Profile if provided
-            if (name || avatar) {
+            if (name !== undefined || avatar !== undefined) {
                 await updateUserProfile(wallet, name, avatar);
-                if (name && name.trim() !== '') user.name = name;
-                if (avatar && avatar.trim() !== '') user.avatar = avatar;
+                if (name !== undefined) user.name = name;
+                if (avatar !== undefined) user.avatar = avatar;
             }
 
             // Emit back authoritative stats from DB

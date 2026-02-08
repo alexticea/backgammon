@@ -320,8 +320,8 @@
                     // log("Profile updated from server."); // Optional log
                     setUserProfile(prev => ({
                         ...prev,
-                        name: data.name || prev.name,
-                        avatar: data.avatar || prev.avatar,
+                        name: (data.name !== undefined) ? data.name : prev.name,
+                        avatar: (data.avatar !== undefined) ? data.avatar : prev.avatar,
                         stats: {
                             ...data.stats,
                             wins: data.stats.wins,
