@@ -2266,18 +2266,25 @@
                                     {wallet.startsWith('Guest') ? (
                                         <div className="wallet-badge">Guest Mode</div>
                                     ) : (
-                                        <div className="wallet-badge" onClick={() => setIsProfileModalOpen(true)} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '5px', padding: '8px 12px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                        <div className="wallet-badge" onClick={() => setIsProfileModalOpen(true)} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '5px', padding: '8px 12px', alignItems: 'flex-start' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                                     {userProfile.avatar && (
                                                         <img src={userProfile.avatar} style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px' }} />
                                                     )}
                                                     <span style={{ fontWeight: 'bold' }}>{userProfile.name || `${wallet.slice(0, 4)}...`}</span>
                                                 </div>
-                                                <span style={{ fontWeight: 'bold' }}>{balance} SOL</span>
+                                                <div style={{ marginLeft: '15px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                    <span>🔗</span>
+                                                    <span style={{ fontWeight: 'bold' }}>{balance} SOL</span>
+                                                </div>
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '0.85rem', opacity: 0.9, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px' }}>
-                                                <span><span style={{ color: '#66bb6a' }}>{userProfile.stats.wins}W</span> - <span style={{ color: '#ef5350' }}>{userProfile.stats.losses}L</span></span>
+                                            <div style={{ display: 'flex', alignItems: 'center', width: '100%', fontSize: '0.85rem', opacity: 0.9, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px' }}>
+                                                <span style={{ marginRight: '5px' }}>📊</span>
+                                                <span style={{ color: '#66bb6a' }}>{userProfile.stats.wins}W</span>
+                                                <span style={{ margin: '0 3px' }}>-</span>
+                                                <span style={{ color: '#ef5350' }}>{userProfile.stats.losses}L</span>
+                                                <span style={{ margin: '0 8px', opacity: 0.5 }}>|</span>
                                                 <span style={{ color: '#ffd700' }}>Lvl {userProfile.stats.level}</span>
                                             </div>
                                         </div>
