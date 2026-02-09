@@ -1881,26 +1881,7 @@
                 // The original code called handlePassTurn() immediately on 0 dice.
                 // We will replicate that.
                 if (newDice.length === 0) {
-                    // Check if handlePassTurn is available in scope? Yes.
-                    // It is defined below? JavaScript hoisting for const usually works if defined before.
-                    // Wait, handlePassTurn is defined at Line 2244? 
-                    // We are at Line 1770.
-                    // Function declarations hoist. 'const' does not.
-                    // handlePassTurn is `const handlePassTurn = ...`.
-                    // If it's defined LATER, we can't call it here synchronously.
-                    // BUT `handlePointClick` was calling it.
-                    // This means `handlePassTurn` MUST be defined BEFORE `handlePointClick` or hoisted via function/var.
-                    // If standard React component, functions are often defined before render or use `useCallback`.
-                    // Let's assume it works because existing code called it.
-                    // Wait, existing code called it at Line 1988.
-                    // We are moving logic to `executeMove` ABOVE `handlePointClick`.
-                    // If `handlePassTurn` is BELOW `handlePointClick`, we might have issues if we define `executeMove` above.
-                    // Solution: Define `executeMove` AFTER `handlePassTurn` or keep it inside `handlePointClick`?
-                    // If I define it inside `handlePointClick`, I can't reuse cleanly? No, I can define it as helper inside.
-                    // But I want to call it from two places.
-                    // Safest: Define `executeMove` right before `handlePointClick`, and rely on closure constraints.
-                    // If `handlePassTurn` is not available, we have a problem.
-                    // Let's check where `handlePassTurn` is.
+                    handlePassTurn();
                 }
             };
 
@@ -3067,89 +3048,96 @@
 
                     {/* CHAT REMOVED FROM HERE */}
                 </div>
+            </div>
 
-                {/* GAME OVER OVERLAY */}
-                {gameStatus === 'gameover' && (
-                    <div className="modal-overlay">
-                        <div className="modal-content" style={{ textAlign: 'center', border: gameResult === 'win' ? '2px solid gold' : '2px solid #d32f2f' }}>
-                            <div style={{ fontSize: '4rem', marginBottom: '20px' }}>
-                                {gameResult === 'win' ? '🏆' : '💀'}
+                {/* GAME OVER OVERLAY */ }
+        {
+            gameStatus === 'gameover' && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ textAlign: 'center', border: gameResult === 'win' ? '2px solid gold' : '2px solid #d32f2f' }}>
+                        <div style={{ fontSize: '4rem', marginBottom: '20px' }}>
+                            {gameResult === 'win' ? '🏆' : '💀'}
+                        </div>
+                        <h2 style={{ fontSize: '2.5rem', marginBottom: '10px', color: gameResult === 'win' ? 'gold' : '#ef9a9a' }}>
+                            {gameResult === 'win' ? 'YOU WON!' : 'YOU LOST'}
+                        </h2>
+                        <p style={{ color: '#aaa', marginBottom: '30px' }}>
+                            {gameResult === 'win' ? "Congratulations! Great game." : "Better luck next time."}
+                        </p>
+
+                        <button className="btn-primary" onClick={() => {
+                            setGameStatus('menu');
+                            // Reset visuals
+                            setGameResult(null);
+                            setDice([]);
+                            setVisualDice([]);
+                        }}>
+                            Back to Menu
+                        </button>
+                    </div>
+                </div>
+            )
+        }
+
+
+        {/* OPPONENT DISCONNECT WARNING */ }
+        {
+            opponentDisconnected && gameStatus !== 'gameover' && (
+                <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 2000 }}>
+                    <div className="card" style={{
+                        position: 'absolute', top: '25%', left: '50%', transform: 'translate(-50%, -50%)',
+                        border: '2px solid #ff9800', background: '#3e2723', padding: '30px', textAlign: 'center',
+                        boxShadow: '0 0 50px rgba(255, 152, 0, 0.4)', minWidth: '300px'
+                    }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⚠️</div>
+                        <h2 style={{ color: '#ffcc80' }}>Opponent Disconnected</h2>
+                        <p style={{ color: '#fff', margin: '15px 0', fontSize: '1.2rem' }}>Waiting for opponent to reconnect...</p>
+                        <div className="loader" style={{ margin: '20px auto', borderColor: '#ffcc80', borderTopColor: 'transparent' }}></div>
+                        <p style={{ fontSize: '0.9rem', color: '#ffecb3', marginTop: '15px', fontWeight: 'bold' }}>Auto-win in 15 seconds.</p>
+                    </div>
+                </div>
+            )
+        }
+
+        {/* SINGLE PLAYER RESIGN MODAL */ }
+        {
+            showResignModal && (
+                <div className="modal-overlay" style={{ zIndex: 3000 }}>
+                    <div className="modal-content" style={{ textAlign: 'center', border: '1px solid #8d6e63' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏳️</div>
+                        <h3 style={{ marginBottom: '10px' }}>Resign Game?</h3>
+                        <p style={{ color: '#bdbdbd', marginBottom: '20px', fontSize: '1rem' }}>
+                            Are you sure you want to return to the menu?
+                        </p>
+                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                                <span style={{ color: '#aaa' }}>•</span>
+                                <span>No Loss Recorded</span>
                             </div>
-                            <h2 style={{ fontSize: '2.5rem', marginBottom: '10px', color: gameResult === 'win' ? 'gold' : '#ef9a9a' }}>
-                                {gameResult === 'win' ? 'YOU WON!' : 'YOU LOST'}
-                            </h2>
-                            <p style={{ color: '#aaa', marginBottom: '30px' }}>
-                                {gameResult === 'win' ? "Congratulations! Great game." : "Better luck next time."}
-                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ color: '#aaa' }}>•</span>
+                                <span>No XP Changed</span>
+                            </div>
+                        </div>
 
-                            <button className="btn-primary" onClick={() => {
-                                setGameStatus('menu');
-                                // Reset visuals
-                                setGameResult(null);
-                                setDice([]);
-                                setVisualDice([]);
+                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                            <button className="btn-secondary" onClick={() => setShowResignModal(false)} style={{ flex: 1 }}>
+                                Cancel
+                            </button>
+                            <button className="btn-primary" style={{ background: '#d32f2f', border: '1px solid #b71c1c', flex: 1 }} onClick={() => {
+                                setShowResignModal(false);
+                                handleForfeit();
                             }}>
-                                Back to Menu
+                                Confirm
                             </button>
                         </div>
                     </div>
-                )}
+                </div>
+            )
+        }
 
-
-                {/* OPPONENT DISCONNECT WARNING */}
-                {opponentDisconnected && gameStatus !== 'gameover' && (
-                    <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 2000 }}>
-                        <div className="card" style={{
-                            position: 'absolute', top: '25%', left: '50%', transform: 'translate(-50%, -50%)',
-                            border: '2px solid #ff9800', background: '#3e2723', padding: '30px', textAlign: 'center',
-                            boxShadow: '0 0 50px rgba(255, 152, 0, 0.4)', minWidth: '300px'
-                        }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⚠️</div>
-                            <h2 style={{ color: '#ffcc80' }}>Opponent Disconnected</h2>
-                            <p style={{ color: '#fff', margin: '15px 0', fontSize: '1.2rem' }}>Waiting for opponent to reconnect...</p>
-                            <div className="loader" style={{ margin: '20px auto', borderColor: '#ffcc80', borderTopColor: 'transparent' }}></div>
-                            <p style={{ fontSize: '0.9rem', color: '#ffecb3', marginTop: '15px', fontWeight: 'bold' }}>Auto-win in 15 seconds.</p>
-                        </div>
-                    </div>
-                )}
-
-                {/* SINGLE PLAYER RESIGN MODAL */}
-                {showResignModal && (
-                    <div className="modal-overlay" style={{ zIndex: 3000 }}>
-                        <div className="modal-content" style={{ textAlign: 'center', border: '1px solid #8d6e63' }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏳️</div>
-                            <h3 style={{ marginBottom: '10px' }}>Resign Game?</h3>
-                            <p style={{ color: '#bdbdbd', marginBottom: '20px', fontSize: '1rem' }}>
-                                Are you sure you want to return to the menu?
-                            </p>
-                            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                                    <span style={{ color: '#aaa' }}>•</span>
-                                    <span>No Loss Recorded</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ color: '#aaa' }}>•</span>
-                                    <span>No XP Changed</span>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                                <button className="btn-secondary" onClick={() => setShowResignModal(false)} style={{ flex: 1 }}>
-                                    Cancel
-                                </button>
-                                <button className="btn-primary" style={{ background: '#d32f2f', border: '1px solid #b71c1c', flex: 1 }} onClick={() => {
-                                    setShowResignModal(false);
-                                    handleForfeit();
-                                }}>
-                                    Confirm
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* RIGHT SIDEBAR REMOVED */}
-            </div>
+        {/* RIGHT SIDEBAR REMOVED */ }
+            </div >
         );
         }
 
