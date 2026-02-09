@@ -463,7 +463,19 @@
                     if (payload.board) setBoard(payload.board);
                     if (payload.bar) setBar(payload.bar);
                     if (payload.off) setOff(payload.off);
-                    if (payload.dice) setDice(payload.dice);
+                    if (payload.dice) {
+                        // PROTECTION: Don't overwrite my own dice if it's my turn and I have active dice.
+                        // This prevents laggy/stale updates from opponent (e.g. from an undo or desync) from deleting my roll.
+                        if (turn === 'human' && dice.length > 0) {
+                            console.warn("Ignored remote dice update because I have active dice:", dice, "Remote:", payload.dice);
+                        } else {
+                            setDice(payload.dice);
+                            // Also sync visuals if receiving valid dice
+                            if (payload.dice.length > 0) {
+                                setVisualDice(payload.dice.slice(0, 2));
+                            }
+                        }
+                    }
 
                     // Determine Turn: 
                     // If Opponent (sender) says turn is 'human' (themselves), then for me it is 'ai'.
@@ -2602,7 +2614,15 @@
             // Helper for specific Perspective Rendering
             // Helper for specific Perspective Rendering
             const isFlipped = playerColor === PLAYER_AI;
-            const getLogIdx = (i) => isFlipped ? (i + 12) % 24 : i;
+            // Standard: 0 (Bottom Right) -> 23 (Top Right)
+            // Flipped (Red View): 23 (Top Right) should ideally be Bottom Right.
+            // visual 0 (Bottom Right) -> Logical 23.
+            // visual 23 (Top Right) -> Logical 0.
+            const getLogIdx = (i) => isFlipped ? 23 - i : i;
+
+            // Determine Players for Trays based on Flip
+            const topTrayPlayer = isFlipped ? PLAYER_HUMAN : PLAYER_AI;
+            const bottomTrayPlayer = isFlipped ? PLAYER_AI : PLAYER_HUMAN;
 
             // 2. GAME BOARD
             return (
@@ -2825,9 +2845,11 @@
 
                         {/* TOP HALF (Indices 12-23) */}
                         <OffTray
-                            player={PLAYER_AI}
-                            count={off[PLAYER_AI]}
+                            player={topTrayPlayer}
+                            count={off[topTrayPlayer]}
                             position="top"
+                            valid={topTrayPlayer === playerColor && validMoves.includes(-1)}
+                            onClick={topTrayPlayer === playerColor ? () => handlePointClick(-1) : undefined}
                         />
                         <div className="board-row top">
                             {/* 12-17 */}
@@ -2892,11 +2914,11 @@
                             </div>
                         </div>
                         <OffTray
-                            player={PLAYER_HUMAN}
-                            count={off[PLAYER_HUMAN]}
+                            player={bottomTrayPlayer}
+                            count={off[bottomTrayPlayer]}
                             position="bottom"
-                            valid={validMoves.includes(-1) && playerColor === PLAYER_HUMAN}
-                            onClick={() => handlePointClick(-1)}
+                            valid={bottomTrayPlayer === playerColor && validMoves.includes(-1)}
+                            onClick={bottomTrayPlayer === playerColor ? () => handlePointClick(-1) : undefined}
                         />
 
                         {/* PLAYER CONTROLS */}

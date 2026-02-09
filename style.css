@@ -65,35 +65,37 @@
 }
 
 /* Face 4 */
+/* Face 4 */
 .die-face-4 .dot:nth-child(1) {
-    top: 20%;
-    left: 20%;
+    top: 15%;
+    left: 15%;
 }
 
 .die-face-4 .dot:nth-child(2) {
-    top: 20%;
-    right: 20%;
+    top: 15%;
+    right: 15%;
 }
 
 .die-face-4 .dot:nth-child(3) {
-    bottom: 20%;
-    left: 20%;
+    bottom: 15%;
+    left: 15%;
 }
 
 .die-face-4 .dot:nth-child(4) {
-    bottom: 20%;
-    right: 20%;
+    bottom: 15%;
+    right: 15%;
 }
 
 /* Face 5 */
+/* Face 5 */
 .die-face-5 .dot:nth-child(1) {
-    top: 20%;
-    left: 20%;
+    top: 15%;
+    left: 15%;
 }
 
 .die-face-5 .dot:nth-child(2) {
-    top: 20%;
-    right: 20%;
+    top: 15%;
+    right: 15%;
 }
 
 .die-face-5 .dot:nth-child(3) {
@@ -103,46 +105,47 @@
 }
 
 .die-face-5 .dot:nth-child(4) {
-    bottom: 20%;
-    left: 20%;
+    bottom: 15%;
+    left: 15%;
 }
 
 .die-face-5 .dot:nth-child(5) {
-    bottom: 20%;
-    right: 20%;
+    bottom: 15%;
+    right: 15%;
 }
 
 /* Face 6 */
+/* Face 6 */
 .die-face-6 .dot:nth-child(1) {
-    top: 20%;
-    left: 20%;
+    top: 15%;
+    left: 15%;
 }
 
 .die-face-6 .dot:nth-child(2) {
-    top: 20%;
-    right: 20%;
+    top: 15%;
+    right: 15%;
 }
 
 .die-face-6 .dot:nth-child(3) {
     top: 50%;
-    left: 20%;
+    left: 15%;
     transform: translateY(-50%);
 }
 
 .die-face-6 .dot:nth-child(4) {
     top: 50%;
-    right: 20%;
+    right: 15%;
     transform: translateY(-50%);
 }
 
 .die-face-6 .dot:nth-child(5) {
-    bottom: 20%;
-    left: 20%;
+    bottom: 15%;
+    left: 15%;
 }
 
 .die-face-6 .dot:nth-child(6) {
-    bottom: 20%;
-    right: 20%;
+    bottom: 15%;
+    right: 15%;
 }
 
 /* Adjustments for Red/Opponent Dice if needed */
@@ -638,16 +641,20 @@ body {
 .player-controls-bar {
     width: 100%;
     max-width: 800px;
-    margin-top: 20px;
-    background: #2c241b;
-    padding: 15px 20px;
+    margin-top: 10px;
+    background: rgba(44, 36, 27, 0.95);
+    padding: 10px 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-top: 2px solid #5d4037;
-    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.3);
+    border-radius: 0 0 12px 12px;
+    /* Rounded bottom if desired, or just rounded */
+    border: 1px solid #5d4037;
+    /* Remove heavy top border */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
     z-index: 10;
     color: #e8e0d5;
+    backdrop-filter: blur(5px);
 }
 
 .player-info {
@@ -657,8 +664,8 @@ body {
 }
 
 .player-avatar {
-    width: 40px;
-    height: 40px;
+    width: 35px;
+    height: 35px;
     border-radius: 50%;
     background: radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc);
     border: 2px solid #b0b0b0;
@@ -1410,7 +1417,7 @@ body {
         }
 
         .dice-pair {
-            transform: scale(0.7);
+            transform: scale(0.9);
         }
     }
 
@@ -1424,8 +1431,28 @@ body {
     /* Player Controls */
     .player-controls-bar,
     .opponent-bar {
-        padding: 10px;
-        flex-wrap: wrap;
+        padding: 8px 12px;
+        flex-wrap: nowrap;
+        /* Keep on one line */
+        gap: 10px;
+    }
+
+    /* Hide Stats on Mobile for Minimalism */
+    .player-name div:nth-child(2),
+    .opponent-name div:nth-child(2) {
+        display: none !important;
+    }
+
+    /* Smaller text on mobile */
+    .player-name div:first-child,
+    .opponent-name div:first-child {
+        font-size: 0.9rem;
+    }
+
+    .player-avatar,
+    .opponent-avatar {
+        width: 30px;
+        height: 30px;
     }
 
     .main-controls {
