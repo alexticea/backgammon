@@ -799,7 +799,9 @@
             const [isSearching, setIsSearching] = useState(false);
             const [selectedStake, setSelectedStake] = useState(null); // null = free, number = SOL
             const [isConditionsOpen, setIsConditionsOpen] = useState(false);
+
             const [showGuestPopup, setShowGuestPopup] = useState(false);
+            const [showResignModal, setShowResignModal] = useState(false);
 
             const handleSearchMatch = (stake) => {
                 if (!wallet || wallet.startsWith('Guest')) {
@@ -2657,8 +2659,12 @@
                             style={{ marginTop: 'auto', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3e2723', borderColor: '#4e342e' }}
                             onClick={() => {
                                 if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
-                                    if (window.confirm("Are you sure you want to resign?")) {
-                                        handleForfeit();
+                                    if (gameMode === 'single') {
+                                        setShowResignModal(true);
+                                    } else {
+                                        if (window.confirm("Are you sure you want to resign? You will lose the match.")) {
+                                            handleForfeit();
+                                        }
                                     }
                                 } else {
                                     setGameStatus('menu');
@@ -3000,6 +3006,41 @@
                                 <p style={{ color: '#fff', margin: '15px 0', fontSize: '1.2rem' }}>Waiting for opponent to reconnect...</p>
                                 <div className="loader" style={{ margin: '20px auto', borderColor: '#ffcc80', borderTopColor: 'transparent' }}></div>
                                 <p style={{ fontSize: '0.9rem', color: '#ffecb3', marginTop: '15px', fontWeight: 'bold' }}>Auto-win in 15 seconds.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SINGLE PLAYER RESIGN MODAL */}
+                    {showResignModal && (
+                        <div className="modal-overlay" style={{ zIndex: 3000 }}>
+                            <div className="modal-content" style={{ textAlign: 'center', border: '1px solid #8d6e63' }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏳️</div>
+                                <h3 style={{ marginBottom: '10px' }}>Resign Game?</h3>
+                                <p style={{ color: '#bdbdbd', marginBottom: '20px', fontSize: '1rem' }}>
+                                    Are you sure you want to return to the menu?
+                                </p>
+                                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                                        <span style={{ color: '#aaa' }}>•</span>
+                                        <span>No Loss Recorded</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ color: '#aaa' }}>•</span>
+                                        <span>No XP Changed</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                                    <button className="btn-secondary" onClick={() => setShowResignModal(false)} style={{ flex: 1 }}>
+                                        Cancel
+                                    </button>
+                                    <button className="btn-primary" style={{ background: '#d32f2f', border: '1px solid #b71c1c', flex: 1 }} onClick={() => {
+                                        setShowResignModal(false);
+                                        handleForfeit();
+                                    }}>
+                                        Confirm
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
