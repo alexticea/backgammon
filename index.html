@@ -103,6 +103,9 @@
             const walletRef = useRef(wallet);
             useEffect(() => { walletRef.current = wallet; }, [wallet]);
 
+            const gameModeRef = useRef(gameMode);
+            useEffect(() => { gameModeRef.current = gameMode; }, [gameMode]);
+
             // --- SOCKET INIT ---
             useEffect(() => {
                 const newSocket = io(SERVER_URL);
@@ -355,8 +358,16 @@
                 });
 
                 newSocket.on('active_game_not_found', () => {
-                    console.log("No active game found.");
                     const currentStatus = gameStatusRef.current;
+                    const mode = gameModeRef.current;
+
+                    // Ignore if NOT multiplayer (single, menu, etc.)
+                    if (mode !== 'multi') {
+                        console.log("Ignoring active_game_not_found in non-multiplayer mode:", mode);
+                        return;
+                    }
+
+                    console.log("No active game found.");
                     if (currentStatus === 'playing' || currentStatus === 'waiting_for_match') {
                         console.log("Forcing return to menu from stale game.");
                         setGameStatus('menu');
@@ -546,11 +557,17 @@
             const handleForfeit = () => {
                 if (gameMode === 'multi') {
                     emitGameEvent('resign', {});
+                    setGameStatus('gameover');
+                    setGameResult('loss');
+                    log("You resigned.");
+                    updateStats('loss');
+                } else {
+                    // Single Player Resign
+                    setGameStatus('menu');
+                    setGameMode('single'); // Ensure reset
+                    log("You resigned from single player.");
+                    // No stats update for single player resign
                 }
-                setGameStatus('gameover');
-                setGameResult('loss');
-                log("You resigned.");
-                updateStats('loss');
             };
 
             useEffect(() => {
@@ -1129,7 +1146,18 @@
                 }
             };
 
-            // --- GAME LOGIC ---
+            // --- DICE COMPONENT ---
+            const Die = ({ value, isOpponent }) => {
+                if (!value) return <div className="die-3d"></div>;
+                const dots = Array.from({ length: value });
+                return (
+                    <div className={`die-3d die-face-${value} ${isOpponent ? 'opponent' : ''}`}>
+                        {dots.map((_, i) => <div key={i} className="dot"></div>)}
+                    </div>
+                );
+            };
+
+            // --- GAME CONSTANTS ---
 
             const playMoveSound = () => {
                 try {
@@ -1335,7 +1363,7 @@
                     performRoll((aiDice) => {
                         log(`AI Rolled: ${aiDice.join(', ')}`);
 
-                        // --- AI PRO LOGIC (Full Search) ---
+                        // --- AI LOGIC (Minimax / Expectimax Simplified) ---
                         const getBestSequence = (startBoard, startBar, dicePool) => {
                             let bestSeq = [];
                             let maxScore = -Infinity;
@@ -2438,7 +2466,10 @@
                                     </div>
                                 )}
 
-                                <button className="btn-primary" style={{ marginTop: '5px', background: '#3e2723', width: '90%', maxWidth: '400px', padding: '15px' }} onClick={() => setGameStatus('menu')}>Back to Main Menu</button>
+                                <button className="btn-primary" style={{ marginTop: '5px', background: '#3e2723', width: '90%', maxWidth: '400px', padding: '15px' }} onClick={() => {
+                                    setGameStatus('menu');
+                                    setGameMode('single');
+                                }}>Back to Main Menu</button>
                             </div>
                         )}
                         {isConditionsOpen && (
@@ -2775,11 +2806,13 @@
                                 <div className="dice-pair">
                                     {rolling ? (
                                         <>
-                                            <div className="die-3d"></div>
-                                            <div className="die-3d"></div>
+                                            <div className="die-3d rolling-anim"></div>
+                                            <div className="die-3d rolling-anim"></div>
                                         </>
                                     ) : (
-                                        visualDice.map((d, i) => <div key={i} className="die-3d">{d}</div>)
+                                        visualDice.map((d, i) => (
+                                            <Die key={i} value={d} isOpponent={turn === 'opponent' || turn === PLAYER_AI} />
+                                        ))
                                     )}
                                 </div>
                             )}
