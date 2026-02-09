@@ -1147,12 +1147,11 @@
             };
 
             // --- DICE COMPONENT ---
-            const Die = ({ value, isOpponent }) => {
-                if (!value) return <div className="die-3d"></div>;
-                const dots = Array.from({ length: value });
+            const Die = ({ value, isOpponent, style, className, children }) => {
+                const dots = value ? Array.from({ length: value }) : [];
                 return (
-                    <div className={`die-3d die-face-${value} ${isOpponent ? 'opponent' : ''}`}>
-                        {dots.map((_, i) => <div key={i} className="dot"></div>)}
+                    <div className={`die-3d ${value ? `die-face-${value}` : ''} ${isOpponent ? 'opponent' : ''} ${className || ''}`} style={style}>
+                        {value ? dots.map((_, i) => <div key={i} className="dot"></div>) : children}
                     </div>
                 );
             };
@@ -2760,12 +2759,12 @@
                                         <div style={{ textAlign: 'center' }}>
                                             <div style={{ color: '#fff', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>YOU</div>
                                             {(openingRoll && openingRoll.human) ? (
-                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.human}</div>
+                                                <Die value={openingRoll.human} style={{ width: '70px', height: '70px' }} />
                                             ) : (
                                                 rolling ? (
-                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }}></div>
+                                                    <Die style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }} />
                                                 ) : (
-                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #666', background: 'transparent', color: '#666', fontSize: '2rem' }}>?</div>
+                                                    <Die style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #666', background: 'transparent', color: '#666', fontSize: '2rem' }}>?</Die>
                                                 )
                                             )}
                                         </div>
@@ -2773,12 +2772,12 @@
                                         <div style={{ textAlign: 'center' }}>
                                             <div style={{ color: '#d32f2f', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>{gameMode === 'multi' ? opponentName : 'AI'}</div>
                                             {(openingRoll && openingRoll.ai) ? (
-                                                <div className="die-3d" style={{ width: '70px', height: '70px', fontSize: '2.5rem', lineHeight: '70px', color: '#d32f2f', borderColor: '#d32f2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{openingRoll.ai}</div>
+                                                <Die value={openingRoll.ai} isOpponent={true} style={{ width: '70px', height: '70px' }} />
                                             ) : (
                                                 (gameMode === 'single' && rolling) ? (
-                                                    <div className="die-3d" style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear', borderColor: '#d32f2f' }}></div>
+                                                    <Die isOpponent={true} style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }} />
                                                 ) : (
-                                                    <div className="die-3d" style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d32f2f', background: 'transparent', color: '#d32f2f', fontSize: '2rem' }}>{gameMode === 'multi' ? '...' : '?'}</div>
+                                                    <Die isOpponent={true} style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d32f2f', background: 'transparent', color: '#d32f2f', fontSize: '2rem' }}>{gameMode === 'multi' ? '...' : '?'}</Die>
                                                 )
                                             )}
                                         </div>
