@@ -2961,7 +2961,7 @@
                                         disabled={(!canRoll && !isBlocked) || turn !== 'human'}
                                         style={(dice.length > 0 && turn === 'human') ? { background: isBlocked ? '#d32f2f' : '#2e7d32', color: '#fff', border: isBlocked ? '1px solid #b71c1c' : '1px solid #66bb6a', cursor: 'pointer' } : {}}
                                     >
-                                        {isBlocked ? "Pass Turn (Blocked)" : ((dice.length > 0 && turn === 'human') ? "Make Your Moves" : "Roll Dice")}
+                                        {isBlocked ? "Pass Turn (Blocked)" : ((dice.length > 0 && turn === 'human') ? "MOVE" : "Roll Dice")}
                                     </button>
                                 )}
                             </div>
