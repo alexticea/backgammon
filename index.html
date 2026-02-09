@@ -2637,13 +2637,42 @@
                             </div>
                         </div>
 
-                        <div className="sidebar-status">
-                            <div className="status-text">{turn === 'human' ? 'Your Turn' : (gameMode === 'multi' ? 'Wait...' : 'Think...')}</div>
-                            {turn === 'human' && (
-                                <div className="status-timer">
-                                    {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
-                                </div>
-                            )}
+                        <div className="sidebar-controls">
+                            <div className="sidebar-status">
+                                <div className="status-text">{turn === 'human' ? 'Your Turn' : (gameMode === 'multi' ? 'Wait...' : 'Think...')}</div>
+                                {turn === 'human' && (
+                                    <div className="status-timer">
+                                        {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button className="btn-resign-sidebar"
+                                onClick={() => {
+                                    if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
+                                        if (gameMode === 'single') {
+                                            setShowResignModal(true);
+                                        } else {
+                                            if (window.confirm("Are you sure you want to resign? You will lose the match.")) {
+                                                handleForfeit();
+                                            }
+                                        }
+                                    } else {
+                                        setGameStatus('menu');
+                                        setBoard(initialBoard);
+                                        setGameResult(null);
+                                        setVisualDice([]);
+                                        setDice([]);
+                                        setOpponentDisconnected(false);
+                                    }
+                                }}
+                            >
+                                {gameStatus === 'playing' || gameStatus === 'opening_roll' ? (
+                                    <><span>🏳️</span> Resign</>
+                                ) : (
+                                    <><span>🏠</span> Menu</>
+                                )}
+                            </button>
                         </div>
 
 
@@ -2653,32 +2682,7 @@
                         {/* Wallet Info Hidden */}
                         {/* <div className="wallet-info">...</div> */}
 
-                        <button className="btn-resign-sidebar"
-                            onClick={() => {
-                                if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
-                                    if (gameMode === 'single') {
-                                        setShowResignModal(true);
-                                    } else {
-                                        if (window.confirm("Are you sure you want to resign? You will lose the match.")) {
-                                            handleForfeit();
-                                        }
-                                    }
-                                } else {
-                                    setGameStatus('menu');
-                                    setBoard(initialBoard);
-                                    setGameResult(null);
-                                    setVisualDice([]);
-                                    setDice([]);
-                                    setOpponentDisconnected(false);
-                                }
-                            }}
-                        >
-                            {gameStatus === 'playing' || gameStatus === 'opening_roll' ? (
-                                <><span>🏳️</span> Resign</>
-                            ) : (
-                                <><span>🏠</span> Menu</>
-                            )}
-                        </button>
+
                     </div>
 
 
