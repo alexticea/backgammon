@@ -233,16 +233,54 @@ body {
     border: 1px solid #3e2723;
 }
 
-.label {
-    font-size: 0.8rem;
-    color: #8b949e;
-    text-transform: uppercase;
-    margin-bottom: 5px;
+/* COMPACT SIDEBAR ITEMS */
+.sidebar-status {
+    background: rgba(26, 22, 20, 0.8);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #3e2723;
+    text-align: center;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-.value {
-    font-size: 1.2rem;
+.status-text {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffb74d;
+    /* Orange/Gold */
+    margin-bottom: 4px;
+}
+
+.status-timer {
+    font-size: 0.9rem;
+    color: #aaa;
+    font-family: monospace;
+}
+
+.btn-resign-sidebar {
+    background: linear-gradient(to bottom, #3e2723, #271c19);
+    border: 1px solid #5d4037;
+    color: #e57373;
+    /* Soft Red */
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: auto;
+    width: 100%;
     font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+}
+
+.btn-resign-sidebar:hover {
+    background: #4e342e;
+    color: #ffcdd2;
+    transform: translateY(-2px);
 }
 
 /* BUTTONS */
@@ -825,10 +863,29 @@ body {
     }
 
     .sidebar .card,
-    .sidebar .wallet-info {
-        padding: 8px;
-        min-width: 100px;
-        flex-shrink: 0;
+    .sidebar .wallet-info,
+    .sidebar-status {
+        padding: 5px 10px;
+        min-width: auto;
+        /* Allow shrink */
+        flex-shrink: 1;
+        font-size: 0.8rem;
+        margin: 0;
+    }
+
+    .btn-resign-sidebar {
+        width: auto;
+        margin-top: 0;
+        padding: 5px 12px;
+        font-size: 0.8rem;
+    }
+
+    .status-text {
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .status-timer {
         font-size: 0.8rem;
     }
 
