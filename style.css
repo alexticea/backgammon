@@ -750,6 +750,125 @@ body {
         /* Hide logs on mobile */
     }
 
+    .sidebar .card {
+        padding: 8px 12px;
+        min-width: auto;
+        /* Remove fixed width */
+        flex-shrink: 0;
+        font-size: 0.8rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 60px;
+        /* Fixed height for uniformity */
+    }
+
+    .sidebar .label {
+        font-size: 0.6rem;
+        margin-bottom: 2px;
+    }
+
+    .sidebar .value {
+        font-size: 0.9rem;
+    }
+
+    /* Chat Overlay for Mobile */
+    .mobile-chat-overlay {
+        position: fixed;
+        bottom: 90px;
+        /* Just above sidebar */
+        left: 10px;
+        right: 10px;
+        height: 250px;
+        background: rgba(30, 25, 20, 0.98);
+        backdrop-filter: blur(10px);
+        border: 1px solid #5d4037;
+        border-radius: 12px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        z-index: 2000;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .chat-messages-area {
+        flex: 1;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 0.85rem;
+    }
+
+    .chat-bubble {
+        margin-bottom: 6px;
+        padding: 6px 10px;
+        border-radius: 12px;
+        max-width: 80%;
+        word-wrap: break-word;
+    }
+
+    .chat-bubble.opponent {
+        background: #3e2723;
+        color: #fff;
+        align-self: flex-start;
+        border-top-left-radius: 2px;
+    }
+
+    .chat-bubble.user {
+        background: #5d4037;
+        color: #fff;
+        align-self: flex-end;
+        margin-left: auto;
+        border-bottom-right-radius: 2px;
+    }
+
+    .chat-bubble.system {
+        font-size: 0.7rem;
+        color: #aaa;
+        text-align: center;
+        margin: 5px auto;
+        width: 100%;
+    }
+
+    .chat-input-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .chat-input {
+        flex: 1;
+        background: #1a1614;
+        border: 1px solid #5d4037;
+        color: white;
+        padding: 8px;
+        border-radius: 6px;
+    }
+
+    .chat-send-btn {
+        background: #8d6e63;
+        border: none;
+        color: white;
+        padding: 0 15px;
+        border-radius: 6px;
+        font-weight: bold;
+    }
+
     .spacer {
         display: none;
     }
