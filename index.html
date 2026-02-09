@@ -822,6 +822,7 @@
 
             const [showGuestPopup, setShowGuestPopup] = useState(false);
             const [showResignModal, setShowResignModal] = useState(false);
+            const [isChatOpen, setIsChatOpen] = useState(false);
 
             const handleSearchMatch = (stake) => {
                 if (!wallet || wallet.startsWith('Guest')) {
@@ -2680,26 +2681,32 @@
 
 
 
-                        {/* CHAT WIDGET */}
-                        <div className="chat-box">
-                            <div className="chat-history">
-                                {chatMessages.map((m, i) => (
-                                    <div key={i} className={`chat-line ${m.type || 'opponent'}`}>
-                                        <span style={{ fontWeight: 'bold', fontSize: '0.75rem', opacity: 0.7 }}>{m.sender}: </span>
-                                        {m.text}
-                                    </div>
-                                ))}
-                                <div ref={chatEndRef} />
-                            </div>
-                            <div className="chat-input-wrapper">
-                                <input
-                                    value={chatInput}
-                                    onChange={e => setChatInput(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleChatSend()}
-                                    placeholder="Chat..."
-                                />
-                                <button onClick={handleChatSend}>➤</button>
-                            </div>
+                        {/* CHAT TOGGLE BUTTON */}
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'auto' }}>
+                            <button
+                                className="btn-secondary"
+                                style={{
+                                    borderRadius: '50%',
+                                    width: '50px',
+                                    height: '50px',
+                                    padding: 0,
+                                    fontSize: '1.5rem',
+                                    background: isChatOpen ? '#4caf50' : '#3e2723',
+                                    border: '1px solid #5d4037',
+                                    boxShadow: '0 4px 8px rgba(0,0,0,0.4)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}
+                                onClick={() => setIsChatOpen(!isChatOpen)}
+                            >
+                                💬
+                                {chatMessages.length > 1 && !isChatOpen && (
+                                    <div style={{
+                                        position: 'absolute', top: -5, right: -5,
+                                        width: '20px', height: '20px', background: '#d32f2f', borderRadius: '50%',
+                                        fontSize: '0.7rem', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}>!</div>
+                                )}
+                            </button>
                         </div>
 
                         <div className="spacer"></div>
@@ -2708,7 +2715,7 @@
                         {/* <div className="wallet-info">...</div> */}
 
                         <div className="card"
-                            style={{ marginTop: 'auto', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3e2723', borderColor: '#4e342e' }}
+                            style={{ cursor: 'pointer', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#3e2723', borderColor: '#4e342e' }}
                             onClick={() => {
                                 if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
                                     if (gameMode === 'single') {
@@ -2727,13 +2734,43 @@
                                     setOpponentDisconnected(false);
                                 }
                             }}>
-                            {gameStatus === 'playing' ? (
+                            {gameStatus === 'playing' || gameStatus === 'opening_roll' ? (
                                 <><span>🏳️</span> Resign</>
                             ) : (
-                                <><span>🏠</span> Back to Menu</>
+                                <><span>🏠</span> Menu</>
                             )}
                         </div>
                     </div>
+
+                    {/* CHAT POPUP OVERLAY */}
+                    {isChatOpen && (
+                        <div className="chat-popup">
+                            <div className="chat-header">
+                                <span>Chat</span>
+                                <button onClick={() => setIsChatOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>×</button>
+                            </div>
+                            <div className="chat-history">
+                                {chatMessages.map((m, i) => (
+                                    <div key={i} className={`chat-line ${m.type || 'opponent'}`}>
+                                        <span style={{ fontWeight: 'bold', fontSize: '0.75rem', opacity: 0.7 }}>{m.sender}: </span>
+                                        {m.text}
+                                    </div>
+                                ))}
+                                <div ref={chatEndRef} />
+                            </div>
+                            <div className="chat-input-wrapper">
+                                <input
+                                    value={chatInput}
+                                    onChange={e => setChatInput(e.target.value)}
+                                    // Use onKeyUp/Down carefully to avoid mobile keyboard issues? standard is fine.
+                                    onKeyDown={e => e.key === 'Enter' && handleChatSend()}
+                                    placeholder="Message..."
+                                    autoFocus
+                                />
+                                <button onClick={handleChatSend}>➤</button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* MAIN GAME AREA */}
                     <div className="board-wrapper">
