@@ -786,6 +786,14 @@
                 }
             };
 
+            const chatEndRef = useRef(null);
+
+            useEffect(() => {
+                if (chatEndRef.current) {
+                    chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, [chatMessages]);
+
             const handleChatSend = () => {
                 if (!chatInput.trim()) return;
                 const newMsg = { sender: 'You', text: chatInput, type: 'user' };
@@ -2672,8 +2680,26 @@
 
 
 
-                        <div className="logs">
-                            {logs.map((L, i) => <div key={i} className="log-item">{L}</div>)}
+                        {/* CHAT WIDGET */}
+                        <div className="chat-box">
+                            <div className="chat-history">
+                                {chatMessages.map((m, i) => (
+                                    <div key={i} className={`chat-line ${m.type || 'opponent'}`}>
+                                        <span style={{ fontWeight: 'bold', fontSize: '0.75rem', opacity: 0.7 }}>{m.sender}: </span>
+                                        {m.text}
+                                    </div>
+                                ))}
+                                <div ref={chatEndRef} />
+                            </div>
+                            <div className="chat-input-wrapper">
+                                <input
+                                    value={chatInput}
+                                    onChange={e => setChatInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleChatSend()}
+                                    placeholder="Chat..."
+                                />
+                                <button onClick={handleChatSend}>➤</button>
+                            </div>
                         </div>
 
                         <div className="spacer"></div>

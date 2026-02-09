@@ -638,6 +638,75 @@ body {
     font-weight: 700;
 }
 
+/* SIDEBAR CHAT */
+.chat-box {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #3e2723;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    /* Take available vertical space on desktop */
+    min-height: 200px;
+    /* Base height */
+    max-height: 300px;
+}
+
+.chat-history {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 0.85rem;
+    color: #bcaaa4;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chat-line {
+    word-wrap: break-word;
+}
+
+.chat-line.user {
+    color: #fff;
+    text-align: right;
+}
+
+.chat-line.opponent {
+    color: #ffab91;
+}
+
+.chat-line.bot {
+    color: #81c784;
+}
+
+.chat-input-wrapper {
+    display: flex;
+    gap: 5px;
+}
+
+.chat-input-wrapper input {
+    flex: 1;
+    background: #1a1614;
+    border: 1px solid #5d4037;
+    color: #fff;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    width: 0;
+    /* flex fix */
+}
+
+.chat-input-wrapper button {
+    background: #5d4037;
+    color: #fff;
+    border: none;
+    padding: 0 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
 .player-controls-bar {
     width: 100%;
     max-width: 800px;
@@ -748,6 +817,20 @@ body {
     .logs {
         display: none;
         /* Hide logs on mobile */
+    }
+
+    .chat-box {
+        min-width: 200px;
+        max-width: 250px;
+        min-height: auto;
+        height: 100%;
+        max-height: none;
+        margin: 0;
+    }
+
+    .chat-history {
+        /* On mobile small strip, maybe show fewer lines */
+        height: 60px;
     }
 
     .spacer {
