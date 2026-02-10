@@ -1,0 +1,19 @@
+{
+  "name": "backgammon-solana",
+  "version": "1.0.0",
+  "description": "A single-player and local PvP Backgammon game built on Solana.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:mobile": "if not exist www mkdir www && copy index.html www\\ && copy style.css www\\ && copy dice.css www\\ && copy tray.css www\\"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^8.0.2",
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2"
+  }
+}

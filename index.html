@@ -8,12 +8,12 @@
     <!-- Dependencies -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js" crossorigin></script>
     <!-- Socket.IO Client -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" crossorigin></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
 </head>
 
 <body>
@@ -33,9 +33,13 @@
         function App() {
             // --- CONFIG ---
             // Determine Server URL: Local vs Production
+            // Determine Server URL:
+            // - If Capacitor (Mobile App), use Production (Localhost 3001 on phone != PC).
+            // - If Local Browser, use Localhost 3001.
+            const isCapacitor = !!window.Capacitor;
             const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
-            // REPLACE THIS WITH YOUR DEPLOYED BACKEND URL
-            const SERVER_URL = isLocal ? 'http://localhost:3001' : 'https://backgammon-usxq.onrender.com';
+
+            const SERVER_URL = isCapacitor ? 'https://backgammon-usxq.onrender.com' : (isLocal ? 'http://localhost:3001' : 'https://backgammon-usxq.onrender.com');
 
             // --- STATE ---
             const [wallet, setWallet] = useState(null);
@@ -88,6 +92,9 @@
             const [isBlocked, setIsBlocked] = useState(false);
             const [escrowBalance, setEscrowBalance] = useState(0.00);
             const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+            const [chatMessages, setChatMessages] = useState([]);
+            const [chatInput, setChatInput] = useState("");
+            const [unreadChat, setUnreadChat] = useState(0);
 
             // --- REFS FOR SOCKET HANDLERS ---
             const gameStatusRef = useRef(gameStatus);
@@ -262,6 +269,15 @@
                     log(`Withdrawal of ${amount} SOL sent! Sig: ${signature.slice(0, 8)}...`);
                     alert(`Funds sent to your wallet!`);
                     setEscrowBalance(prev => parseFloat((prev - amount).toFixed(2)));
+                });
+
+                newSocket.on('chat_message', (msg) => {
+                    setChatMessages(prev => [...prev.slice(-49), msg]); // Keep last 50
+                    // Play notification sound if not me
+                    if (msg.sender !== 'You') {
+                        // Optional: play sound
+                        setUnreadChat(prev => prev + 1);
+                    }
                 });
 
                 newSocket.on('request_state_sync', () => {
@@ -662,7 +678,34 @@
                 setIsProfileModalOpen(false);
             };
 
-            // --- CHAT LOGIC REMOVED ---
+            // --- CHAT LOGIC ---
+            const handleSendChat = (e) => {
+                e.preventDefault();
+                if (!chatInput.trim()) return;
+
+                const msg = {
+                    sender: 'You',
+                    text: chatInput.trim(),
+                    timestamp: Date.now()
+                };
+
+                // Optimistic update
+                setChatMessages(prev => [...prev.slice(-49), msg]);
+                setChatInput("");
+
+                if (socket && roomId) {
+                    const myName = userProfile.name || (wallet ? `${wallet.slice(0, 4)}...` : 'Player');
+                    socket.emit('chat_message', { roomId, message: msg.text, sender: myName });
+                }
+            };
+
+            // Auto-scroll chat
+            const chatEndRef = useRef(null);
+            useEffect(() => {
+                if (chatEndRef.current) {
+                    chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+                }
+            }, [chatMessages]);
             const [gameResult, setGameResult] = useState(null); // 'win' or 'loss'
             const [depositTx, setDepositTx] = useState(null);
 
@@ -862,17 +905,32 @@
 
             // --- WALLET ---
             const connectWallet = async () => {
-                // 1. Prioritize window.solflare (Explicit Solflare User)
+                // 0. SOLFLARE ONLY POLICY
+                // Basic mobile detection + explicit Capacitor check
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || !!window.Capacitor;
+
+                // 1. Try to find Injected Solflare Provider
+                // Note: Solflare injects itself as window.solflare
                 let provider = window.solflare;
 
-                // 2. Fallback to window.solana (Phantom / Mobile / Other)
-                if (!provider && window.solana) {
-                    provider = window.solana;
+                // 2. If NOT found, and we are on mobile -> Deep Link to Solflare App
+                // We assume if provider is missing on mobile, we need to switch apps.
+                if (!provider && isMobile) {
+                    // Solflare Deep Link Protocol
+                    // dapp_url must be the URL Solflare should return to (your hosted site)
+                    // Use CUSTOM SCHEME so Solflare knows to open THIS App instead of Chrome.
+                    const returnUrl = encodeURIComponent("backgammon://connect");
+                    const dlink = `https://solflare.com/ul/v1/connect?dapp_url=${returnUrl}`;
+
+                    // Use '_system' to force Capacitor/Android to open external app
+                    window.open(dlink, '_system');
+                    return;
                 }
 
+                // 3. If STILL not found (Desktop without extension), show Alert/Install link
                 if (!provider) {
-                    // Show Selector Modal for ALL users (Mobile/Seeker/Desktop without extension)
-                    setIsWalletSelectorOpen(true);
+                    alert("Solflare wallet not found! Please install Solflare to play.");
+                    window.open("https://solflare.com", "_blank");
                     return;
                 }
 
@@ -2187,12 +2245,7 @@
                                     <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
                                         {/* Phantom */}
-                                        <button className="btn-primary" style={{ backgroundColor: '#AB9FF2', color: '#222', border: 'none' }} onClick={() => {
-                                            const url = window.location.href;
-                                            window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(url)}`;
-                                        }}>
-                                            Phantom
-                                        </button>
+
 
                                         {/* Solflare */}
                                         <button className="btn-primary" style={{ backgroundColor: '#FC7429', color: '#fff', border: 'none' }} onClick={() => {
@@ -2646,6 +2699,36 @@
                                     </div>
                                 )}
                             </div>
+
+                            {/* SIDEBAR CHAT DISABLED
+                            <div className="sidebar-chat-container">
+                                <div className="sidebar-chat-header">Match Chat</div>
+                                <div className="sidebar-chat-messages">
+                                    {chatMessages.length === 0 ? (
+                                        <div style={{ opacity: 0.5, fontStyle: 'italic', fontSize: '0.8rem', textAlign: 'center', marginTop: '20px' }}>
+                                            Say hello!
+                                        </div>
+                                    ) : (
+                                        chatMessages.map((msg, i) => (
+                                            <div key={i} className={`sidebar-chat-msg ${msg.sender === 'You' ? 'me' : 'them'}`}>
+                                                <div className="msg-content">{msg.text}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                    <div ref={chatEndRef} />
+                                </div>
+                                <form className="sidebar-chat-input-area" onSubmit={handleSendChat}>
+                                    <input
+                                        type="text"
+                                        placeholder="Type..."
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        onFocus={() => setUnreadChat(0)}
+                                    />
+                                    <button type="submit">➤</button>
+                                </form>
+                            </div>
+                            */}
 
                             <button className="btn-resign-sidebar"
                                 onClick={() => {

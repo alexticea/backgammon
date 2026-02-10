@@ -1,0 +1,12 @@
+{
+  "appId": "com.backgammon.solana",
+  "appName": "BackgammonSolana",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "*"
+    ],
+    "cleartext": true
+  }
+}
