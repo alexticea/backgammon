@@ -32,8 +32,11 @@ function App() {
         window.location.hostname.startsWith('172.') ||
         window.location.protocol === 'file:';
 
-    const SERVER_URL = isCapacitor ? 'https://backgammon-usxq.onrender.com' :
-        (isLocal ? `http://${window.location.hostname}:3001` : 'https://backgammon-usxq.onrender.com');
+    const PRODUCTION_FRONTEND_URL = 'https://backgammon-beige.vercel.app';
+    const PRODUCTION_BACKEND_URL = 'https://backgammon-usxq.onrender.com';
+
+    const SERVER_URL = isCapacitor ? PRODUCTION_BACKEND_URL :
+        (isLocal ? `http://${window.location.hostname}:3001` : PRODUCTION_BACKEND_URL);
 
     // --- STATE ---
     const [wallet, setWallet] = useState(null);
@@ -1027,7 +1030,7 @@ function App() {
                     cluster: 'devnet',
                     identity: {
                         name: 'Backgammon Solana',
-                        uri: 'https://backgammon-usxq.onrender.com',
+                        uri: PRODUCTION_FRONTEND_URL,
                         icon: 'favicon.ico'
                     }
                 });

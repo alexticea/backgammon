@@ -24,7 +24,7 @@ export const WalletProvider = ({ children }) => {
                 const mobileAdapter = new SolanaMobileWalletAdapter({
                     appIdentity: {
                         name: 'Backgammon Solana',
-                        uri: 'https://backgammon-usxq.onrender.com',
+                        uri: 'https://backgammon-beige.vercel.app',
                         icon: 'favicon.ico'
                     },
                     authorizationResultCache: createDefaultAuthorizationResultCache(),
