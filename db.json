@@ -1,0 +1,22 @@
+{
+  "users": [
+    {
+      "wallet": "3pWEZ4PMzrGUBA8Ld77Wb8wcA2HrF8ynK8Htb6BJbyob",
+      "wins": 0,
+      "losses": 0,
+      "xp": 0,
+      "level": 1,
+      "name": "",
+      "avatar": null
+    },
+    {
+      "wallet": "6cgsK8ph5tNUCiKG5WXLMZFX1CoL4jzuVouTPBwPC8fk",
+      "wins": 0,
+      "losses": 0,
+      "xp": 0,
+      "level": 1,
+      "name": "",
+      "avatar": null
+    }
+  ]
+}

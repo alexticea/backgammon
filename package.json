@@ -1,19 +1,32 @@
 {
   "name": "backgammon-solana",
   "version": "1.0.0",
-  "description": "A single-player and local PvP Backgammon game built on Solana.",
-  "main": "index.js",
+  "description": "Backgammon on Solana",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build:mobile": "if not exist www mkdir www && copy index.html www\\ && copy style.css www\\ && copy dice.css www\\ && copy tray.css www\\"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:mobile": "vite build && npx cap sync"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "@capacitor/android": "^8.0.2",
-    "@capacitor/cli": "^8.0.2",
-    "@capacitor/core": "^8.0.2"
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@solana-mobile/wallet-adapter-mobile": "^2.1.3",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-phantom": "^0.9.24",
+    "@solana/wallet-adapter-solflare": "^0.6.24",
+    "@solana/web3.js": "^1.91.4",
+    "buffer": "^6.0.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.2.0",
+    "vite-plugin-node-polyfills": "^0.22.0"
   }
 }
