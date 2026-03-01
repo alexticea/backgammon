@@ -213,8 +213,13 @@ const activeLobbies = {}; // { roomId: { hostData, socketId } }
 const games = {};
 const disconnectTimers = {};
 
+const broadcastOnlineCount = () => {
+    io.emit('online_users_count', io.engine.clientsCount);
+};
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+    broadcastOnlineCount();
 
     // 0. CHECK ACTIVE GAME (Reconnection)
     socket.on('check_active_game', async (wallet) => {
@@ -637,6 +642,7 @@ io.on('connection', (socket) => {
                 break;
             }
         }
+        broadcastOnlineCount();
     });
 });
 

@@ -75797,6 +75797,7 @@ ${err.message}`);
   const [activeLobbies, setActiveLobbies] = reactExports.useState([]);
   const [isLobbyOpen, setIsLobbyOpen] = reactExports.useState(false);
   const [isHosting, setIsHosting] = reactExports.useState(false);
+  const [onlineUsersCount, setOnlineUsersCount] = reactExports.useState(1);
   const gameStatusRef = reactExports.useRef(gameStatus);
   reactExports.useEffect(() => {
     gameStatusRef.current = gameStatus;
@@ -76017,6 +76018,9 @@ ${err.message}`);
         }
         return updated;
       });
+    });
+    newSocket.on("online_users_count", (count) => {
+      setOnlineUsersCount(count);
     });
     newSocket.on("lobby_list_update", (lobbies) => {
       console.log("Lobbies Updated:", lobbies);
@@ -77779,6 +77783,24 @@ ${err.message}`);
               /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1, fontSize: "0.8rem", padding: "8px", background: "#2e7d32" }, onClick: handleEscrowDeposit, children: "+ Deposit" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1, fontSize: "0.8rem", padding: "8px", background: "#c62828" }, onClick: handleEscrowWithdraw, children: "- Withdraw" })
             ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+          color: "#aaa",
+          fontSize: "0.9rem",
+          margin: "10px 0",
+          padding: "8px 20px",
+          background: "rgba(0,0,0,0.3)",
+          borderRadius: "20px",
+          border: "1px solid rgba(255,255,255,0.05)",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
+        }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#4caf50", fontSize: "1.2rem" }, children: "●" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+            "Online Users: ",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff", fontWeight: "bold" }, children: onlineUsersCount })
           ] })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { marginTop: "5px", background: "#3e2723", width: "90%", maxWidth: "400px", padding: "15px" }, onClick: () => {

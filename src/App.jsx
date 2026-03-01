@@ -202,6 +202,7 @@ function App() {
     const [activeLobbies, setActiveLobbies] = useState([]);
     const [isLobbyOpen, setIsLobbyOpen] = useState(false);
     const [isHosting, setIsHosting] = useState(false);
+    const [onlineUsersCount, setOnlineUsersCount] = useState(1);
 
     // --- REFS FOR SOCKET HANDLERS ---
     const gameStatusRef = useRef(gameStatus);
@@ -467,6 +468,10 @@ function App() {
                 }
                 return updated;
             });
+        });
+
+        newSocket.on('online_users_count', (count) => {
+            setOnlineUsersCount(count);
         });
 
         newSocket.on('lobby_list_update', (lobbies) => {
@@ -2735,6 +2740,22 @@ function App() {
                                 </div>
                             </div>
                         )}
+
+                        <div style={{
+                            color: '#aaa',
+                            fontSize: '0.9rem',
+                            margin: '10px 0',
+                            padding: '8px 20px',
+                            background: 'rgba(0,0,0,0.3)',
+                            borderRadius: '20px',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <span style={{ color: '#4caf50', fontSize: '1.2rem' }}>●</span>
+                            <span>Online Users: <span style={{ color: '#fff', fontWeight: 'bold' }}>{onlineUsersCount}</span></span>
+                        </div>
 
                         <button className="btn-primary" style={{ marginTop: '5px', background: '#3e2723', width: '90%', maxWidth: '400px', padding: '15px' }} onClick={() => {
                             setGameStatus('menu');
