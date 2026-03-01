@@ -340,6 +340,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('get_lobbies', () => {
+        const count = Object.values(activeLobbies).length;
+        console.log(`[SERVER] ${socket.id} requested lobbies. Sending ${count} items.`);
         socket.emit('lobby_list_update', Object.values(activeLobbies));
     });
 

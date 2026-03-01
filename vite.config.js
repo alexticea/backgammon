@@ -14,7 +14,18 @@ export default defineConfig({
         })
     ],
     build: {
-        outDir: 'www' // Capacitor expects 'www'
+        outDir: 'www',
+        minify: false, // Keep it readable for scanners
+        cssCodeSplit: false,
+        rollupOptions: {
+            output: {
+                // Force a single JS file to avoid "Zip contains many JS files" flags
+                manualChunks: undefined,
+                entryFileNames: 'assets/[name].js',
+                chunkFileNames: 'assets/[name].js',
+                assetFileNames: 'assets/[name].[ext]'
+            }
+        }
     },
     server: {
         port: 3000

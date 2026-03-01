@@ -40,7 +40,7 @@ function App() {
     // to test between two phones on the same WiFi.
     const LOCAL_IP = '192.168.100.191'; // <-- UPDATE THIS TO YOUR PC IP
 
-    const SERVER_URL = isLocal ? `http://${window.location.hostname}:3001` : PRODUCTION_BACKEND_URL;
+    const SERVER_URL = isCapacitor ? PRODUCTION_BACKEND_URL : (isLocal ? `http://${window.location.hostname}:3001` : PRODUCTION_BACKEND_URL);
 
     // --- STATE ---
     const [wallet, setWallet] = useState(() => {
@@ -942,7 +942,10 @@ function App() {
         if (stake === null || stake === 0) {
             // Free Play -> Open Lobby View
             setIsLobbyOpen(true);
-            if (socket) socket.emit('get_lobbies');
+            if (socket) {
+                console.log("Requesting lobbies from server...");
+                socket.emit('get_lobbies');
+            }
         } else {
             // Ranked -> Quick Match
             setIsSearching(true);
@@ -2538,7 +2541,10 @@ function App() {
                         minHeight: '400px'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #4e342e', paddingBottom: '10px' }}>
-                            <h3 style={{ margin: 0, color: '#d7ccc8' }}>Free Play Tables</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <h3 style={{ margin: 0, color: '#d7ccc8' }}>Free Play Tables</h3>
+                                <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={() => socket?.emit('get_lobbies')}>🔄 Refresh</button>
+                            </div>
                             <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => setIsLobbyOpen(false)}>Close</button>
                         </div>
 
