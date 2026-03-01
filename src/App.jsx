@@ -724,16 +724,19 @@ function App() {
     useEffect(() => {
         if (wallet && !wallet.startsWith('Guest')) {
             const saved = localStorage.getItem('bg_profile_' + wallet);
+            let profileToSet = { name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } };
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    // Merge with default stats if missing
-                    if (!parsed.stats) parsed.stats = { wins: 0, losses: 0, xp: 0, level: 1 };
-                    setUserProfile(parsed);
+                    if (parsed.stats) profileToSet = parsed;
+                    else profileToSet = { ...parsed, stats: profileToSet.stats };
                 } catch (e) { console.error(e); }
-            } else {
-                setUserProfile({ name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
             }
+            setUserProfile(profileToSet);
+
+            // AUTHORITATIVE SYNC: Overwrite local cache with MongoDB data
+            fetchUserProfile(wallet);
+            fetchLeaderboard();
 
             // LOAD ESCROW BALANCE
             const savedBalance = localStorage.getItem('escrow_balance_' + wallet);
@@ -1031,9 +1034,12 @@ function App() {
     const fetchLeaderboard = async () => {
         try {
             const res = await fetch(`${SERVER_URL}/leaderboard`);
+            if (!res.ok) return;
             const data = await res.json();
-            // Format for UI
+
+            // 1. Update Leaderboard Data for UI
             const formatted = data.map(u => ({
+                wallet: u.wallet,
                 name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
                 avatar: u.avatar || null,
                 stats: {
@@ -1044,10 +1050,54 @@ function App() {
                 }
             }));
             setLeaderboardData(formatted);
+
+            // 2. FORCE SYNC: If I am in the leaderboard, update my badge stats immediately
+            if (walletRef.current) {
+                const myEntry = data.find(u => u.wallet === walletRef.current);
+                if (myEntry) {
+                    syncLocalProfile(myEntry);
+                }
+            }
         } catch (e) {
             console.error("Failed to fetch leaderboard:", e);
-            setLeaderboardData([]); // Empty if fail
         }
+    };
+
+    /**
+     * Authoritative Sync with DB via REST
+     */
+    const fetchUserProfile = async (w) => {
+        if (!w || w.startsWith('Guest')) return;
+        try {
+            const res = await fetch(`${SERVER_URL}/user/${w}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && data.stats) {
+                syncLocalProfile(data);
+            }
+        } catch (e) {
+            console.error("Failed to sync profile:", e);
+        }
+    };
+
+    const syncLocalProfile = (data) => {
+        if (!data.wallet) return;
+        setUserProfile(prev => {
+            const updated = {
+                ...prev,
+                name: (data.name !== undefined) ? data.name : prev.name,
+                avatar: (data.avatar !== undefined) ? data.avatar : prev.avatar,
+                stats: {
+                    level: data.stats.level || 1,
+                    wins: data.stats.wins || 0,
+                    losses: data.stats.losses || 0,
+                    xp: data.stats.xp || 0
+                }
+            };
+            // Authoritative cache update
+            localStorage.setItem('bg_profile_' + data.wallet, JSON.stringify(updated));
+            return updated;
+        });
     };
 
     useEffect(() => {
@@ -2305,6 +2355,21 @@ function App() {
                     <div className="modal-overlay">
                         <div className="modal-content">
                             <h3>Edit Profile</h3>
+                            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>
+                                <div style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '5px' }}>Current Stats (MongoDB)</div>
+                                <div style={{ display: 'flex', gap: '15px', fontWeight: 'bold' }}>
+                                    <span>{userProfile.stats.wins} Wins</span>
+                                    <span>{userProfile.stats.losses} Losses</span>
+                                    <span>Lvl {userProfile.stats.level}</span>
+                                </div>
+                                <button
+                                    className="btn-secondary"
+                                    style={{ marginTop: '10px', fontSize: '0.7rem', padding: '4px 8px' }}
+                                    onClick={() => { fetchUserProfile(wallet); fetchLeaderboard(); }}
+                                >
+                                    🔄 Sync Stats Now
+                                </button>
+                            </div>
                             <div className="form-group">
                                 <label>Display Name</label>
                                 <input

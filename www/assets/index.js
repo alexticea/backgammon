@@ -76224,17 +76224,19 @@ ${err.message}`);
   reactExports.useEffect(() => {
     if (wallet && !wallet.startsWith("Guest")) {
       const saved = localStorage.getItem("bg_profile_" + wallet);
+      let profileToSet = { name: "", avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } };
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (!parsed.stats) parsed.stats = { wins: 0, losses: 0, xp: 0, level: 1 };
-          setUserProfile(parsed);
+          if (parsed.stats) profileToSet = parsed;
+          else profileToSet = { ...parsed, stats: profileToSet.stats };
         } catch (e) {
           console.error(e);
         }
-      } else {
-        setUserProfile({ name: "", avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
       }
+      setUserProfile(profileToSet);
+      fetchUserProfile(wallet);
+      fetchLeaderboard();
       const savedBalance = localStorage.getItem("escrow_balance_" + wallet);
       if (savedBalance) {
         setEscrowBalance(parseFloat(savedBalance));
@@ -76417,8 +76419,10 @@ ${err.message}`);
   const fetchLeaderboard = async () => {
     try {
       const res = await fetch(`${SERVER_URL}/leaderboard`);
+      if (!res.ok) return;
       const data = await res.json();
       const formatted = data.map((u2) => ({
+        wallet: u2.wallet,
         name: u2.name || `${u2.wallet.slice(0, 4)}...${u2.wallet.slice(-4)}`,
         avatar: u2.avatar || null,
         stats: {
@@ -76429,10 +76433,46 @@ ${err.message}`);
         }
       }));
       setLeaderboardData(formatted);
+      if (walletRef.current) {
+        const myEntry = data.find((u2) => u2.wallet === walletRef.current);
+        if (myEntry) {
+          syncLocalProfile(myEntry);
+        }
+      }
     } catch (e) {
       console.error("Failed to fetch leaderboard:", e);
-      setLeaderboardData([]);
     }
+  };
+  const fetchUserProfile = async (w2) => {
+    if (!w2 || w2.startsWith("Guest")) return;
+    try {
+      const res = await fetch(`${SERVER_URL}/user/${w2}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.stats) {
+        syncLocalProfile(data);
+      }
+    } catch (e) {
+      console.error("Failed to sync profile:", e);
+    }
+  };
+  const syncLocalProfile = (data) => {
+    if (!data.wallet) return;
+    setUserProfile((prev) => {
+      const updated = {
+        ...prev,
+        name: data.name !== void 0 ? data.name : prev.name,
+        avatar: data.avatar !== void 0 ? data.avatar : prev.avatar,
+        stats: {
+          level: data.stats.level || 1,
+          wins: data.stats.wins || 0,
+          losses: data.stats.losses || 0,
+          xp: data.stats.xp || 0
+        }
+      };
+      localStorage.setItem("bg_profile_" + data.wallet, JSON.stringify(updated));
+      return updated;
+    });
   };
   reactExports.useEffect(() => {
     fetchLeaderboard();
@@ -77380,6 +77420,35 @@ ${err.message}`);
       ] }),
       isProfileModalOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Edit Profile" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "rgba(255,255,255,0.05)", padding: "10px", borderRadius: "8px", marginBottom: "15px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "0.9rem", color: "#aaa", marginBottom: "5px" }, children: "Current Stats (MongoDB)" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "15px", fontWeight: "bold" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+              userProfile.stats.wins,
+              " Wins"
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+              userProfile.stats.losses,
+              " Losses"
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+              "Lvl ",
+              userProfile.stats.level
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              className: "btn-secondary",
+              style: { marginTop: "10px", fontSize: "0.7rem", padding: "4px 8px" },
+              onClick: () => {
+                fetchUserProfile(wallet);
+                fetchLeaderboard();
+              },
+              children: "🔄 Sync Stats Now"
+            }
+          )
+        ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "form-group", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("label", { children: "Display Name" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(

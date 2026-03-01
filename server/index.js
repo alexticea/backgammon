@@ -177,6 +177,28 @@ app.get('/leaderboard', async (req, res) => {
     }
 });
 
+app.get('/user/:wallet', async (req, res) => {
+    try {
+        const { wallet } = req.params;
+        if (!wallet || wallet.startsWith('Guest')) return res.status(400).json({ error: 'Invalid wallet' });
+        const user = await getUser(wallet);
+        res.json({
+            wallet: user.wallet,
+            name: user.name,
+            avatar: user.avatar,
+            stats: {
+                wins: user.wins || 0,
+                losses: user.losses || 0,
+                xp: user.xp || 0,
+                level: user.level || 1
+            }
+        });
+    } catch (e) {
+        console.error("User Fetch Error:", e);
+        res.status(500).json({ error: 'Internal error' });
+    }
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
