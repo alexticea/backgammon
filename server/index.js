@@ -139,7 +139,9 @@ const updateUserProfile = async (wallet, name, avatar) => {
 
 const getLeaderboard = async () => {
     if (dbType === 'mongo') {
-        const users = await User.find({})
+        const users = await User.find({
+            wallet: { $not: /^Guest/ } // Filter out wallets starting with "Guest"
+        })
             .sort({ xp: -1 }) // Descending XP
             .limit(100)
             .lean();
