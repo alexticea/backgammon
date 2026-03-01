@@ -75999,17 +75999,24 @@ ${err.message}`);
       setOpponentDisconnected(false);
     });
     newSocket.on("user_profile_update", (data) => {
-      setUserProfile((prev) => ({
-        ...prev,
-        name: data.name !== void 0 ? data.name : prev.name,
-        avatar: data.avatar !== void 0 ? data.avatar : prev.avatar,
-        stats: {
-          ...data.stats,
-          wins: data.stats.wins,
-          losses: data.stats.losses,
-          level: data.stats.level
+      setUserProfile((prev) => {
+        const updated = {
+          ...prev,
+          name: data.name !== void 0 ? data.name : prev.name,
+          avatar: data.avatar !== void 0 ? data.avatar : prev.avatar,
+          stats: {
+            wins: data.stats.wins,
+            losses: data.stats.losses,
+            xp: data.stats.xp,
+            level: data.stats.level
+          }
+        };
+        const targetWallet = data.wallet || walletRef.current;
+        if (targetWallet && !targetWallet.startsWith("Guest")) {
+          localStorage.setItem("bg_profile_" + targetWallet, JSON.stringify(updated));
         }
-      }));
+        return updated;
+      });
     });
     newSocket.on("lobby_list_update", (lobbies) => {
       console.log("Lobbies Updated:", lobbies);

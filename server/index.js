@@ -422,6 +422,7 @@ io.on('connection', (socket) => {
                         await updateStats(lWallet, 'loss');
                         const updatedL = await getUser(lWallet);
                         io.to(loserSocketId).emit('user_profile_update', {
+                            wallet: updatedL.wallet,
                             name: updatedL.name,
                             avatar: updatedL.avatar,
                             stats: { wins: updatedL.wins, losses: updatedL.losses, xp: updatedL.xp, level: updatedL.level }
@@ -431,6 +432,7 @@ io.on('connection', (socket) => {
                         await updateStats(wWallet, 'win');
                         const updatedW = await getUser(wWallet);
                         io.to(winnerSocketId).emit('user_profile_update', {
+                            wallet: updatedW.wallet,
                             name: updatedW.name,
                             avatar: updatedW.avatar,
                             stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
@@ -478,6 +480,7 @@ io.on('connection', (socket) => {
                         await updateStats(wData.wallet, 'win');
                         const updatedW = await getUser(wData.wallet);
                         io.to(winnerSocketId).emit('user_profile_update', {
+                            wallet: updatedW.wallet,
                             name: updatedW.name,
                             avatar: updatedW.avatar,
                             stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
@@ -487,6 +490,7 @@ io.on('connection', (socket) => {
                         await updateStats(lData.wallet, 'loss');
                         const updatedL = await getUser(lData.wallet);
                         io.to(loserSocketId).emit('user_profile_update', {
+                            wallet: updatedL.wallet,
                             name: updatedL.name,
                             avatar: updatedL.avatar,
                             stats: { wins: updatedL.wins, losses: updatedL.losses, xp: updatedL.xp, level: updatedL.level }
@@ -518,6 +522,7 @@ io.on('connection', (socket) => {
 
             // Emit back authoritative stats from DB
             socket.emit('user_profile_update', {
+                wallet: user.wallet,
                 name: user.name,
                 avatar: user.avatar,
                 stats: {
@@ -537,6 +542,7 @@ io.on('connection', (socket) => {
             await updateStats(wallet, result);
             const user = await getUser(wallet);
             socket.emit('user_profile_update', {
+                wallet: user.wallet,
                 name: user.name,
                 avatar: user.avatar,
                 stats: { wins: user.wins, losses: user.losses, xp: user.xp, level: user.level }
@@ -581,6 +587,13 @@ io.on('connection', (socket) => {
                                     const wData = game.playerData[winnerSocketId];
                                     if (wData && wData.wallet && !wData.wallet.startsWith('Guest')) {
                                         await updateStats(wData.wallet, 'win');
+                                        const updatedW = await getUser(wData.wallet);
+                                        io.to(winnerSocketId).emit('user_profile_update', {
+                                            wallet: updatedW.wallet,
+                                            name: updatedW.name,
+                                            avatar: updatedW.avatar,
+                                            stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
+                                        });
                                     }
                                 }
                                 // Update Loser (The one who disconnected)
