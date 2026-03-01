@@ -202,6 +202,7 @@ function App() {
     const [activeLobbies, setActiveLobbies] = useState([]);
     const [isLobbyOpen, setIsLobbyOpen] = useState(false);
     const [isHosting, setIsHosting] = useState(false);
+    const [onlineCount, setOnlineCount] = useState(1);
 
     // --- REFS FOR SOCKET HANDLERS ---
     const gameStatusRef = useRef(gameStatus);
@@ -253,6 +254,10 @@ function App() {
         newSocket.on('connect_error', (err) => {
             console.error("Connection Error:", err);
             setLogs(prev => ["Connection Failed! Check Server URL.", ...prev]);
+        });
+
+        newSocket.on('online_count_update', (data) => {
+            setOnlineCount(data.count);
         });
 
         newSocket.on('waiting_for_match', () => {
@@ -1224,6 +1229,7 @@ function App() {
         setHistory([]);
         setGameResult(null);
         setOpeningRoll(null);
+        setPlayerColor(PLAYER_HUMAN); // Reset to White for Single Player
         setGameStatus('opening_roll');
         log(`Game Started! Difficulty: ${diff}`);
         log("Rolling for first turn...");
@@ -1976,7 +1982,6 @@ function App() {
 
     // HUMAN MOVES
     const handlePointClick = (index) => {
-        console.log("HandlePointClick Entry:", index, "Selected:", selectedPoint, "Turn:", turn);
         if (turn !== 'human' || rolling) return;
 
         // Is the player clicking an owned piece that is NOT a valid target? If so, this is a "Selection" or "Re-selection" intent.
@@ -2406,7 +2411,10 @@ function App() {
                                     <span className="icon">👥</span>
                                     <span>Multiplayer</span>
                                 </div>
-                                <span></span> {/* Spacer for flex-between */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.8 }}>
+                                    <div style={{ width: '6px', height: '6px', background: '#4caf50', borderRadius: '50%' }}></div>
+                                    <span style={{ fontSize: '0.8rem', color: '#81c784' }}>{onlineCount}</span>
+                                </div>
                             </button>
 
                             {/* TOURNAMENT - Hidden for now
@@ -2479,6 +2487,22 @@ function App() {
                         </div>
                     </>
                 )}
+
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'rgba(0,0,0,0.4)',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '0.8rem',
+                    color: '#81c784',
+                    border: '1px solid rgba(129, 199, 132, 0.2)',
+                    marginBottom: '10px'
+                }}>
+                    <div className="pulse-dot" style={{ width: '8px', height: '8px', background: '#4caf50', borderRadius: '50%' }}></div>
+                    <span style={{ fontWeight: 'bold' }}>{onlineCount} Users Online</span>
+                </div>
 
                 <h2 className="landing-title">Select Mode</h2>
 

@@ -194,6 +194,16 @@ const disconnectTimers = {};
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
+    // Send Online Count to all
+    const broadcastOnlineCount = () => {
+        const count = io.sockets.sockets.size;
+        io.emit('online_count_update', { count });
+        console.log(`[SERVER] Broadcasted online count: ${count}`);
+    };
+
+    // Initial broadcast for this connection
+    broadcastOnlineCount();
+
     // 0. CHECK ACTIVE GAME (Reconnection)
     socket.on('check_active_game', async (wallet) => {
         console.log(`[SERVER] Checking active game for wallet: ${wallet}`);
@@ -544,23 +554,27 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 9. DISCONNECT
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+
+        // Broadcast online count after disconnect
+        const count = io.sockets.sockets.size;
+        io.emit('online_count_update', { count });
+        console.log(`[SERVER] Broadcasted online count after disconnect: ${count}`);
+
         if (waitingPlayer && waitingPlayer.socketId === socket.id) {
             waitingPlayer = null;
         }
 
-        // Handle Lobbies
         const lobbyRoomId = `lobby_${socket.id}`;
         if (activeLobbies[lobbyRoomId]) {
             delete activeLobbies[lobbyRoomId];
             io.emit('lobby_list_update', Object.values(activeLobbies));
         }
 
-        // Handle Active Games
         for (const [roomId, game] of Object.entries(games)) {
             if (game.players.includes(socket.id)) {
+                // ... (handling disconnect within game)
                 const myData = game.playerData[socket.id];
                 const wallet = myData ? myData.wallet : null;
 
@@ -608,4 +622,10 @@ io.on('connection', (socket) => {
 const PORT = 3001;
 server.listen(PORT, () => {
     console.log(`SERVER RUNNING on port ${PORT}`);
+
+    // Periodically broadcast online count to keep everyone in sync
+    setInterval(() => {
+        const count = io.sockets.sockets.size;
+        io.emit('online_count_update', { count });
+    }, 10000); // Every 10 seconds
 });

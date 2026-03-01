@@ -75797,6 +75797,7 @@ ${err.message}`);
   const [activeLobbies, setActiveLobbies] = reactExports.useState([]);
   const [isLobbyOpen, setIsLobbyOpen] = reactExports.useState(false);
   const [isHosting, setIsHosting] = reactExports.useState(false);
+  const [onlineCount, setOnlineCount] = reactExports.useState(1);
   const gameStatusRef = reactExports.useRef(gameStatus);
   reactExports.useEffect(() => {
     gameStatusRef.current = gameStatus;
@@ -75846,6 +75847,9 @@ ${err.message}`);
     newSocket.on("connect_error", (err) => {
       console.error("Connection Error:", err);
       setLogs((prev) => ["Connection Failed! Check Server URL.", ...prev]);
+    });
+    newSocket.on("online_count_update", (data) => {
+      setOnlineCount(data.count);
     });
     newSocket.on("waiting_for_match", () => {
       setLogs((prev) => ["Waiting for an opponent...", ...prev]);
@@ -76567,6 +76571,7 @@ ${err.message}`);
     setHistory([]);
     setGameResult(null);
     setOpeningRoll(null);
+    setPlayerColor(PLAYER_HUMAN);
     setGameStatus("opening_roll");
     log2(`Game Started! Difficulty: ${diff}`);
     log2("Rolling for first turn...");
@@ -77116,7 +77121,6 @@ ${err.message}`);
     }
   };
   const handlePointClick = (index) => {
-    console.log("HandlePointClick Entry:", index, "Selected:", selectedPoint, "Turn:", turn);
     if (turn !== "human" || rolling) return;
     const isOwnedPiece = index >= 0 && index <= 23 && board[index].player === playerColor && board[index].count > 0;
     const isMoveTarget = validMoves.includes(index);
@@ -77484,8 +77488,10 @@ ${err.message}`);
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "icon", children: "👥" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Multiplayer" })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", {}),
-          " "
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "6px", opacity: 0.8 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "6px", height: "6px", background: "#4caf50", borderRadius: "50%" } }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "0.8rem", color: "#81c784" }, children: onlineCount })
+          ] })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", onClick: () => setGameStatus("leaderboard"), children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
@@ -77539,6 +77545,24 @@ ${err.message}`);
           ] })
         ] })
       ] }) }) }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        background: "rgba(0,0,0,0.4)",
+        padding: "6px 12px",
+        borderRadius: "20px",
+        fontSize: "0.8rem",
+        color: "#81c784",
+        border: "1px solid rgba(129, 199, 132, 0.2)",
+        marginBottom: "10px"
+      }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pulse-dot", style: { width: "8px", height: "8px", background: "#4caf50", borderRadius: "50%" } }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontWeight: "bold" }, children: [
+          onlineCount,
+          " Users Online"
+        ] })
+      ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "landing-title", children: "Select Mode" }),
       isSearching ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: { padding: "40px", textAlign: "center", border: "2px solid #4caf50", background: "rgba(0,0,0,0.8)" }, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "20px" }, children: "🔍" }),
