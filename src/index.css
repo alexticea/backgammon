@@ -1,5 +1,9 @@
-/* RESET & BASE */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+
+/* RESET & BASE */
+* {
+    box-sizing: border-box;
+}
 
 /* Dice Styling - 3D with Dots - INLINED */
 .die-3d {
@@ -181,12 +185,15 @@
     --valid-highlight: rgba(141, 110, 99, 0.4);
 }
 
+html,
 body {
     margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
     font-family: 'Outfit', sans-serif;
     background-color: var(--bg-dark);
     color: #f0f0f0;
-    height: 100vh;
     overflow: hidden;
 }
 
@@ -198,32 +205,126 @@ body {
 /* LAYOUT */
 .app-container {
     display: flex;
-    width: 100%;
-    height: 100%;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--bg-dark);
+    overflow: hidden;
 }
 
-/* SIDEBAR */
-.sidebar {
-    width: 250px;
-    background: var(--bg-board);
-    /* Dark Wood */
-    border-right: 1px solid #3e2723;
-    padding: 20px;
+/* UNIFIED HEADER */
+.unified-header {
+    width: 100%;
+    height: 44px;
+    background: #231b15;
+    /* Rich dark wood */
+    border-bottom: 2px solid #3e2723;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    flex-shrink: 0;
+    transition: background 0.3s;
+}
+
+.unified-header.active-turn {
+    background: #2e3b23;
+    /* Deep moss green for active state */
+    border-bottom-color: #4caf50;
+}
+
+.header-left,
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.header-right {
+    justify-content: flex-end;
+}
+
+.header-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1.5;
+}
+
+.logo-mini {
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: -1px;
+    margin-right: 5px;
+}
+
+.opponent-info-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.opponent-avatar-mini {
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.opp-name-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #e8e0d5;
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.turn-status-compact {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
-    z-index: 20;
+    align-items: center;
+    line-height: 1;
 }
 
-.logo {
-    font-size: 1.5rem;
+.turn-label {
+    font-size: 0.65rem;
     font-weight: 800;
-    color: var(--accent-text);
-    /* Light Brown text */
-    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    line-height: 1.2;
-    margin-bottom: 20px;
+    color: #ffb74d;
+    letter-spacing: 1px;
+}
+
+.turn-timer-compact {
+    font-size: 0.8rem;
+    font-family: monospace;
+    color: #fff;
+    font-weight: bold;
+}
+
+.btn-header-action {
+    background: #3e2723;
+    border: 1px solid #5d4037;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.btn-header-action:hover {
+    background: #4e342e;
+    transform: scale(1.05);
 }
 
 .card {
@@ -236,18 +337,17 @@ body {
 /* COMPACT SIDEBAR ITEMS */
 .sidebar-controls {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
-    width: 100%;
+    align-items: center;
 }
 
 .sidebar-status {
     background: rgba(26, 22, 20, 0.8);
-    padding: 12px;
+    padding: 5px 12px;
     border-radius: 8px;
     border: 1px solid #3e2723;
     text-align: center;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .status-text {
@@ -380,11 +480,10 @@ body {
     border: 1px solid #5d4037;
     color: #e57373;
     /* Soft Red */
-    padding: 10px;
+    padding: 8px 15px;
     border-radius: 8px;
     cursor: pointer;
-    margin-top: auto;
-    width: 100%;
+    width: auto;
     font-weight: 600;
     font-size: 0.9rem;
     display: flex;
@@ -454,13 +553,12 @@ body {
     flex: 1;
     background: #18120e;
     /* Dark surroundings */
-    padding: 40px;
+    padding: 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
     position: relative;
-    /* For absolute dice */
+    width: 100%;
 }
 
 /* BOARD GRID */
@@ -470,11 +568,10 @@ body {
     /* Match Off Tray sizing logic */
     flex: 1;
     width: 100%;
-    max-width: 800px;
-    /* Constrain width for realistic ratio */
+    /* Fill available space */
     display: flex;
-    border: 15px solid var(--point-dark);
-    /* Dark Brown Frame */
+    border: 10px solid var(--point-dark);
+    /* Dark Brown Frame slightly thinner for screen space */
     position: relative;
     background: var(--board-surface);
     /* CREAM SURFACE */
@@ -755,44 +852,7 @@ body {
 /* PLAYER CONTROLS (Bottom Bar) */
 /* Opponent Bar */
 /* Opponent Bar */
-.opponent-bar {
-    width: 100%;
-    max-width: 800px;
-    /* Match board width */
-    display: flex;
-    justify-content: flex-start;
-    /* Ensure left alignment */
-    align-items: center;
-    padding: 15px 20px;
-    background: #2c241b;
-    border-bottom: 2px solid #5d4037;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    color: #e8e0d5;
-    z-index: 10;
-    margin-bottom: 20px;
-}
 
-.opponent-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-direction: row;
-    /* Avatar Left, Name Right */
-}
-
-.opponent-avatar {
-    width: 40px;
-    height: 40px;
-    background: radial-gradient(circle at 30% 30%, #4a4a4a, #000000);
-    border-radius: 50%;
-    border: 1px solid #000;
-    box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.1), 0 2px 5px rgba(0, 0, 0, 0.5);
-}
-
-.opponent-name {
-    font-size: 1.1rem;
-    font-weight: 700;
-}
 
 /* SIDEBAR CHAT */
 /* CHAT POPUP */
@@ -1301,17 +1361,18 @@ body {
 }
 
 .wallet-badge {
-    background: rgba(26, 22, 20, 0.8);
+    background: rgba(26, 22, 20, 0.95);
     border: 1px solid #5d4037;
-    border-radius: 50px;
-    padding: 8px 16px;
+    border-radius: 12px;
+    padding: 12px;
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
     color: #e8e0d5;
     font-weight: 600;
-    backdrop-filter: blur(4px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+    min-width: 180px;
 }
 
 .wallet-badge .dot {
@@ -1797,7 +1858,6 @@ body {
     box-sizing: border-box;
     /* Ensure borders are included in width */
     width: 100%;
-    max-width: 800px;
     height: 45px;
     /* Reduced for smaller pieces */
     background: #251e19;

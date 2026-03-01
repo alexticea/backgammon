@@ -3,9 +3,10 @@ import io from 'socket.io-client';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
+import { App as CapApp } from '@capacitor/app';
+import { StatusBar } from '@capacitor/status-bar';
+import { buildConnectUrl, handleConnectCallback } from './SolanaLogin';
 import './index.css';
-import './dice.css';
-import './tray.css';
 
 // Polyfill if needed for Buffer (handled in main.jsx usually)
 
@@ -35,13 +36,32 @@ function App() {
     const PRODUCTION_FRONTEND_URL = 'https://backgammon-beige.vercel.app';
     const PRODUCTION_BACKEND_URL = 'https://backgammon-usxq.onrender.com';
 
-    const SERVER_URL = isCapacitor ? PRODUCTION_BACKEND_URL :
-        (isLocal ? `http://${window.location.hostname}:3001` : PRODUCTION_BACKEND_URL);
+    // FOR LOCAL TESTING: Change this to your PC's local IP (e.g., 192.168.1.5) 
+    // to test between two phones on the same WiFi.
+    const LOCAL_IP = '192.168.100.191'; // <-- UPDATE THIS TO YOUR PC IP
+
+    const SERVER_URL = isLocal ? `http://${window.location.hostname}:3001` : PRODUCTION_BACKEND_URL;
 
     // --- STATE ---
-    const [wallet, setWallet] = useState(null);
+    const [wallet, setWallet] = useState(() => {
+        return localStorage.getItem('bg_wallet_address') || null;
+    });
+    const setWalletValue = (val) => {
+        setWallet(val);
+        if (val) {
+            localStorage.setItem('bg_wallet_address', val);
+        } else {
+            localStorage.removeItem('bg_wallet_address');
+        }
+    };
     const [balance, setBalance] = useState(0);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(() => {
+        return localStorage.getItem('bg_is_logged_in') === 'true';
+    });
+    const setLoggedInValue = (val) => {
+        setIsLoggedIn(val);
+        localStorage.setItem('bg_is_logged_in', val ? 'true' : 'false');
+    };
     const [isLoggingIn, setIsLoggingIn] = useState(false);
 
     // --- WALLET HOOKS ---
@@ -49,25 +69,78 @@ function App() {
     const { publicKey, sendTransaction, signMessage, disconnect, connected, select, wallets, connect, wallet: activeWallet } = useWallet();
     const { setVisible } = useWalletModal();
 
+    // 0. Capacitor App Deep Link Listener
+    useEffect(() => {
+        if (isCapacitor) {
+            const processUrl = (url) => {
+                console.log(`App processing URL: ${url}`);
+                if (url && url.includes('backgammon://')) {
+                    try {
+                        const result = handleConnectCallback(url);
+                        if (result && result.publicKey) {
+                            const pKeyStr = result.publicKey.toBase58();
+                            console.log(`Deep link connect success! Key: ${pKeyStr.slice(0, 4)}...`);
+
+                            // Set LoggedIn FIRST before alert blocks
+                            setLoggedInValue(true);
+                            setWalletValue(pKeyStr);
+                            handleWalletConnection(pKeyStr);
+                        } else {
+                            alert("Solflare callback yielded no keys. Try again.");
+                            console.log(`Deep link result was null.`);
+                        }
+                    } catch (err) {
+                        alert(`Deep Link Error:\n\n${err.message}`);
+                        console.log(`Deep link connect error: ${err.message}`);
+                    }
+                }
+            };
+
+            // Check if app was opened via deep link when closed/killed
+            CapApp.getLaunchUrl().then(launchData => {
+                if (launchData && launchData.url) {
+                    processUrl(launchData.url);
+                }
+            });
+
+            // Listen for deep links when app is already open
+            const listener = CapApp.addListener('appUrlOpen', data => {
+                if (data && data.url) {
+                    processUrl(data.url);
+                }
+            });
+            return () => {
+                if (listener.remove) listener.remove();
+            };
+        }
+    }, [isCapacitor]);
+
+    // 0.1 Hide StatusBar for Fullscreen
+    useEffect(() => {
+        if (isCapacitor) {
+            StatusBar.hide().catch(e => console.warn("StatusBar hide failed", e));
+        }
+    }, [isCapacitor]);
+
     // 1. Sync Wallet State & Auto-Login
     useEffect(() => {
         if (connected && publicKey) {
             const pKeyStr = publicKey.toBase58();
             if (wallet !== pKeyStr) {
-                setWallet(pKeyStr);
+                setWalletValue(pKeyStr);
                 handleWalletConnection(pKeyStr);
                 log(`Connected: ${pKeyStr.slice(0, 4)}...${pKeyStr.slice(-4)}`);
             }
-        } else if (!connected && wallet && !wallet.startsWith('Guest') && !wallet.startsWith('Mock')) {
-            // ONLY clear if it's not a Guest or Mock wallet
-            setWallet(null);
-            setIsLoggedIn(false);
+        } else if (!isCapacitor && !connected && wallet && !wallet.startsWith('Guest') && !wallet.startsWith('Mock')) {
+            // ONLY clear if it's not a Guest or Mock wallet (and not Capacitor deep handling)
+            setWalletValue(null);
+            setLoggedInValue(false);
         }
     }, [connected, publicKey, wallet]);
 
-    // 2. Desktop Modal Bridge: Trigger connect() when a wallet is selected from the list
+    // 2. Desktop/Mobile Bridge: Trigger connect() when a wallet is selected from the list
     useEffect(() => {
-        if (activeWallet && !connected && !isLoggingIn && !isCapacitor) {
+        if (activeWallet && !connected && !isLoggingIn) {
             log(`Attempting connection to ${activeWallet.adapter.name}...`);
             connect().catch(err => {
                 log(`Connection failed: ${err.message?.slice(0, 30)}`);
@@ -126,6 +199,9 @@ function App() {
     const [chatInput, setChatInput] = useState("");
     const [unreadChat, setUnreadChat] = useState(0);
     const [selectedStake, setSelectedStake] = useState(0); // 0 = Free Play
+    const [activeLobbies, setActiveLobbies] = useState([]);
+    const [isLobbyOpen, setIsLobbyOpen] = useState(false);
+    const [isHosting, setIsHosting] = useState(false);
 
     // --- REFS FOR SOCKET HANDLERS ---
     const gameStatusRef = useRef(gameStatus);
@@ -382,6 +458,11 @@ function App() {
             }));
         });
 
+        newSocket.on('lobby_list_update', (lobbies) => {
+            console.log("Lobbies Updated:", lobbies);
+            setActiveLobbies(lobbies);
+        });
+
         newSocket.on('rejoin_success', ({ roomId, color, players }) => {
             log("Rejoined match! Waiting for sync...");
             const myColor = color === 'white' ? PLAYER_HUMAN : PLAYER_AI;
@@ -587,7 +668,6 @@ function App() {
     // --- PROFILE LOGIC ---
     const [userProfile, setUserProfile] = useState({ name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-    const [isWalletSelectorOpen, setIsWalletSelectorOpen] = useState(false); // Mobile Wallet Selector
 
     // --- TIMER LOGIC ---
     const [turnTimer, setTurnTimer] = useState(180); // 3 minutes per turn
@@ -672,12 +752,12 @@ function App() {
             const newStats = { ...prev.stats };
             if (result === 'win') {
                 newStats.wins += 1;
-                newStats.xp += 100;
+                newStats.xp += 20;
             } else {
                 newStats.losses += 1;
-                newStats.xp += 20; // Consolation XP
+                newStats.xp += 5; // Consolation XP
             }
-            newStats.level = Math.floor(newStats.xp / 500) + 1;
+            newStats.level = Math.floor(newStats.xp / 100) + 1;
 
             const newProfile = { ...prev, stats: newStats };
             localStorage.setItem('bg_profile_' + wallet, JSON.stringify(newProfile));
@@ -800,7 +880,7 @@ function App() {
 
             log("Escrow Deposit: " + amount + " SOL");
             setEscrowBalance(prev => parseFloat((prev + amount).toFixed(2)));
-            setTimeout(fetchBalance, 2000); // Trigger Wallet Refresh
+            // setTimeout(fetchBalance, 2000); // Disabled refresh wallet balance
 
         } catch (e) {
             alert("Deposit Error: " + e.message);
@@ -849,36 +929,84 @@ function App() {
     const [showResignModal, setShowResignModal] = useState(false);
 
     const handleSearchMatch = (stake) => {
-        if (!wallet || wallet.startsWith('Guest')) {
-            setShowGuestPopup(true);
-            return;
+        // Only block guests for STAKE matches
+        if (stake !== null && stake !== 0) {
+            if (!wallet || wallet.startsWith('Guest')) {
+                setShowGuestPopup(true);
+                return;
+            }
         }
+
         setSelectedStake(stake);
-        setIsSearching(true);
 
-        // REAL SOCKET MATCHMAKING
-        if (socket) {
-            const profile = userProfile;
-            const walletStr = wallet; // wallet is already a string
-            const displayName = (profile.name && profile.name.trim() !== '')
-                ? profile.name
-                : `${walletStr.slice(0, 4)}...${walletStr.slice(-4)}`;
-
-            socket.emit('find_match', {
-                name: displayName,
-                wallet: walletStr,
-                level: profile.stats?.level || 1,
-                stats: {
-                    wins: profile.stats?.wins || 0,
-                    losses: profile.stats?.losses || 0
-                }
-            });
+        if (stake === null || stake === 0) {
+            // Free Play -> Open Lobby View
+            setIsLobbyOpen(true);
+            if (socket) socket.emit('get_lobbies');
         } else {
-            alert("Server connection failed. Retrying...");
-            // Retry connect
-            const newSocket = io('http://localhost:3001');
-            setSocket(newSocket);
+            // Ranked -> Quick Match
+            setIsSearching(true);
+            if (socket) {
+                const profile = userProfile;
+                const walletStr = wallet;
+                const displayName = (profile.name && profile.name.trim() !== '')
+                    ? profile.name
+                    : `${walletStr.slice(0, 4)}...${walletStr.slice(-4)}`;
+
+                socket.emit('find_match', {
+                    name: displayName,
+                    wallet: walletStr,
+                    level: profile.stats?.level || 1,
+                    stats: {
+                        wins: profile.stats?.wins || 0,
+                        losses: profile.stats?.losses || 0
+                    }
+                });
+            }
         }
+    };
+
+    const handleHostGame = () => {
+        if (!socket || !wallet) return;
+        const profile = userProfile;
+        const displayName = (profile.name && profile.name.trim() !== '')
+            ? profile.name
+            : `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+
+        setIsHosting(true);
+        socket.emit('create_lobby', {
+            name: displayName,
+            wallet: wallet,
+            level: profile.stats?.level || 1,
+            stats: profile.stats
+        });
+        log("Hosting Free Play Game...");
+    };
+
+    const handleJoinLobby = (lobby) => {
+        if (!socket || !wallet) return;
+        const profile = userProfile;
+        const displayName = (profile.name && profile.name.trim() !== '')
+            ? profile.name
+            : `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+
+        socket.emit('join_lobby', {
+            roomId: lobby.roomId,
+            userData: {
+                name: displayName,
+                wallet: wallet,
+                level: profile.stats?.level || 1,
+                stats: profile.stats
+            }
+        });
+        setIsLobbyOpen(false);
+        log(`Joining ${lobby.hostData.name}'s table...`);
+    };
+
+    const handleLeaveLobby = () => {
+        if (socket) socket.emit('leave_lobby');
+        setIsHosting(false);
+        log("Lobby closed.");
     };
 
     // --- LEADERBOARD ---
@@ -918,7 +1046,7 @@ function App() {
     const handleWalletConnection = async (pKeyStr) => {
         log(`Handshake with ${pKeyStr.slice(0, 8)}...`);
         // Just load profile and wait for explicit signature from UI
-        setWallet(pKeyStr);
+        setWalletValue(pKeyStr);
         const existing = localStorage.getItem('bg_profile_' + pKeyStr);
         let profileData;
         if (existing) {
@@ -947,8 +1075,8 @@ function App() {
             }
         }
 
-        // Fetch Balance
-        fetchBalance();
+        // Fetch Balance disabled (undefined)
+        // fetchBalance();
     };
 
     /**
@@ -965,7 +1093,7 @@ function App() {
             // Priority 1: Standard Message Sign
             const signed = await signMessage(message);
             if (signed) {
-                setIsLoggedIn(true);
+                setLoggedInValue(true);
                 log("IDENTITY: Success!");
                 handleWalletConnection(publicKey.toBase58());
                 return true;
@@ -983,7 +1111,7 @@ function App() {
                     tx.feePayer = publicKey;
                     const sig = await sendTransaction(tx, connection);
                     if (sig) {
-                        setIsLoggedIn(true);
+                        setLoggedInValue(true);
                         handleWalletConnection(publicKey.toBase58());
                         return true;
                     }
@@ -996,85 +1124,21 @@ function App() {
     };
 
     /**
-     * OFFICIAL: Solana Mobile transact flow
-     * This is the recommended way per https://docs.solanamobile.com/
-     * It combines connection and identity proof in one atomic step.
-     */
-    const handleMobileMwaFlow = async (targetAdapter) => {
-        try {
-            setIsLoggingIn(true);
-            log("MWA: Searching for native bridge...");
-
-            // 1. Try to find the adapter that actually has 'transact'
-            let bridge = targetAdapter;
-            if (!bridge || typeof bridge.transact !== 'function') {
-                log("MWA: Searching all adapters for bridge...");
-                const found = wallets.find(w => w.adapter && typeof w.adapter.transact === 'function');
-                if (found) {
-                    bridge = found.adapter;
-                    log(`MWA: Found bridge on ${bridge.name}`);
-                }
-            }
-
-            // 2. Final check
-            if (!bridge || typeof bridge.transact !== 'function') {
-                log(`MWA ERR: No native bridge found. Found: ${wallets.map(w => w.adapter.name).join(', ')}`);
-                alert("Mobile Wallet bridge failed to initialize. Please try 'Open in Solflare' instead.");
-                return;
-            }
-
-            log(`MWA: Opening Secure Session (${bridge.name})...`);
-            await bridge.transact(async (wallet) => {
-                log("MWA: Authorizing...");
-                const auth = await wallet.authorize({
-                    cluster: 'devnet',
-                    identity: {
-                        name: 'Backgammon Solana',
-                        uri: PRODUCTION_FRONTEND_URL,
-                        icon: 'favicon.ico'
-                    }
-                });
-
-                log("MWA: Signing Login...");
-                const message = new TextEncoder().encode("Login to Backgammon Solana");
-                const signedResult = await wallet.signMessages({
-                    addresses: [auth.accounts[0].address],
-                    payloads: [message]
-                });
-
-                if (signedResult) {
-                    log("MWA: Success!");
-                    const pk = new PublicKey(auth.accounts[0].address).toBase58();
-                    setWallet(pk);
-                    setIsLoggedIn(true);
-                    handleWalletConnection(pk);
-                }
-            });
-        } catch (err) {
-            log(`MWA ERR: ${err.message?.slice(0, 30)}`);
-            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-                alert("Solana Mobile requires HTTPS. Use the Render URL.");
-            }
-        } finally {
-            setIsLoggingIn(false);
-        }
-    };
-
-    /**
      * Main Connect Controller
      */
     const connectWallet = async () => {
-        const ua = navigator.userAgent;
-        const isMob = /Android|iPhone|iPad/i.test(ua) || isCapacitor;
-        const injected = window.solana || window.phantom?.solana;
+        log(`TAP: Connect`);
 
-        log(`TAP: Connect (Mobile=${isMob}, Injected=${!!injected})`);
-
-        // PRIORITY 1: In-App Browser (e.g. inside Solflare mobile browser)
-        if (isMob && injected?.isConnected) {
-            log("TAP: Using Injected Provider...");
-            if (!isLoggedIn) await handleIdentitySignature();
-            return;
+        // PRIORITY 1: Deep Link if Capacitor App
+        if (isCapacitor) {
+            try {
+                const connectUrl = buildConnectUrl();
+                window.open(connectUrl, '_system');
+                return;
+            } catch (err) {
+                log(`Failed to build connect URL: ${err.message}`);
+                // fallback below
+            }
         }
 
         // PRIORITY 2: Second Tap Login (Connected but not verified)
@@ -1083,16 +1147,15 @@ function App() {
             return;
         }
 
-        // PRIORITY 3: Mobile Native (MWA / Seeker / Seed Vault)
-        if (isMob) {
-            setIsWalletSelectorOpen(true);
-            return;
-        }
-
-        // PRIORITY 4: Desktop Fallback (Standard Browser Extension)
+        // PRIORITY 3: Direct Solflare Login
         if (!connected) {
-            log("CONNECT: Opening standard Desktop Modal.");
-            setVisible(true); // From @solana/wallet-adapter-react-ui
+            log("Connecting to Solflare...");
+            const solflareWallet = wallets.find(w => w.adapter.name === 'Solflare');
+            if (solflareWallet) {
+                select(solflareWallet.adapter.name);
+            } else {
+                log("Error: Solflare adapter not found.");
+            }
         }
     };
 
@@ -1106,8 +1169,8 @@ function App() {
         log("Forcing Reset...");
         try {
             await disconnect();
-            setWallet(null);
-            setIsLoggedIn(false);
+            setWalletValue(null);
+            setLoggedInValue(false);
             setIsLoggingIn(false);
             log("Local state cleared.");
         } catch (e) {
@@ -1117,7 +1180,7 @@ function App() {
 
     const handleGuestLogin = () => {
         const guestId = Math.floor(Math.random() * 9000) + 1000;
-        setWallet(`Guest#${guestId}`);
+        setWalletValue(`Guest#${guestId}`);
         setBalance("1000 PLAY"); // Demo currrency
         log("Logged in as Guest.");
     };
@@ -2230,23 +2293,7 @@ function App() {
                 </div>
                 <div className="landing-subtitle">Powered by Solana</div>
 
-                {/* Debug Logs Overlay */}
-                <div style={{
-                    position: 'fixed', bottom: '10px', left: '10px', right: '10px',
-                    background: 'rgba(0,0,0,0.85)', color: '#0f0', padding: '15px',
-                    borderRadius: '12px', fontSize: '0.8rem', fontFamily: 'monospace',
-                    zIndex: 9999, pointerEvents: 'auto', textAlign: 'left',
-                    border: '1px solid #0f0', maxHeight: '150px', overflowY: 'auto',
-                    boxShadow: '0 0 20px rgba(0,255,0,0.2)'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', borderBottom: '1px solid #333', paddingBottom: '5px' }}>
-                        <span style={{ fontWeight: 'bold' }}>SYSTEM LOGS</span>
-                        <button onClick={handleForceReset} style={{ background: '#f44336', color: '#fff', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '0.7rem', cursor: 'pointer' }}>Reset Connection</button>
-                    </div>
-                    {logs.map((msg, i) => (
-                        <div key={i} style={{ marginBottom: '4px', borderLeft: '2px solid #0f0', paddingLeft: '8px' }}>{`> ${msg}`}</div>
-                    ))}
-                </div>
+
 
                 {/* Top Right Wallet Badge (Only if connected) */}
                 {wallet && (
@@ -2265,36 +2312,32 @@ function App() {
 
                         {/* Top Left Wallet Info */}
                         <div className="wallet-badge-container">
-                            {wallet.startsWith('Guest') ? (
-                                <div className="wallet-badge">Guest Mode</div>
-                            ) : (
-                                <div className="wallet-badge" onClick={() => setIsProfileModalOpen(true)} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-start', padding: '8px 12px' }} title="Edit Profile">
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                        {userProfile.avatar && (
-                                            <img src={userProfile.avatar} style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px' }} />
-                                        )}
-                                        <span style={{ fontWeight: 'bold' }}>{userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`}</span>
-                                        <span style={{ fontSize: '0.8rem', marginLeft: '5px', opacity: 0.7 }}>✏️</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', opacity: 0.9, fontSize: '0.9rem' }}>
-                                        <span>🔗</span>
-                                        <span style={{ fontWeight: 'bold' }}>{balance} SOL</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                            <div className="wallet-badge" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start', padding: '12px' }} onClick={() => setIsProfileModalOpen(true)}>
+                                {wallet.startsWith('Guest') ? (
+                                    <div style={{ fontWeight: 'bold' }}>Guest Mode</div>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            {userProfile.avatar && (
+                                                <img src={userProfile.avatar} style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px' }} />
+                                            )}
+                                            <span style={{ fontWeight: 'bold' }}>{userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}`}</span>
+                                            <span style={{ fontSize: '0.8rem', marginLeft: '5px', opacity: 0.7 }}>✏️</span>
+                                        </div>
 
-                        {/* Top Right Disconnect */}
-                        <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 1001 }}>
-                            <button className="btn-disconnect" onClick={() => {
-                                if (wallet.startsWith('Guest')) {
-                                    setWallet(null);
-                                } else {
-                                    disconnect();
-                                }
-                            }}>
-                                {wallet.startsWith('Guest') ? 'Exit Guest' : 'Disconnect'}
-                            </button>
+                                        {/* STATS STRIP */}
+                                        <div style={{ display: 'flex', alignItems: 'center', width: '100%', fontSize: '0.8rem', opacity: 0.9, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', gap: '8px' }}>
+                                            <span style={{ color: '#66bb6a' }}>{userProfile.stats.wins}W</span>
+                                            <span style={{ opacity: 0.5 }}>-</span>
+                                            <span style={{ color: '#ef5350' }}>{userProfile.stats.losses}L</span>
+                                            <span style={{ opacity: 0.5 }}>|</span>
+                                            <span style={{ color: '#ffd700' }}>Lvl {userProfile.stats.level}</span>
+                                            <span style={{ opacity: 0.5 }}>|</span>
+                                            <span style={{ color: '#00e676' }}>{userProfile.stats.xp} XP</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </>
                 )}
@@ -2347,86 +2390,7 @@ function App() {
                 {/* CONDITIONS MODAL */}
 
 
-                {/* WALLET SELECTOR MODAL (Mobile) */}
-                {isWalletSelectorOpen && (
-                    <div className="modal-overlay">
-                        <div className="modal-content" style={{ maxWidth: '380px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                <h3 style={{ margin: 0 }}>Connect Wallet</h3>
-                                <button onClick={() => setIsWalletSelectorOpen(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: '1.5rem' }}>×</button>
-                            </div>
 
-                            <p style={{ fontSize: '0.85rem', color: '#ccc', marginBottom: '20px' }}>
-                                Select <strong>"Mobile Wallet"</strong> to connect your <strong>Seed Vault</strong> or <strong>Solflare</strong> natively.
-                            </p>
-
-                            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-
-                                {/* THE MAIN BUTTON - Native MWA handler */}
-                                <button className="btn-primary"
-                                    style={{
-                                        backgroundColor: '#14F195',
-                                        color: '#000',
-                                        fontWeight: 'bold',
-                                        padding: '18px',
-                                        fontSize: '1.1rem',
-                                        borderRadius: '12px'
-                                    }}
-                                    onClick={() => {
-                                        const mwa = wallets.find(w => w.adapter.name.toLowerCase().includes('mobile'));
-                                        if (mwa) {
-                                            setIsWalletSelectorOpen(false);
-                                            handleMobileMwaFlow(mwa.adapter);
-                                        } else {
-                                            alert("Native adapter not found.");
-                                        }
-                                    }}>
-                                    ⚡ Mobile Wallet / Seed Vault
-                                </button>
-
-                                <div style={{ borderTop: '1px solid #333', marginTop: '10px', paddingTop: '15px' }}>
-                                    <p style={{ fontSize: '0.75rem', color: '#666', marginBottom: '10px' }}>Trouble connecting natively?</p>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <button className="btn-secondary" style={{ fontSize: '0.75rem', padding: '10px', flex: 1 }} onClick={() => {
-                                            const url = encodeURIComponent(window.location.href);
-                                            window.open(`https://solflare.com/ul/v1/browse/${url}?ref=${url}`, '_system');
-                                        }}>Open in Solflare</button>
-
-                                        <button className="btn-secondary" style={{ fontSize: '0.75rem', padding: '10px', flex: 1 }} onClick={() => {
-                                            const url = encodeURIComponent(window.location.href);
-                                            window.open(`https://phantom.app/ul/browse/${url}?ref=${url}`, '_system');
-                                        }}>Open in Phantom</button>
-                                    </div>
-                                </div>
-
-                                {isLocal && (
-                                    <div style={{ borderTop: '1px solid #333', marginTop: '10px', paddingTop: '15px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#ffae00', marginBottom: '10px' }}>Developer Options:</p>
-                                        <button className="btn-secondary"
-                                            style={{ backgroundColor: 'rgba(255, 174, 0, 0.1)', border: '1px solid #ffae00', color: '#ffae00', width: '100%', fontSize: '0.85rem' }}
-                                            onClick={() => {
-                                                const mockAddr = "Mock" + Math.random().toString(36).substring(2, 7).toUpperCase();
-                                                log(`DEV: Mock Wallet ${mockAddr}`);
-                                                setWallet(mockAddr);
-                                                setIsLoggedIn(true);
-                                                setIsWalletSelectorOpen(false);
-                                                handleWalletConnection(mockAddr);
-                                            }}>
-                                            🛠️ Use Mock Wallet (Skip Bridge)
-                                        </button>
-                                        <div style={{ fontSize: '0.7rem', color: '#444', textAlign: 'center', marginTop: '10px' }}>
-                                            {wallets.length} adapters available.
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="modal-actions" style={{ marginTop: '20px' }}>
-                                <button className="btn-secondary" onClick={() => setIsWalletSelectorOpen(false)}>Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-                )
-                }
 
                 {
                     (!wallet || (!wallet.startsWith('Guest') && !isLoggedIn)) ? (
@@ -2498,6 +2462,19 @@ function App() {
                                 </div>
                                 <span></span>
                             </button>
+
+                            <button className="btn-mode" style={{ borderColor: '#d32f2f', background: 'rgba(211, 47, 47, 0.1)' }} onClick={() => {
+                                disconnect().catch(() => { }); // Try adapter disconnect
+                                setWalletValue(null);
+                                setLoggedInValue(false);
+                                setGameStatus('menu'); // Ensure we are on main menu/login
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span className="icon">🚪</span>
+                                    <span style={{ color: '#ffcdd2' }}>{wallet.startsWith('Guest') ? 'Exit Guest' : 'Disconnect'}</span>
+                                </div>
+                                <span></span>
+                            </button>
                         </div>
                     )
                 }
@@ -2512,39 +2489,29 @@ function App() {
                 {wallet && (
                     <>
                         <div className="wallet-badge-container">
-                            {wallet.startsWith('Guest') ? (
-                                <div className="wallet-badge">Guest Mode</div>
-                            ) : (
-                                <div className="wallet-badge" onClick={() => setIsProfileModalOpen(true)} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '5px', padding: '8px 12px', alignItems: 'flex-start' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                            <div className="wallet-badge" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', alignItems: 'flex-start' }} onClick={() => setIsProfileModalOpen(true)}>
+                                {wallet.startsWith('Guest') ? (
+                                    <div style={{ fontWeight: 'bold' }}>Guest Mode</div>
+                                ) : (
+                                    <>
                                         <div style={{ display: 'flex', alignItems: 'center' }}>
                                             {userProfile.avatar && (
                                                 <img src={userProfile.avatar} style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px' }} />
                                             )}
                                             <span style={{ fontWeight: 'bold' }}>{userProfile.name || `${wallet.slice(0, 4)}...`}</span>
                                         </div>
-                                        <div style={{ marginLeft: '15px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            <span>🔗</span>
-                                            <span style={{ fontWeight: 'bold' }}>{balance} SOL</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', width: '100%', fontSize: '0.8rem', opacity: 0.9, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', gap: '8px' }}>
+                                            <span style={{ color: '#66bb6a' }}>{userProfile.stats.wins}W</span>
+                                            <span style={{ opacity: 0.5 }}>-</span>
+                                            <span style={{ color: '#ef5350' }}>{userProfile.stats.losses}L</span>
+                                            <span style={{ opacity: 0.5 }}>|</span>
+                                            <span style={{ color: '#ffd700' }}>Lvl {userProfile.stats.level}</span>
+                                            <span style={{ opacity: 0.5 }}>|</span>
+                                            <span style={{ color: '#00e676' }}>{userProfile.stats.xp} XP</span>
                                         </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', fontSize: '0.85rem', opacity: 0.9, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px' }}>
-                                        <span style={{ marginRight: '5px' }}>📊</span>
-                                        <span style={{ color: '#66bb6a' }}>{userProfile.stats.wins}W</span>
-                                        <span style={{ margin: '0 3px' }}>-</span>
-                                        <span style={{ color: '#ef5350' }}>{userProfile.stats.losses}L</span>
-                                        <span style={{ margin: '0 8px', opacity: 0.5 }}>|</span>
-                                        <span style={{ color: '#ffd700' }}>Lvl {userProfile.stats.level}</span>
-                                        <span style={{ margin: '0 8px', opacity: 0.5 }}>|</span>
-                                        <span style={{ color: '#00e676' }}>{userProfile.stats.xp} XP</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 1001 }}>
-                            <button className="btn-disconnect" onClick={() => setWallet(null)}>
-                                {wallet.startsWith('Guest') ? 'Exit Guest' : 'Disconnect'}
-                            </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </>
                 )}
@@ -2557,6 +2524,72 @@ function App() {
                         <h3>Searching for opponent...</h3>
                         <p style={{ color: '#aaa' }}>Stake: {selectedStake ? selectedStake + ' SOL' : 'Free Play'}</p>
                         <button className="btn-secondary" style={{ marginTop: '20px' }} onClick={() => setIsSearching(false)}>Cancel</button>
+                    </div>
+                ) : isLobbyOpen ? (
+                    <div className="card" style={{
+                        width: '95%',
+                        maxWidth: '500px',
+                        background: 'rgba(30, 15, 10, 0.98)',
+                        border: '2px solid #8d6e63',
+                        padding: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '20px',
+                        minHeight: '400px'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #4e342e', paddingBottom: '10px' }}>
+                            <h3 style={{ margin: 0, color: '#d7ccc8' }}>Free Play Tables</h3>
+                            <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => setIsLobbyOpen(false)}>Close</button>
+                        </div>
+
+                        {isHosting ? (
+                            <div style={{ textAlign: 'center', padding: '40px 20px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', border: '1px dashed #8d6e63' }}>
+                                <div className="loading-spinner" style={{ marginBottom: '20px' }}>🎲</div>
+                                <h4>Your Table is Live!</h4>
+                                <p style={{ color: '#aaa', fontSize: '0.9rem' }}>Waiting for someone to join...</p>
+                                <button className="btn-secondary" style={{ marginTop: '20px', background: '#c62828' }} onClick={handleLeaveLobby}>Stop Hosting</button>
+                            </div>
+                        ) : (
+                            <>
+                                <button className="btn-primary" style={{ padding: '15px' }} onClick={handleHostGame}>
+                                    ➕ Create New Table
+                                </button>
+
+                                <div style={{ flex: 1, overflowY: 'auto', maxHeight: '300px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {activeLobbies.length === 0 ? (
+                                        <div style={{ textAlign: 'center', color: '#6d4c41', padding: '40px 0' }}>
+                                            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🕳️</div>
+                                            No tables open. Host one!
+                                        </div>
+                                    ) : (
+                                        activeLobbies.map(lobby => (
+                                            <div key={lobby.roomId} style={{
+                                                background: 'rgba(255,255,255,0.05)',
+                                                padding: '12px',
+                                                borderRadius: '8px',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                border: '1px solid #4e342e'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <div style={{ fontSize: '1.5rem' }}>👤</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{lobby.hostData.name}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: '#aaa' }}>
+                                                            Lvl {lobby.hostData.level} | {lobby.hostData.stats?.wins}W - {lobby.hostData.stats?.losses}L
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button className="btn-primary" style={{ padding: '8px 20px', fontSize: '0.9rem' }} onClick={() => handleJoinLobby(lobby)}>
+                                                    Join
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', maxWidth: '100%' }}>
@@ -2749,7 +2782,6 @@ function App() {
                         </div>
                     </div>
                 )}
-
             </div>
         );
     }
@@ -2839,129 +2871,65 @@ function App() {
                     <div>Waiting for opponent to reconnect... (60s)</div>
                 </div>
             )}
-            {/* SIDEBAR */}
-            <div className="sidebar">
-                <div className="logo">
-                    <span style={{ color: '#d32f2f' }}>Play</span><span style={{ color: '#fff' }}>24</span><br />Backgammon
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', justifyContent: 'center' }}>
-                        <div style={{ width: '14px', height: '14px', background: '#fff', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}></div>
-                        <div style={{ width: '14px', height: '14px', background: '#d32f2f', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}></div>
-                    </div>
-                </div>
 
-                <div className="sidebar-controls">
-                    <div className="sidebar-status">
-                        <div className="status-text">{turn === 'human' ? 'Your Turn' : (gameMode === 'multi' ? 'Wait...' : 'Think...')}</div>
-                        {turn === 'human' && (
-                            <div className="status-timer">
-                                {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* SIDEBAR CHAT DISABLED
-                            <div className="sidebar-chat-container">
-                                <div className="sidebar-chat-header">Match Chat</div>
-                                <div className="sidebar-chat-messages">
-                                    {chatMessages.length === 0 ? (
-                                        <div style={{ opacity: 0.5, fontStyle: 'italic', fontSize: '0.8rem', textAlign: 'center', marginTop: '20px' }}>
-                                            Say hello!
-                                        </div>
-                                    ) : (
-                                        chatMessages.map((msg, i) => (
-                                            <div key={i} className={`sidebar-chat-msg ${msg.sender === 'You' ? 'me' : 'them'}`}>
-                                                <div className="msg-content">{msg.text}</div>
-                                            </div>
-                                        ))
-                                    )}
-                                    <div ref={chatEndRef} />
-                                </div>
-                                <form className="sidebar-chat-input-area" onSubmit={handleSendChat}>
-                                    <input
-                                        type="text"
-                                        placeholder="Type..."
-                                        value={chatInput}
-                                        onChange={(e) => setChatInput(e.target.value)}
-                                        onFocus={() => setUnreadChat(0)}
-                                    />
-                                    <button type="submit">➤</button>
-                                </form>
-                            </div>
-                            */}
-
-                    <button className="btn-resign-sidebar"
-                        onClick={() => {
-                            if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
-                                if (gameMode === 'single') {
-                                    setShowResignModal(true);
-                                } else {
-                                    if (window.confirm("Are you sure you want to resign? You will lose the match.")) {
-                                        handleForfeit();
-                                    }
-                                }
-                            } else {
-                                setGameStatus('menu');
-                                setBoard(initialBoard);
-                                setGameResult(null);
-                                setVisualDice([]);
-                                setDice([]);
-                                setOpponentDisconnected(false);
-                            }
-                        }}
-                    >
-                        {gameStatus === 'playing' || gameStatus === 'opening_roll' ? (
-                            <><span>🏳️</span> Resign</>
-                        ) : (
-                            <><span>🏠</span> Menu</>
-                        )}
-                    </button>
-                </div>
-
-
-
-                <div className="spacer"></div>
-
-                {/* Wallet Info Hidden */}
-                {/* <div className="wallet-info">...</div> */}
-
-
-            </div>
 
 
 
             {/* MAIN GAME AREA */}
             <div className="board-wrapper">
 
-                {/* OPPONENT BAR */}
-                <div className={`opponent-bar ${turn === 'ai' || turn === 'opponent' ? 'active-turn' : ''}`}>
-                    <div className="opponent-info">
-                        <div className="opponent-avatar" style={{
-                            background: playerColor === PLAYER_HUMAN
-                                ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)' // If I am White, Opponent is Red (Black/Red styling)
-                                : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)', // If I am Red, Opponent is White
-                            borderColor: playerColor === PLAYER_HUMAN ? '#000' : '#b0b0b0'
-                        }}></div>
-                        <div className="opponent-name">
-                            <div style={{ fontWeight: 'bold' }}>{gameMode === 'multi' ? opponentName : `Computer (${difficulty === 'advanced' ? 'Pro' : 'Novice'})`}</div>
-                            <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {gameMode === 'multi' ? (
-                                    <>
-                                        {opponentWallet && (!opponentName || !opponentName.includes('...')) && (
-                                            <span style={{ fontFamily: 'monospace', color: '#ffecb3', opacity: 0.8 }}>
-                                                {opponentWallet.slice(0, 4)}...{opponentWallet.slice(-4)}
-                                            </span>
-                                        )}
-                                        {opponentWallet && (!opponentName || !opponentName.includes('...')) && <span>•</span>}
-                                        <span>Lvl {opponentLevel}</span>
-                                        <span>•</span>
-                                        <span className="stats-badge" style={{ color: '#81c784' }}>W: {opponentStats.wins}</span>
-                                        <span className="stats-badge" style={{ color: '#e57373', marginLeft: '4px' }}>L: {opponentStats.losses}</span>
-                                    </>
-                                ) : (
-                                    'Level 100'
-                                )}
-                            </div>
+                {/* UNIFIED HEADER ABOVE BOARD */}
+                <div className={`unified-header ${turn === 'ai' || turn === 'opponent' ? 'active-turn' : ''}`}>
+                    <div className="header-left">
+                        <div className="logo-mini">
+                            <span style={{ color: '#d32f2f' }}>P</span><span style={{ color: '#fff' }}>24</span>
                         </div>
+                        <div className="opponent-info-compact">
+                            <div className="opponent-avatar-mini" style={{
+                                width: '24px', height: '24px',
+                                background: playerColor === PLAYER_HUMAN
+                                    ? 'radial-gradient(circle at 30% 30%, #4a4a4a, #000000)'
+                                    : 'radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)',
+                                borderColor: playerColor === PLAYER_HUMAN ? '#000' : '#b0b0b0'
+                            }}></div>
+                            <span className="opp-name-text">{gameMode === 'multi' ? opponentName : `AI`}</span>
+                        </div>
+                    </div>
+
+                    <div className="header-center">
+                        <div className="turn-status-compact">
+                            <span className="turn-label">{turn === 'human' ? 'YOUR TURN' : 'OPPONENT TURN'}</span>
+                            {turn === 'human' && (
+                                <span className="turn-timer-compact">
+                                    {Math.floor(turnTimer / 60)}:{(turnTimer % 60).toString().padStart(2, '0')}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="header-right">
+                        <button className="btn-header-action"
+                            onClick={() => {
+                                if (gameStatus === 'playing' || gameStatus === 'opening_roll') {
+                                    if (gameMode === 'single') {
+                                        setShowResignModal(true);
+                                    } else {
+                                        if (window.confirm("Are you sure you want to resign? You will lose the match.")) {
+                                            handleForfeit();
+                                        }
+                                    }
+                                } else {
+                                    setGameStatus('menu');
+                                    setBoard(initialBoard);
+                                    setGameResult(null);
+                                    setVisualDice([]);
+                                    setDice([]);
+                                    setOpponentDisconnected(false);
+                                }
+                            }}
+                        >
+                            {gameStatus === 'playing' || gameStatus === 'opening_roll' ? '🏳️' : '🏠'}
+                        </button>
                     </div>
                 </div>
 

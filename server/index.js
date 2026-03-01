@@ -177,6 +177,7 @@ const io = new Server(server, {
 
 // --- STATE MANAGEMENT ---
 let waitingPlayer = null;
+const activeLobbies = {}; // { roomId: { hostData, socketId } }
 const games = {};
 const disconnectTimers = {};
 
@@ -323,6 +324,74 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 1.1 LOBBY SYSTEM (Free Play)
+    socket.on('create_lobby', async (hostData) => {
+        const roomId = `lobby_${socket.id}`;
+        activeLobbies[roomId] = {
+            roomId,
+            hostData: {
+                ...hostData,
+                socketId: socket.id
+            }
+        };
+        console.log(`[SERVER] Lobby created: ${roomId} by ${hostData.name}`);
+        socket.join(roomId);
+        io.emit('lobby_list_update', Object.values(activeLobbies));
+    });
+
+    socket.on('get_lobbies', () => {
+        socket.emit('lobby_list_update', Object.values(activeLobbies));
+    });
+
+    socket.on('leave_lobby', () => {
+        const roomId = `lobby_${socket.id}`;
+        if (activeLobbies[roomId]) {
+            delete activeLobbies[roomId];
+            io.emit('lobby_list_update', Object.values(activeLobbies));
+        }
+    });
+
+    socket.on('join_lobby', async ({ roomId, userData }) => {
+        const lobby = activeLobbies[roomId];
+        if (lobby) {
+            const hostSocketId = lobby.hostData.socketId;
+            const hostData = lobby.hostData;
+
+            delete activeLobbies[roomId];
+            io.emit('lobby_list_update', Object.values(activeLobbies));
+
+            const gameRoomId = `game_${hostSocketId}_${socket.id}`;
+            socket.join(gameRoomId);
+            const hostSocket = io.sockets.sockets.get(hostSocketId);
+            if (hostSocket) hostSocket.join(gameRoomId);
+
+            games[gameRoomId] = {
+                id: gameRoomId,
+                players: [hostSocketId, socket.id],
+                playerData: {
+                    [hostSocketId]: { ...hostData, color: 'white' },
+                    [socket.id]: { ...userData, color: 'red' }
+                }
+            };
+
+            io.to(hostSocketId).emit('match_found', {
+                roomId: gameRoomId,
+                players: games[gameRoomId].playerData,
+                yourColor: 'white'
+            });
+            io.to(socket.id).emit('match_found', {
+                roomId: gameRoomId,
+                players: games[gameRoomId].playerData,
+                yourColor: 'red'
+            });
+
+            setTimeout(() => {
+                io.to(hostSocketId).emit('assign_color', 'white');
+                io.to(socket.id).emit('assign_color', 'red');
+            }, 500);
+        }
+    });
+
     // 2. GAME EVENTS
     socket.on('game_event', async ({ roomId, type, payload }) => {
         socket.to(roomId).emit('game_update', { type, payload });
@@ -337,8 +406,24 @@ io.on('connection', (socket) => {
                     const lWallet = game.playerData[loserSocketId].wallet;
                     const wWallet = game.playerData[winnerSocketId].wallet;
 
-                    if (lWallet && !lWallet.startsWith('Guest')) await updateStats(lWallet, 'loss');
-                    if (wWallet && !wWallet.startsWith('Guest')) await updateStats(wWallet, 'win');
+                    if (lWallet && !lWallet.startsWith('Guest')) {
+                        await updateStats(lWallet, 'loss');
+                        const updatedL = await getUser(lWallet);
+                        io.to(loserSocketId).emit('user_profile_update', {
+                            name: updatedL.name,
+                            avatar: updatedL.avatar,
+                            stats: { wins: updatedL.wins, losses: updatedL.losses, xp: updatedL.xp, level: updatedL.level }
+                        });
+                    }
+                    if (wWallet && !wWallet.startsWith('Guest')) {
+                        await updateStats(wWallet, 'win');
+                        const updatedW = await getUser(wWallet);
+                        io.to(winnerSocketId).emit('user_profile_update', {
+                            name: updatedW.name,
+                            avatar: updatedW.avatar,
+                            stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
+                        });
+                    }
                 }
                 delete games[roomId];
             }
@@ -377,8 +462,24 @@ io.on('connection', (socket) => {
                 const lData = game.playerData[loserSocketId];
 
                 if (wData && lData) {
-                    if (wData.wallet && !wData.wallet.startsWith('Guest')) await updateStats(wData.wallet, 'win');
-                    if (lData.wallet && !lData.wallet.startsWith('Guest')) await updateStats(lData.wallet, 'loss');
+                    if (wData.wallet && !wData.wallet.startsWith('Guest')) {
+                        await updateStats(wData.wallet, 'win');
+                        const updatedW = await getUser(wData.wallet);
+                        io.to(winnerSocketId).emit('user_profile_update', {
+                            name: updatedW.name,
+                            avatar: updatedW.avatar,
+                            stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
+                        });
+                    }
+                    if (lData.wallet && !lData.wallet.startsWith('Guest')) {
+                        await updateStats(lData.wallet, 'loss');
+                        const updatedL = await getUser(lData.wallet);
+                        io.to(loserSocketId).emit('user_profile_update', {
+                            name: updatedL.name,
+                            avatar: updatedL.avatar,
+                            stats: { wins: updatedL.wins, losses: updatedL.losses, xp: updatedL.xp, level: updatedL.level }
+                        });
+                    }
                 }
             }
             delete games[roomId];
@@ -422,6 +523,12 @@ io.on('connection', (socket) => {
     socket.on('update_single_player_stats', async ({ wallet, result }) => {
         if (wallet && !wallet.startsWith('Guest')) {
             await updateStats(wallet, result);
+            const user = await getUser(wallet);
+            socket.emit('user_profile_update', {
+                name: user.name,
+                avatar: user.avatar,
+                stats: { wins: user.wins, losses: user.losses, xp: user.xp, level: user.level }
+            });
         }
     });
 
@@ -430,6 +537,13 @@ io.on('connection', (socket) => {
         console.log('User disconnected:', socket.id);
         if (waitingPlayer && waitingPlayer.socketId === socket.id) {
             waitingPlayer = null;
+        }
+
+        // Handle Lobbies
+        const lobbyRoomId = `lobby_${socket.id}`;
+        if (activeLobbies[lobbyRoomId]) {
+            delete activeLobbies[lobbyRoomId];
+            io.emit('lobby_list_update', Object.values(activeLobbies));
         }
 
         // Handle Active Games
@@ -460,6 +574,7 @@ io.on('connection', (socket) => {
                                 // Update Loser (The one who disconnected)
                                 if (wallet && !wallet.startsWith('Guest')) {
                                     await updateStats(wallet, 'loss');
+                                    // (Emit not possible here usually as socket is gone, but syncs on next join)
                                 }
 
                                 io.to(roomId).emit('game_update', { type: 'opponent_disconnected', payload: {} });
