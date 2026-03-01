@@ -76588,6 +76588,7 @@ ${err.message}`);
   const startGame = (diff) => {
     setDifficulty(diff || "advanced");
     setGameMode("single");
+    setPlayerColor(PLAYER_HUMAN);
     setBoard(initialBoard);
     setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
     setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
@@ -77783,6 +77784,7 @@ ${err.message}`);
         /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { marginTop: "5px", background: "#3e2723", width: "90%", maxWidth: "400px", padding: "15px" }, onClick: () => {
           setGameStatus("menu");
           setGameMode("single");
+          setPlayerColor(PLAYER_HUMAN);
         }, children: "Back to Main Menu" })
       ] }),
       isConditionsOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { maxWidth: "400px", textAlign: "center" }, children: [
@@ -77893,7 +77895,10 @@ ${err.message}`);
           ] }, i2);
         })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#3e2723", padding: "10px 40px" }, onClick: () => setGameStatus("menu"), children: "Back to Menu" })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#3e2723", padding: "10px 40px" }, onClick: () => {
+        setGameStatus("menu");
+        setPlayerColor(PLAYER_HUMAN);
+      }, children: "Back to Menu" })
     ] });
   }
   const isFlipped = playerColor === PLAYER_AI;
@@ -77965,6 +77970,7 @@ ${err.message}`);
                 }
               } else {
                 setGameStatus("menu");
+                setPlayerColor(PLAYER_HUMAN);
                 setBoard(initialBoard);
                 setGameResult(null);
                 setVisualDice([]);
@@ -77982,6 +77988,7 @@ ${err.message}`);
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "20px", justifyContent: "center" }, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", onClick: () => {
             setGameStatus("menu");
+            setPlayerColor(PLAYER_HUMAN);
             setBoard(initialBoard);
             setGameResult(null);
             setOpponentDisconnected(false);
@@ -78150,6 +78157,7 @@ ${err.message}`);
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#aaa", marginBottom: "30px" }, children: gameResult === "win" ? "Congratulations! Great game." : "Better luck next time." }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", onClick: () => {
         setGameStatus("menu");
+        setPlayerColor(PLAYER_HUMAN);
         setGameResult(null);
         setDice([]);
         setVisualDice([]);

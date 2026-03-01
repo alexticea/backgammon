@@ -1258,6 +1258,7 @@ function App() {
     const startGame = (diff) => {
         setDifficulty(diff || 'advanced');
         setGameMode('single'); // Explictly set single player
+        setPlayerColor(PLAYER_HUMAN); // Human is always White in Single Player
         setBoard(initialBoard);
         setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
         setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
@@ -2738,6 +2739,7 @@ function App() {
                         <button className="btn-primary" style={{ marginTop: '5px', background: '#3e2723', width: '90%', maxWidth: '400px', padding: '15px' }} onClick={() => {
                             setGameStatus('menu');
                             setGameMode('single');
+                            setPlayerColor(PLAYER_HUMAN); // Reset to default perspective
                         }}>Back to Main Menu</button>
                     </div>
                 )}
@@ -2861,7 +2863,10 @@ function App() {
                         </div>
                     ))}
                 </div>
-                <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
+                <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => {
+                    setGameStatus('menu');
+                    setPlayerColor(PLAYER_HUMAN);
+                }}>Back to Menu</button>
             </div>
         );
     }
@@ -2946,6 +2951,7 @@ function App() {
                                     }
                                 } else {
                                     setGameStatus('menu');
+                                    setPlayerColor(PLAYER_HUMAN);
                                     setBoard(initialBoard);
                                     setGameResult(null);
                                     setVisualDice([]);
@@ -2971,6 +2977,7 @@ function App() {
                         <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
                             <button className="btn-primary" onClick={() => {
                                 setGameStatus('menu');
+                                setPlayerColor(PLAYER_HUMAN);
                                 setBoard(initialBoard);
                                 setGameResult(null);
                                 setOpponentDisconnected(false);
@@ -3223,6 +3230,7 @@ function App() {
 
                         <button className="btn-primary" onClick={() => {
                             setGameStatus('menu');
+                            setPlayerColor(PLAYER_HUMAN);
                             // Reset visuals
                             setGameResult(null);
                             setDice([]);
