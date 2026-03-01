@@ -1,4 +1,12 @@
 require('dotenv').config();
+// Fix for Node.js SRV record lookup timeouts on some networks/OS
+try {
+    const dns = require('dns');
+    if (dns.setServers) {
+        dns.setServers(['8.8.8.8', '1.1.1.1']);
+    }
+} catch (e) { }
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
