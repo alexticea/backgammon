@@ -1960,15 +1960,18 @@ function App() {
 
     // HUMAN MOVES
     const handlePointClick = (index) => {
-        if (turn !== 'human') return;
-        if (rolling) return;
+        if (turn !== 'human' || rolling) return;
 
-        // Select Source
-        if (selectedPoint === null) {
+        // Is the player clicking an owned piece that is NOT a valid target? If so, this is a "Selection" or "Re-selection" intent.
+        const isOwnedPiece = index >= 0 && index <= 23 && board[index].player === playerColor && board[index].count > 0;
+        const isMoveTarget = validMoves.includes(index);
+        const isReSelection = selectedPoint !== null && isOwnedPiece && !isMoveTarget && index !== selectedPoint;
+
+        // SELECT SOURCE
+        if (selectedPoint === null || isReSelection) {
             if (bar[playerColor] > 0) return log("Must enter from bar!");
 
-            const isMyPiece = board[index].player === playerColor;
-            if (isMyPiece && board[index].count > 0) {
+            if (isOwnedPiece) {
                 setSelectedPoint(index);
 
                 // Calculate Valid Moves
@@ -1979,7 +1982,6 @@ function App() {
                 if (bar[playerColor] > 0) canBearOff = false;
                 else {
                     if (playerColor === PLAYER_HUMAN) {
-                        // White Bear Off: All pieces in 0-5
                         for (let i = 6; i < 24; i++) {
                             if (board[i].player === PLAYER_HUMAN && board[i].count > 0) {
                                 canBearOff = false;
@@ -1987,7 +1989,6 @@ function App() {
                             }
                         }
                     } else {
-                        // Red Bear Off: All pieces in 18-23. (So check 0-17)
                         for (let i = 0; i < 18; i++) {
                             if (board[i].player === PLAYER_AI && board[i].count > 0) {
                                 canBearOff = false;
@@ -1998,48 +1999,31 @@ function App() {
                 }
 
                 [...new Set(dice)].forEach(d => {
-                    // Direction: White (-) Red (+)
                     const target = playerColor === PLAYER_HUMAN ? index - d : index + d;
-
-                    // Bounds Check
                     const inBounds = target >= 0 && target <= 23;
 
                     if (inBounds) {
                         const dest = board[target];
-                        // Blocked by Opponent?
                         const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
-                        const isBlocked = dest.player === opponent && dest.count > 1;
-                        if (!isBlocked) possibleMoves.push(target);
+                        const blocked = dest.player === opponent && dest.count > 1;
+                        if (!blocked) possibleMoves.push(target);
                     } else if (canBearOff) {
-                        // Bear Off Logic
-                        // White: target < 0. Red: target > 23.
                         const isBearOffMove = playerColor === PLAYER_HUMAN ? target < 0 : target > 23;
-
                         if (isBearOffMove) {
-                            // 1. Exact Bearoff? 
-                            // White: index - d == -1 => index + 1 == d.
-                            // Red: index + d == 24. 
                             const exact = playerColor === PLAYER_HUMAN ? (index - d === -1) : (index + d === 24);
-
                             if (exact) {
                                 possibleMoves.push(-1);
                             } else {
-                                // 2. Higher Die Bearoff?
-                                // Only allowed if no pieces on higher points.
-
                                 let hasHigher = false;
                                 if (playerColor === PLAYER_HUMAN) {
-                                    // White: check indices > index up to 5
                                     for (let k = index + 1; k <= 5; k++) {
                                         if (board[k].player === playerColor && board[k].count > 0) hasHigher = true;
                                     }
                                 } else {
-                                    // Red: check indices < index down to 18
                                     for (let k = index - 1; k >= 18; k--) {
                                         if (board[k].player === playerColor && board[k].count > 0) hasHigher = true;
                                     }
                                 }
-
                                 if (!hasHigher) possibleMoves.push(-1);
                             }
                         }
@@ -2048,29 +2032,17 @@ function App() {
                 setValidMoves(possibleMoves);
             }
         }
-        // Destination Click
+        // DESTINATION CLICK / EXECUTE MOVE
         else {
-            if (index === selectedPoint) {
-                // UX ENHANCEMENT: Click selected piece again to Bear Off if possible
-                if (validMoves.includes(-1)) {
-                    handlePointClick(-1);
-                    return;
-                }
-                // Otherwise Deselect
-                setSelectedPoint(null);
-                setValidMoves([]);
-                return;
-            }
+            const targetIndex = (index === selectedPoint && validMoves.includes(-1)) ? -1 : index;
 
-            if (!validMoves.includes(index)) {
-                // Check ownership for re-selection
-                if (selectedPoint !== 'bar' && index >= 0 && board[index].player === playerColor && board[index].count > 0) {
+            if (!validMoves.includes(targetIndex)) {
+                if (index === selectedPoint) {
                     setSelectedPoint(null);
                     setValidMoves([]);
-                    handlePointClick(index); // Recursive re-select
-                    return;
+                } else {
+                    log("Invalid move!");
                 }
-                log("Invalid move!");
                 return;
             }
 
@@ -2082,27 +2054,14 @@ function App() {
                 dice: [...dice],
                 turn: turn
             };
-
             setHistory(prev => [...prev, snapshot]);
 
-            // Calculate distance and die
             let dieUsed;
-            const dir = playerColor === PLAYER_HUMAN ? -1 : 1;
-
             if (selectedPoint === 'bar') {
-                // Bar Entry
-                // White: Enters at 24 - die. Die = 24 - index.
-                // Red: Enters at die - 1. Die = index + 1.
-                if (playerColor === PLAYER_HUMAN) {
-                    dieUsed = 24 - index;
-                } else {
-                    dieUsed = index + 1;
-                }
+                if (playerColor === PLAYER_HUMAN) dieUsed = 24 - targetIndex;
+                else dieUsed = targetIndex + 1;
             } else {
-                if (index === -1) {
-                    // Bear Off
-                    // White: selected - die = -1 => die = selected + 1
-                    // Red: selected + die = 24 => die = 24 - selected
+                if (targetIndex === -1) {
                     if (playerColor === PLAYER_HUMAN) {
                         const exactDie = selectedPoint + 1;
                         dieUsed = dice.includes(exactDie) ? exactDie : (dice.find(d => selectedPoint - d < -1) || exactDie);
@@ -2111,19 +2070,14 @@ function App() {
                         dieUsed = dice.includes(exactDie) ? exactDie : (dice.find(d => selectedPoint + d > 23) || exactDie);
                     }
                 } else {
-                    // Standard Move
-                    // White: selected - index.
-                    // Red: index - selected.
-                    dieUsed = Math.abs(selectedPoint - index);
+                    dieUsed = Math.abs(selectedPoint - targetIndex);
                 }
             }
             const dieIdx = dice.indexOf(dieUsed);
 
-            // Update Board
             const nextBoard = [...board];
             const nextBar = { ...bar };
             const nextOff = { ...off };
-            // const source = nextBoard[selectedPoint]; // Original line, now handled in else block
 
             if (selectedPoint === 'bar') {
                 nextBar[playerColor]--;
@@ -2134,16 +2088,13 @@ function App() {
                 nextBoard[selectedPoint] = source;
             }
 
-            if (index === -1) {
-                // Bear Off
+            if (targetIndex === -1) {
                 log("Bearing Off!");
                 nextOff[playerColor]++;
             } else {
-                const dest = { ...nextBoard[index] };
+                const dest = { ...nextBoard[targetIndex] };
                 const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
-
                 if (dest.player === opponent) {
-                    // Hit
                     log("Checkers Hit!");
                     nextBar[opponent] = nextBar[opponent] + 1;
                     dest.player = playerColor;
@@ -2152,35 +2103,28 @@ function App() {
                     dest.player = playerColor;
                     dest.count += 1;
                 }
-                nextBoard[index] = dest;
+                nextBoard[targetIndex] = dest;
             }
 
-            // Apply State
             setBoard(nextBoard);
             setBar(nextBar);
             setOff(nextOff);
 
-            // 3. Consume Dice
             const newDice = [...dice];
             newDice.splice(dieIdx, 1);
             setDice(newDice);
 
             if (gameMode === 'multi') {
-                // Use state_update to include dice (so opponent sees dice consumed)
                 emitGameEvent('state_update', { board: nextBoard, bar: nextBar, off: nextOff, dice: newDice });
             }
 
-            // Reset
             setSelectedPoint(null);
             setValidMoves([]);
 
-            // Check if *remaining* dice have any valid moves
             if (newDice.length > 0 && !checkHumanCanMove(nextBoard, nextBar, newDice)) {
                 log("No valid moves left. Undo to retry, or Pass.");
                 setIsBlocked(true);
-                // Do NOT auto-end. Let user decide.
             }
-
             if (newDice.length === 0) {
                 handlePassTurn();
             }
