@@ -177,28 +177,6 @@ app.get('/leaderboard', async (req, res) => {
     }
 });
 
-app.get('/user/:wallet', async (req, res) => {
-    try {
-        const { wallet } = req.params;
-        if (!wallet || wallet.startsWith('Guest')) return res.status(400).json({ error: 'Invalid wallet' });
-        const user = await getUser(wallet);
-        res.json({
-            wallet: user.wallet,
-            name: user.name,
-            avatar: user.avatar,
-            stats: {
-                wins: user.wins || 0,
-                losses: user.losses || 0,
-                xp: user.xp || 0,
-                level: user.level || 1
-            }
-        });
-    } catch (e) {
-        console.error("User Fetch Error:", e);
-        res.status(500).json({ error: 'Internal error' });
-    }
-});
-
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -213,13 +191,8 @@ const activeLobbies = {}; // { roomId: { hostData, socketId } }
 const games = {};
 const disconnectTimers = {};
 
-const broadcastOnlineCount = () => {
-    io.emit('online_users_count', io.engine.clientsCount);
-};
-
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
-    broadcastOnlineCount();
 
     // 0. CHECK ACTIVE GAME (Reconnection)
     socket.on('check_active_game', async (wallet) => {
@@ -449,7 +422,6 @@ io.on('connection', (socket) => {
                         await updateStats(lWallet, 'loss');
                         const updatedL = await getUser(lWallet);
                         io.to(loserSocketId).emit('user_profile_update', {
-                            wallet: updatedL.wallet,
                             name: updatedL.name,
                             avatar: updatedL.avatar,
                             stats: { wins: updatedL.wins, losses: updatedL.losses, xp: updatedL.xp, level: updatedL.level }
@@ -459,7 +431,6 @@ io.on('connection', (socket) => {
                         await updateStats(wWallet, 'win');
                         const updatedW = await getUser(wWallet);
                         io.to(winnerSocketId).emit('user_profile_update', {
-                            wallet: updatedW.wallet,
                             name: updatedW.name,
                             avatar: updatedW.avatar,
                             stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
@@ -507,7 +478,6 @@ io.on('connection', (socket) => {
                         await updateStats(wData.wallet, 'win');
                         const updatedW = await getUser(wData.wallet);
                         io.to(winnerSocketId).emit('user_profile_update', {
-                            wallet: updatedW.wallet,
                             name: updatedW.name,
                             avatar: updatedW.avatar,
                             stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
@@ -517,7 +487,6 @@ io.on('connection', (socket) => {
                         await updateStats(lData.wallet, 'loss');
                         const updatedL = await getUser(lData.wallet);
                         io.to(loserSocketId).emit('user_profile_update', {
-                            wallet: updatedL.wallet,
                             name: updatedL.name,
                             avatar: updatedL.avatar,
                             stats: { wins: updatedL.wins, losses: updatedL.losses, xp: updatedL.xp, level: updatedL.level }
@@ -540,16 +509,15 @@ io.on('connection', (socket) => {
         if (wallet && !wallet.startsWith('Guest')) {
             const user = await getUser(wallet); // Ensure exists
 
-            // Update Profile if provided
-            if (name !== undefined || avatar !== undefined) {
-                await updateUserProfile(wallet, name, avatar);
-                if (name !== undefined) user.name = name;
-                if (avatar !== undefined) user.avatar = avatar;
+            // Update Profile if provided (only if non-empty to avoid wiping existing DB data with defaults)
+            if (name || avatar) {
+                await updateUserProfile(wallet, name || undefined, avatar || undefined);
+                if (name) user.name = name;
+                if (avatar) user.avatar = avatar;
             }
 
             // Emit back authoritative stats from DB
             socket.emit('user_profile_update', {
-                wallet: user.wallet,
                 name: user.name,
                 avatar: user.avatar,
                 stats: {
@@ -569,7 +537,6 @@ io.on('connection', (socket) => {
             await updateStats(wallet, result);
             const user = await getUser(wallet);
             socket.emit('user_profile_update', {
-                wallet: user.wallet,
                 name: user.name,
                 avatar: user.avatar,
                 stats: { wins: user.wins, losses: user.losses, xp: user.xp, level: user.level }
@@ -614,13 +581,6 @@ io.on('connection', (socket) => {
                                     const wData = game.playerData[winnerSocketId];
                                     if (wData && wData.wallet && !wData.wallet.startsWith('Guest')) {
                                         await updateStats(wData.wallet, 'win');
-                                        const updatedW = await getUser(wData.wallet);
-                                        io.to(winnerSocketId).emit('user_profile_update', {
-                                            wallet: updatedW.wallet,
-                                            name: updatedW.name,
-                                            avatar: updatedW.avatar,
-                                            stats: { wins: updatedW.wins, losses: updatedW.losses, xp: updatedW.xp, level: updatedW.level }
-                                        });
                                     }
                                 }
                                 // Update Loser (The one who disconnected)
@@ -642,7 +602,6 @@ io.on('connection', (socket) => {
                 break;
             }
         }
-        broadcastOnlineCount();
     });
 });
 

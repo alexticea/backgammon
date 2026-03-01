@@ -202,7 +202,6 @@ function App() {
     const [activeLobbies, setActiveLobbies] = useState([]);
     const [isLobbyOpen, setIsLobbyOpen] = useState(false);
     const [isHosting, setIsHosting] = useState(false);
-    const [onlineUsersCount, setOnlineUsersCount] = useState(1);
 
     // --- REFS FOR SOCKET HANDLERS ---
     const gameStatusRef = useRef(gameStatus);
@@ -235,8 +234,19 @@ function App() {
 
             // Auto-Check for Active Game if Wallet is already "connected" (e.g. after internet drop)
             if (walletRef.current) {
-                console.log("Reconnected to socket. Checking for active game for:", walletRef.current);
+                console.log("Reconnected to socket. Checking for active game and registering:", walletRef.current);
                 newSocket.emit('check_active_game', walletRef.current);
+
+                // Also Sync Profile stats from MongoDB
+                const existing = localStorage.getItem('bg_profile_' + walletRef.current);
+                let profile;
+                try { profile = existing ? JSON.parse(existing) : null; } catch (e) { }
+
+                newSocket.emit('register_user', {
+                    wallet: walletRef.current,
+                    name: profile?.name || '',
+                    avatar: profile?.avatar || null
+                });
             }
         });
 
@@ -445,33 +455,24 @@ function App() {
         });
 
         newSocket.on('user_profile_update', (data) => {
-            // log("Profile updated from server."); // Optional log
+            console.log("[SOCKET] Profile updated from server:", data);
             setUserProfile(prev => {
                 const updated = {
                     ...prev,
                     name: (data.name !== undefined) ? data.name : prev.name,
                     avatar: (data.avatar !== undefined) ? data.avatar : prev.avatar,
                     stats: {
-                        wins: data.stats.wins,
-                        losses: data.stats.losses,
-                        xp: data.stats.xp,
-                        level: data.stats.level
+                        ...data.stats, // Accept all stats from server (wins, losses, xp, level)
                     }
                 };
 
-                // Authoritative wallet for this update
-                const targetWallet = data.wallet || walletRef.current;
-
-                // PERSIST TO LOCAL STORAGE FOR NEXT SESSION
-                if (targetWallet && !targetWallet.startsWith('Guest')) {
-                    localStorage.setItem('bg_profile_' + targetWallet, JSON.stringify(updated));
+                // PERSIST to localStorage so it survives refresh
+                if (walletRef.current && !walletRef.current.startsWith('Guest')) {
+                    localStorage.setItem('bg_profile_' + walletRef.current, JSON.stringify(updated));
                 }
+
                 return updated;
             });
-        });
-
-        newSocket.on('online_users_count', (count) => {
-            setOnlineUsersCount(count);
         });
 
         newSocket.on('lobby_list_update', (lobbies) => {
@@ -729,19 +730,16 @@ function App() {
     useEffect(() => {
         if (wallet && !wallet.startsWith('Guest')) {
             const saved = localStorage.getItem('bg_profile_' + wallet);
-            let profileToSet = { name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } };
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    if (parsed.stats) profileToSet = parsed;
-                    else profileToSet = { ...parsed, stats: profileToSet.stats };
+                    // Merge with default stats if missing
+                    if (!parsed.stats) parsed.stats = { wins: 0, losses: 0, xp: 0, level: 1 };
+                    setUserProfile(parsed);
                 } catch (e) { console.error(e); }
+            } else {
+                setUserProfile({ name: '', avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
             }
-            setUserProfile(profileToSet);
-
-            // AUTHORITATIVE SYNC: Overwrite local cache with MongoDB data
-            fetchUserProfile(wallet);
-            fetchLeaderboard();
 
             // LOAD ESCROW BALANCE
             const savedBalance = localStorage.getItem('escrow_balance_' + wallet);
@@ -1039,12 +1037,9 @@ function App() {
     const fetchLeaderboard = async () => {
         try {
             const res = await fetch(`${SERVER_URL}/leaderboard`);
-            if (!res.ok) return;
             const data = await res.json();
-
-            // 1. Update Leaderboard Data for UI
+            // Format for UI
             const formatted = data.map(u => ({
-                wallet: u.wallet,
                 name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
                 avatar: u.avatar || null,
                 stats: {
@@ -1055,54 +1050,10 @@ function App() {
                 }
             }));
             setLeaderboardData(formatted);
-
-            // 2. FORCE SYNC: If I am in the leaderboard, update my badge stats immediately
-            if (walletRef.current) {
-                const myEntry = data.find(u => u.wallet === walletRef.current);
-                if (myEntry) {
-                    syncLocalProfile(myEntry);
-                }
-            }
         } catch (e) {
             console.error("Failed to fetch leaderboard:", e);
+            setLeaderboardData([]); // Empty if fail
         }
-    };
-
-    /**
-     * Authoritative Sync with DB via REST
-     */
-    const fetchUserProfile = async (w) => {
-        if (!w || w.startsWith('Guest')) return;
-        try {
-            const res = await fetch(`${SERVER_URL}/user/${w}`);
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data && data.stats) {
-                syncLocalProfile(data);
-            }
-        } catch (e) {
-            console.error("Failed to sync profile:", e);
-        }
-    };
-
-    const syncLocalProfile = (data) => {
-        if (!data.wallet) return;
-        setUserProfile(prev => {
-            const updated = {
-                ...prev,
-                name: (data.name !== undefined) ? data.name : prev.name,
-                avatar: (data.avatar !== undefined) ? data.avatar : prev.avatar,
-                stats: {
-                    level: data.stats.level || 1,
-                    wins: data.stats.wins || 0,
-                    losses: data.stats.losses || 0,
-                    xp: data.stats.xp || 0
-                }
-            };
-            // Authoritative cache update
-            localStorage.setItem('bg_profile_' + data.wallet, JSON.stringify(updated));
-            return updated;
-        });
     };
 
     useEffect(() => {
@@ -1263,7 +1214,6 @@ function App() {
     const startGame = (diff) => {
         setDifficulty(diff || 'advanced');
         setGameMode('single'); // Explictly set single player
-        setPlayerColor(PLAYER_HUMAN); // Human is always White in Single Player
         setBoard(initialBoard);
         setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
         setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
@@ -2361,21 +2311,6 @@ function App() {
                     <div className="modal-overlay">
                         <div className="modal-content">
                             <h3>Edit Profile</h3>
-                            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>
-                                <div style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '5px' }}>Current Stats (MongoDB)</div>
-                                <div style={{ display: 'flex', gap: '15px', fontWeight: 'bold' }}>
-                                    <span>{userProfile.stats.wins} Wins</span>
-                                    <span>{userProfile.stats.losses} Losses</span>
-                                    <span>Lvl {userProfile.stats.level}</span>
-                                </div>
-                                <button
-                                    className="btn-secondary"
-                                    style={{ marginTop: '10px', fontSize: '0.7rem', padding: '4px 8px' }}
-                                    onClick={() => { fetchUserProfile(wallet); fetchLeaderboard(); }}
-                                >
-                                    🔄 Sync Stats Now
-                                </button>
-                            </div>
                             <div className="form-group">
                                 <label>Display Name</label>
                                 <input
@@ -2741,26 +2676,9 @@ function App() {
                             </div>
                         )}
 
-                        <div style={{
-                            color: '#aaa',
-                            fontSize: '0.9rem',
-                            margin: '10px 0',
-                            padding: '8px 20px',
-                            background: 'rgba(0,0,0,0.3)',
-                            borderRadius: '20px',
-                            border: '1px solid rgba(255,255,255,0.05)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <span style={{ color: '#4caf50', fontSize: '1.2rem' }}>●</span>
-                            <span>Online Users: <span style={{ color: '#fff', fontWeight: 'bold' }}>{onlineUsersCount}</span></span>
-                        </div>
-
                         <button className="btn-primary" style={{ marginTop: '5px', background: '#3e2723', width: '90%', maxWidth: '400px', padding: '15px' }} onClick={() => {
                             setGameStatus('menu');
                             setGameMode('single');
-                            setPlayerColor(PLAYER_HUMAN); // Reset to default perspective
                         }}>Back to Main Menu</button>
                     </div>
                 )}
@@ -2884,10 +2802,7 @@ function App() {
                         </div>
                     ))}
                 </div>
-                <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => {
-                    setGameStatus('menu');
-                    setPlayerColor(PLAYER_HUMAN);
-                }}>Back to Menu</button>
+                <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
             </div>
         );
     }
@@ -2972,7 +2887,6 @@ function App() {
                                     }
                                 } else {
                                     setGameStatus('menu');
-                                    setPlayerColor(PLAYER_HUMAN);
                                     setBoard(initialBoard);
                                     setGameResult(null);
                                     setVisualDice([]);
@@ -2998,7 +2912,6 @@ function App() {
                         <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
                             <button className="btn-primary" onClick={() => {
                                 setGameStatus('menu');
-                                setPlayerColor(PLAYER_HUMAN);
                                 setBoard(initialBoard);
                                 setGameResult(null);
                                 setOpponentDisconnected(false);
@@ -3251,7 +3164,6 @@ function App() {
 
                         <button className="btn-primary" onClick={() => {
                             setGameStatus('menu');
-                            setPlayerColor(PLAYER_HUMAN);
                             // Reset visuals
                             setGameResult(null);
                             setDice([]);
