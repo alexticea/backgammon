@@ -76348,7 +76348,10 @@ ${err.message}`);
     setSelectedStake(stake);
     if (stake === null || stake === 0) {
       setIsLobbyOpen(true);
-      if (socket) socket.emit("get_lobbies");
+      if (socket) {
+        console.log("Requesting lobbies from server...");
+        socket.emit("get_lobbies");
+      }
     } else {
       setIsSearching(true);
       if (socket) {
@@ -77097,12 +77100,13 @@ ${err.message}`);
     }
   };
   const handlePointClick = (index) => {
-    if (turn !== "human") return;
-    if (rolling) return;
-    if (selectedPoint === null) {
+    if (turn !== "human" || rolling) return;
+    const isOwnedPiece = index >= 0 && index <= 23 && board[index].player === playerColor && board[index].count > 0;
+    const isMoveTarget = validMoves.includes(index);
+    const isReSelection = selectedPoint !== null && isOwnedPiece && !isMoveTarget && index !== selectedPoint;
+    if (selectedPoint === null || isReSelection) {
       if (bar[playerColor] > 0) return log2("Must enter from bar!");
-      const isMyPiece = board[index].player === playerColor;
-      if (isMyPiece && board[index].count > 0) {
+      if (isOwnedPiece) {
         setSelectedPoint(index);
         const possibleMoves = [];
         let canBearOff = true;
@@ -77130,8 +77134,8 @@ ${err.message}`);
           if (inBounds) {
             const dest = board[target];
             const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
-            const isBlocked2 = dest.player === opponent && dest.count > 1;
-            if (!isBlocked2) possibleMoves.push(target);
+            const blocked = dest.player === opponent && dest.count > 1;
+            if (!blocked) possibleMoves.push(target);
           } else if (canBearOff) {
             const isBearOffMove = playerColor === PLAYER_HUMAN ? target < 0 : target > 23;
             if (isBearOffMove) {
@@ -77157,23 +77161,14 @@ ${err.message}`);
         setValidMoves(possibleMoves);
       }
     } else {
-      if (index === selectedPoint) {
-        if (validMoves.includes(-1)) {
-          handlePointClick(-1);
-          return;
-        }
-        setSelectedPoint(null);
-        setValidMoves([]);
-        return;
-      }
-      if (!validMoves.includes(index)) {
-        if (selectedPoint !== "bar" && index >= 0 && board[index].player === playerColor && board[index].count > 0) {
+      const targetIndex = index === selectedPoint && validMoves.includes(-1) ? -1 : index;
+      if (!validMoves.includes(targetIndex)) {
+        if (index === selectedPoint) {
           setSelectedPoint(null);
           setValidMoves([]);
-          handlePointClick(index);
-          return;
+        } else {
+          log2("Invalid move!");
         }
-        log2("Invalid move!");
         return;
       }
       playMoveSound();
@@ -77186,13 +77181,10 @@ ${err.message}`);
       setHistory((prev) => [...prev, snapshot]);
       let dieUsed;
       if (selectedPoint === "bar") {
-        if (playerColor === PLAYER_HUMAN) {
-          dieUsed = 24 - index;
-        } else {
-          dieUsed = index + 1;
-        }
+        if (playerColor === PLAYER_HUMAN) dieUsed = 24 - targetIndex;
+        else dieUsed = targetIndex + 1;
       } else {
-        if (index === -1) {
+        if (targetIndex === -1) {
           if (playerColor === PLAYER_HUMAN) {
             const exactDie = selectedPoint + 1;
             dieUsed = dice.includes(exactDie) ? exactDie : dice.find((d) => selectedPoint - d < -1) || exactDie;
@@ -77201,7 +77193,7 @@ ${err.message}`);
             dieUsed = dice.includes(exactDie) ? exactDie : dice.find((d) => selectedPoint + d > 23) || exactDie;
           }
         } else {
-          dieUsed = Math.abs(selectedPoint - index);
+          dieUsed = Math.abs(selectedPoint - targetIndex);
         }
       }
       const dieIdx = dice.indexOf(dieUsed);
@@ -77216,11 +77208,11 @@ ${err.message}`);
         if (source.count === 0) source.player = 0;
         nextBoard[selectedPoint] = source;
       }
-      if (index === -1) {
+      if (targetIndex === -1) {
         log2("Bearing Off!");
         nextOff[playerColor]++;
       } else {
-        const dest = { ...nextBoard[index] };
+        const dest = { ...nextBoard[targetIndex] };
         const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
         if (dest.player === opponent) {
           log2("Checkers Hit!");
@@ -77231,7 +77223,7 @@ ${err.message}`);
           dest.player = playerColor;
           dest.count += 1;
         }
-        nextBoard[index] = dest;
+        nextBoard[targetIndex] = dest;
       }
       setBoard(nextBoard);
       setBar(nextBar);
@@ -77551,7 +77543,10 @@ ${err.message}`);
         minHeight: "400px"
       }, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #4e342e", paddingBottom: "10px" }, children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { margin: 0, color: "#d7ccc8" }, children: "Free Play Tables" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { margin: 0, color: "#d7ccc8" }, children: "Free Play Tables" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { padding: "2px 8px", fontSize: "0.7rem" }, onClick: () => socket == null ? void 0 : socket.emit("get_lobbies"), children: "🔄 Refresh" })
+          ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { padding: "5px 10px", fontSize: "0.8rem" }, onClick: () => setIsLobbyOpen(false), children: "Close" })
         ] }),
         isHosting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center", padding: "40px 20px", background: "rgba(0,0,0,0.3)", borderRadius: "10px", border: "1px dashed #8d6e63" }, children: [
