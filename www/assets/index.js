@@ -76814,13 +76814,13 @@ ${err.message}`);
     }
   }, [dice, turn, rolling, board, bar, playerColor]);
   reactExports.useEffect(() => {
-    if (gameStatus === "playing" && turn === "ai") {
+    if (gameStatus === "playing" && turn === "ai" && gameMode === "single") {
       const timer = setTimeout(() => {
         playAITurn();
       }, 3e3);
       return () => clearTimeout(timer);
     }
-  }, [turn, gameStatus]);
+  }, [turn, gameStatus, gameMode]);
   const playAITurn = () => {
     try {
       log2("AI Rolling...");
@@ -77100,6 +77100,7 @@ ${err.message}`);
     }
   };
   const handlePointClick = (index) => {
+    console.log("HandlePointClick Entry:", index, "Selected:", selectedPoint, "Turn:", turn);
     if (turn !== "human" || rolling) return;
     const isOwnedPiece = index >= 0 && index <= 23 && board[index].player === playerColor && board[index].count > 0;
     const isMoveTarget = validMoves.includes(index);

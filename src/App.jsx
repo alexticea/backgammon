@@ -1549,16 +1549,15 @@ function App() {
         }
     }, [dice, turn, rolling, board, bar, playerColor]);
 
-    // AI TURN
     useEffect(() => {
-        if (gameStatus === 'playing' && turn === 'ai') {
+        if (gameStatus === 'playing' && turn === 'ai' && gameMode === 'single') {
             // Give user time to Undo their last move before AI takes over
             const timer = setTimeout(() => {
                 playAITurn();
             }, 3000); // 3 seconds delay
             return () => clearTimeout(timer);
         }
-    }, [turn, gameStatus]);
+    }, [turn, gameStatus, gameMode]);
 
     const playAITurn = () => {
         try {
@@ -1960,6 +1959,7 @@ function App() {
 
     // HUMAN MOVES
     const handlePointClick = (index) => {
+        console.log("HandlePointClick Entry:", index, "Selected:", selectedPoint, "Turn:", turn);
         if (turn !== 'human' || rolling) return;
 
         // Is the player clicking an owned piece that is NOT a valid target? If so, this is a "Selection" or "Re-selection" intent.
