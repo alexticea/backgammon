@@ -898,7 +898,7 @@ function App() {
         if (isNaN(amount) || amount <= 0) return;
 
         try {
-            if (!publicKey) return alert("Connect Wallet first");
+            if (!publicKey) return alert("Wallet Login first");
 
             const transaction = new Transaction().add(
                 SystemProgram.transfer({
@@ -2396,7 +2396,7 @@ function App() {
                                     connectWallet();
                                 }}>
                                     <span>🔗</span>
-                                    <span>Connect Wallet</span>
+                                    <span>Wallet Login</span>
                                 </button>
 
                                 <button className="btn-secondary" onClick={() => setShowGuestPopup(false)}>
@@ -2411,7 +2411,10 @@ function App() {
                 {
                     (!wallet || (!wallet.startsWith('Guest') && !isLoggedIn)) ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            <button className="btn-primary" style={{ fontSize: '1.2rem', padding: '15px 30px', display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'center', minWidth: '250px' }} onClick={handleGuestLogin}>
+                            <button className="btn-primary" style={{
+                                fontSize: '1.2rem', padding: '15px 30px', display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'center', minWidth: '250px',
+                                background: 'transparent', border: '1px solid #8d6e63'
+                            }} onClick={handleGuestLogin}>
                                 <span style={{ fontSize: '1.4rem' }}>👤</span>
                                 <span>Guest Mode</span>
                             </button>
@@ -2427,7 +2430,7 @@ function App() {
                                 disabled={isLoggingIn}
                             >
                                 <span style={{ fontSize: '1.4rem' }}>{(connected && !isLoggedIn) ? '✅' : '🔗'}</span>
-                                <span>{isLoggingIn ? 'Verifying...' : ((connected && !isLoggedIn) ? 'Verify & Login' : 'Connect Wallet')}</span>
+                                <span>{isLoggingIn ? 'Verifying...' : ((connected && !isLoggedIn) ? 'Verify & Login' : 'Wallet Login')}</span>
                             </button>
                         </div>
                     ) : (
@@ -2819,7 +2822,7 @@ function App() {
                                     connectWallet();
                                 }}>
                                     <span>🔗</span>
-                                    <span>Connect Wallet</span>
+                                    <span>Wallet Login</span>
                                 </button>
 
                                 <button className="btn-secondary" onClick={() => setShowGuestPopup(false)}>
