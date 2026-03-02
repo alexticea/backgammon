@@ -2357,8 +2357,40 @@ function App() {
                 )}
 
                 {/* CONDITIONS MODAL */}
+                {showGuestPopup && (
+                    <div className="modal-overlay">
+                        <div className="modal-content" style={{ textAlign: 'center', maxWidth: '400px' }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🔒</div>
+                            <h3 style={{ marginBottom: '10px' }}>Wallet Required</h3>
+                            <p style={{ color: '#bdbdbd', marginBottom: '25px' }}>
+                                You must connect a real wallet to play Multiplayer!
+                            </p>
 
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <button className="btn-primary" style={{
+                                    fontSize: '1.1rem',
+                                    padding: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '10px',
+                                    background: 'transparent',
+                                    border: '1px solid #8d6e63'
+                                }} onClick={() => {
+                                    setShowGuestPopup(false);
+                                    connectWallet();
+                                }}>
+                                    <span>🔗</span>
+                                    <span>Connect Wallet</span>
+                                </button>
 
+                                <button className="btn-secondary" onClick={() => setShowGuestPopup(false)}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
 
                 {
@@ -2406,7 +2438,13 @@ function App() {
                                 </div>
                             </div>
 
-                            <button className="btn-mode" onClick={() => setGameStatus('multiplayer_menu')}>
+                            <button className="btn-mode" onClick={() => {
+                                if (wallet && wallet.startsWith('Guest')) {
+                                    setShowGuestPopup(true);
+                                } else {
+                                    setGameStatus('multiplayer_menu');
+                                }
+                            }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <span className="icon">👥</span>
                                     <span>Multiplayer</span>
