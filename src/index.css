@@ -19,6 +19,87 @@
     font-size: 0;
     /* Hide text number */
     border: 1px solid #ddd;
+    transition: transform 0.1s;
+}
+
+.die-3d.rolling-anim {
+    animation: shake 0.5s infinite;
+    background: #f0f0f0;
+}
+
+@keyframes shake {
+    0% {
+        transform: rotate(0deg) translate(0, 0);
+    }
+
+    25% {
+        transform: rotate(5deg) translate(2px, -2px);
+    }
+
+    50% {
+        transform: rotate(-5deg) translate(-2px, 2px);
+    }
+
+    75% {
+        transform: rotate(3deg) translate(1px, 1px);
+    }
+
+    100% {
+        transform: rotate(0deg) translate(0, 0);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.dice-table-overlay {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    transition: opacity 0.3s;
+}
+
+.dice-pair {
+    display: flex;
+    gap: 15px;
+    perspective: 500px;
+}
+
+.turn-message {
+    background: rgba(76, 175, 80, 0.9);
+    color: white;
+    padding: 8px 25px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    border: 2px solid white;
+    animation: bounce 1s infinite alternate;
+}
+
+@keyframes bounce {
+    from {
+        transform: translateY(0);
+    }
+
+    to {
+        transform: translateY(-5px);
+    }
 }
 
 .die-3d .dot {
