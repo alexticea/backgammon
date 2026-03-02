@@ -3000,7 +3000,7 @@ function App() {
                         )}
 
                         {(!openingRoll || !openingRoll.human) && !rolling && (
-                            <button className="btn-primary" style={{ fontSize: '1.3rem', padding: '15px 50px' }} onClick={handleOpeningRoll}>ROLL FOR FIRST TURN</button>
+                            <button className="btn-primary" style={{ fontSize: '1.3rem', padding: '15px 50px', background: '#4caf50', border: '1px solid #388e3c' }} onClick={handleOpeningRoll}>ROLL FOR FIRST TURN</button>
                         )}
                     </div>
                 )}
