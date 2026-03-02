@@ -1064,6 +1064,7 @@ function App() {
     const handleInvitePlayer = (targetWallet, targetName) => {
         if (!socket || !wallet) return;
         if (targetWallet === wallet) return alert("You cannot invite yourself!");
+        if (gameStatus !== 'leaderboard') return; // Only from leaderboard for now
 
         setIsInviting(true);
         socket.emit('invite_player', { targetWallet, stake: 0 });
@@ -1073,6 +1074,13 @@ function App() {
 
     const handleRespondToInvite = (response) => {
         if (!socket || !incomingInvite) return;
+
+        const fromUserData = {
+            wallet: incomingInvite.fromWallet,
+            name: incomingInvite.fromName,
+            level: 1, // Placeholder
+            stats: { wins: 0, losses: 0, xp: 0 }
+        };
 
         const myUserData = {
             wallet: wallet,
@@ -1085,12 +1093,13 @@ function App() {
             fromWallet: incomingInvite.fromWallet,
             response,
             myUserData,
-            fromUserData: { name: incomingInvite.fromName, wallet: incomingInvite.fromWallet } // Simple placeholder
+            fromUserData
         });
 
         setIncomingInvite(null);
         if (response === 'accept') {
             log("Accepting invite...");
+            // Match Found listener will handle the rest (room creation etc)
         }
     };
 
@@ -1448,47 +1457,6 @@ function App() {
     };
 
     // --- GAME CONSTANTS ---
-
-    const handleInvitePlayer = (targetWallet, targetName) => {
-        if (!socket || !wallet) return;
-        if (targetWallet === wallet) return alert("You cannot invite yourself!");
-        if (gameStatus !== 'leaderboard') return; // Only from leaderboard for now
-
-        setIsInviting(true);
-        socket.emit('invite_player', { targetWallet, stake: 0 }); // Default free for now
-        log(`Inviting ${targetName}...`);
-    };
-
-    const handleRespondToInvite = (response) => {
-        if (!socket || !incomingInvite) return;
-
-        const fromUserData = {
-            wallet: incomingInvite.fromWallet,
-            name: incomingInvite.fromName,
-            level: 1, // Placeholder
-            stats: { wins: 0, losses: 0, xp: 0 }
-        };
-
-        const myUserData = {
-            wallet: wallet,
-            name: userProfile.name,
-            level: userProfile.stats.level,
-            stats: userProfile.stats
-        };
-
-        socket.emit('invite_response', {
-            fromWallet: incomingInvite.fromWallet,
-            response,
-            myUserData,
-            fromUserData
-        });
-
-        setIncomingInvite(null);
-        if (response === 'accept') {
-            log("Accepting invite...");
-            // Match Found listener will handle the rest (room creation etc)
-        }
-    };
 
     const playMoveSound = () => {
         try {
