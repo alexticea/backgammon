@@ -578,31 +578,41 @@ function App() {
             log("Opponent returned! Resuming...");
             setOpponentDisconnected(false);
         } else if (type === 'roll') {
-            // Robustness check: Ensure we handle Opening Roll vs Game Roll correctly
-            // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
-            if (currentStatus === 'opening_roll' && payload.length === 1) {
-                // Handle Opponent Opening Roll
-                const val = payload[0];
-                log(`Opponent Rolled: ${val} (Opening)`);
-                setOpeningRoll(prev => {
-                    const newState = { ...(prev || {}), ai: val };
-
-                    // Visual Update
-                    if (newState.human) {
-                        setVisualDice([newState.human, val]);
-                    } else {
-                        setVisualDice([val]);
-                    }
-
-                    checkMultiOpeningWinner(newState);
-                    return newState;
-                });
-            } else {
-                log(`Opponent Rolled: ${payload.join(', ')}`);
-                // Visual only - show max 2 dice even for doubles
-                setVisualDice(payload.slice(0, 2));
-                setDice(payload);
+            playDiceSound();
+            setRolling(true);
+            if (currentStatus !== 'opening_roll') {
+                setDice([]);
+                setVisualDice([]);
             }
+
+            setTimeout(() => {
+                setRolling(false);
+                // Robustness check: Ensure we handle Opening Roll vs Game Roll correctly
+                // Opening Roll = 1 die. Game Roll = 2 dice (or 4).
+                if (currentStatus === 'opening_roll' && payload.length === 1) {
+                    // Handle Opponent Opening Roll
+                    const val = payload[0];
+                    log(`Opponent Rolled: ${val} (Opening)`);
+                    setOpeningRoll(prev => {
+                        const newState = { ...(prev || {}), ai: val };
+
+                        // Visual Update
+                        if (newState.human) {
+                            setVisualDice([newState.human, val]);
+                        } else {
+                            setVisualDice([val]);
+                        }
+
+                        checkMultiOpeningWinner(newState);
+                        return newState;
+                    });
+                } else {
+                    log(`Opponent Rolled: ${payload.join(', ')}`);
+                    // Visual only - show max 2 dice even for doubles
+                    setVisualDice(payload.slice(0, 2));
+                    setDice(payload);
+                }
+            }, 800);
         } else if (type === 'opponent_reconnected') {
             console.log("Opponent returned! Resuming...");
             setOpponentDisconnected(false);
@@ -3026,7 +3036,7 @@ function App() {
                                     {(openingRoll && openingRoll.ai) ? (
                                         <Die value={openingRoll.ai} isOpponent={true} style={{ width: '70px', height: '70px' }} />
                                     ) : (
-                                        (gameMode === 'single' && rolling) ? (
+                                        rolling ? (
                                             <Die isOpponent={true} style={{ width: '70px', height: '70px', animation: 'spin 1s infinite linear' }} />
                                         ) : (
                                             <Die isOpponent={true} style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d32f2f', background: 'transparent', color: '#d32f2f', fontSize: '2rem' }}>{gameMode === 'multi' ? '...' : '?'}</Die>
