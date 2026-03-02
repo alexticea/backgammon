@@ -249,6 +249,8 @@ function App() {
                     avatar: profile?.avatar || null
                 });
             }
+            // Sync leaderboard immediately on connect
+            fetchLeaderboard();
         });
 
         newSocket.on('connect_error', (err) => {
@@ -1102,7 +1104,8 @@ function App() {
                 name: profileData.name,
                 avatar: profileData.avatar
             });
-            setTimeout(() => fetchLeaderboard(), 500);
+            fetchLeaderboard(); // Immediate
+            setTimeout(() => fetchLeaderboard(), 1000); // And slightly delayed to catch DB update
 
             // Check for active game
             if (gameStatus === 'menu') {
@@ -2389,8 +2392,8 @@ function App() {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '10px',
-                                    background: 'transparent',
-                                    border: '1px solid #8d6e63'
+                                    background: '#4caf50',
+                                    border: 'none'
                                 }} onClick={() => {
                                     setShowGuestPopup(false);
                                     connectWallet();
@@ -2413,7 +2416,7 @@ function App() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <button className="btn-primary" style={{
                                 fontSize: '1.2rem', padding: '15px 30px', display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'center', minWidth: '250px',
-                                background: 'transparent', border: '1px solid #8d6e63'
+                                background: '#4caf50', border: 'none'
                             }} onClick={handleGuestLogin}>
                                 <span style={{ fontSize: '1.4rem' }}>👤</span>
                                 <span>Guest Mode</span>
@@ -2422,8 +2425,8 @@ function App() {
                                 className="btn-primary"
                                 style={{
                                     fontSize: '1.2rem', padding: '15px 30px',
-                                    background: (connected && !isLoggedIn) ? '#4caf50' : 'transparent',
-                                    border: (connected && !isLoggedIn) ? 'none' : '1px solid #8d6e63',
+                                    background: '#4caf50',
+                                    border: 'none',
                                     display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'center', minWidth: '250px'
                                 }}
                                 onClick={connectWallet}
@@ -2815,8 +2818,8 @@ function App() {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '10px',
-                                    background: 'transparent',
-                                    border: '1px solid #8d6e63'
+                                    background: '#4caf50',
+                                    border: 'none'
                                 }} onClick={() => {
                                     setShowGuestPopup(false);
                                     connectWallet();
