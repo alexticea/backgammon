@@ -2708,8 +2708,9 @@ function App() {
                                     borderRadius: '10px'
                                 }}>
                                     <div style={{ fontSize: '2rem', marginBottom: '5px' }}>🔒</div>
-                                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#ff5252', marginBottom: '5px' }}>LOCKED</div>
-                                    <div style={{ fontSize: '0.9rem', color: '#ddd' }}>Reach <span style={{ color: '#ffd700' }}>Level 5</span> to Unlock</div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#ff5252', padding: '0 10px 10px' }}>
+                                        Reach Level 5 to Unlock Play with Stake!
+                                    </div>
                                     <div style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '5px' }}>Current: Lvl {userProfile.stats.level}</div>
                                     <button
                                         className="btn-secondary"
