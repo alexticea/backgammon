@@ -281,6 +281,8 @@ function App() {
             console.log("My Socket ID:", newSocket.id);
             setRoomId(data.roomId);
             setIsSearching(false);
+            setIsInviting(false);
+            setInvitingPlayerName(null);
             // Identify Opponent Name
             const pIds = Object.keys(data.players);
             const oppId = pIds.find(id => id !== newSocket.id);
@@ -418,6 +420,7 @@ function App() {
         newSocket.on('invite_result', ({ fromWallet, response }) => {
             console.log("INVITE RESULT:", fromWallet, response);
             setIsInviting(false);
+            setInvitingPlayerName(null);
             if (response === 'decline') {
                 alert("Player declined your invite.");
             }
@@ -1061,15 +1064,17 @@ function App() {
         log("Lobby closed.");
     };
 
+    const [invitingPlayerName, setInvitingPlayerName] = useState(null);
+
     const handleInvitePlayer = (targetWallet, targetName) => {
         if (!socket || !wallet) return;
         if (targetWallet === wallet) return alert("You cannot invite yourself!");
         if (gameStatus !== 'leaderboard') return; // Only from leaderboard for now
 
         setIsInviting(true);
+        setInvitingPlayerName(targetName);
         socket.emit('invite_player', { targetWallet, stake: 0 });
         log(`Inviting ${targetName}...`);
-        alert(`Invite sent to ${targetName}. Waiting for response...`);
     };
 
     const handleRespondToInvite = (response) => {
@@ -3534,6 +3539,26 @@ function App() {
                                 Decline
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* WAITING FOR INVITE RESPONSE MODAL */}
+            {invitingPlayerName && (
+                <div className="modal-overlay" style={{ zIndex: 4000, background: 'rgba(0,0,0,0.85)' }}>
+                    <div className="modal-content" style={{ textAlign: 'center', maxWidth: '350px', border: '1px solid #8d6e63', background: '#2c241b' }}>
+                        <div className="loader" style={{ margin: '10px auto 20px auto', width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#ffca28' }}></div>
+                        <h3 style={{ marginBottom: '10px', color: '#fff' }}>Invite Sent!</h3>
+                        <p style={{ color: '#bdbdbd', marginBottom: '20px' }}>
+                            Waiting for <span style={{ color: '#ffca28', fontWeight: 'bold' }}>{invitingPlayerName}</span> to accept your challenge...
+                        </p>
+                        <button className="btn-secondary" style={{ width: '100%' }} onClick={() => {
+                            setInvitingPlayerName(null);
+                            setIsInviting(false);
+                            // Optional: emit 'cancel_invite' if server supports it
+                        }}>
+                            Cancel
+                        </button>
                     </div>
                 </div>
             )}
