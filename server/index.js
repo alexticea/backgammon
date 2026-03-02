@@ -166,10 +166,13 @@ const getLeaderboard = async () => {
     }
 
     // Add online status
-    return users.map(u => ({
+    const result = users.map(u => ({
         ...u,
         isOnline: onlineWallets.has(u.wallet)
     }));
+
+    console.log(`[LEADERBOARD] Serving ${result.length} players. Online wallets: ${Array.from(onlineWallets.keys()).join(', ')}`);
+    return result;
 };
 
 

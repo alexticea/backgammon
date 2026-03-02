@@ -1107,6 +1107,7 @@ function App() {
 
     // --- LEADERBOARD LOGIC ---
     const [leaderboardData, setLeaderboardData] = useState([]);
+    const [expandedLeaderboardIndex, setExpandedLeaderboardIndex] = useState(null);
 
     const fetchLeaderboard = async () => {
         try {
@@ -2965,61 +2966,129 @@ function App() {
                             (Connect your wallet to appear)
                         </div>
                     )}
-                    {leaderboard.map((p, i) => (
-                        <div key={i} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '15px',
-                            borderBottom: '1px solid #3e2723',
-                            background: i === 0 ? 'rgba(255, 215, 0, 0.1)' : 'transparent'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '30px', color: i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? '#cd7f32' : '#a1887f' }}>#{i + 1}</div>
-                                <div style={{ position: 'relative' }}>
-                                    {p.avatar ? (
-                                        <img src={p.avatar} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #5d4037', objectFit: 'cover' }} />
-                                    ) : (
-                                        <div style={{ width: '40px', height: '40px', background: '#3e2723', borderRadius: '50%', border: '1px solid #5d4037', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
-                                    )}
-                                    {p.isOnline && (
+                    {leaderboardData.map((p, i) => {
+                        const isExpanded = expandedLeaderboardIndex === i;
+                        const isMe = p.wallet === wallet;
+
+                        return (
+                            <div key={i}
+                                onClick={() => setExpandedLeaderboardIndex(isExpanded ? null : i)}
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    padding: '15px 20px',
+                                    borderBottom: '1px solid rgba(141, 110, 99, 0.2)',
+                                    background: isExpanded ? 'rgba(255, 255, 255, 0.05)' : (i === 0 ? 'rgba(255, 215, 0, 0.08)' : 'transparent'),
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    borderRadius: isExpanded ? '8px' : '0'
+                                }}>
+
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        {/* RANK */}
                                         <div style={{
-                                            position: 'absolute',
-                                            bottom: '0',
-                                            right: '0',
-                                            width: '12px',
-                                            height: '12px',
-                                            background: '#4caf50',
-                                            borderRadius: '50%',
-                                            border: '2px solid #2c241b',
-                                            boxShadow: '0 0 5px #4caf50'
-                                        }} title="Online"></div>
-                                    )}
-                                </div>
-                                <div>
-                                    <div style={{ fontWeight: 'bold', color: '#e8e0d5' }}>{p.name || 'Unknown'}</div>
-                                    <div style={{ fontSize: '0.8rem', color: '#aaa' }}>
-                                        Lvl {p.stats?.level || 1} • <span style={{ color: '#81c784' }}>{p.stats?.wins || 0}W</span> / <span style={{ color: '#e57373' }}>{p.stats?.losses || 0}L</span>
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            width: '35px',
+                                            color: i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#cd7f32' : '#8d6e63',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            #{i + 1}
+                                        </div>
+
+                                        {/* AVATAR + STATUS INDICATOR (IN FRONT) */}
+                                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                            <div style={{
+                                                width: '12px',
+                                                height: '12px',
+                                                background: p.isOnline ? '#4caf50' : '#444',
+                                                borderRadius: '50%',
+                                                marginRight: '12px',
+                                                boxShadow: p.isOnline ? '0 0 10px rgba(76, 175, 80, 0.6)' : 'none',
+                                                border: '2px solid #2c241b'
+                                            }} title={p.isOnline ? "Online" : "Offline"}></div>
+
+                                            {p.avatar ? (
+                                                <img src={p.avatar} style={{ width: '45px', height: '45px', borderRadius: '50%', border: '2px solid #5d4037', objectFit: 'cover' }} />
+                                            ) : (
+                                                <div style={{ width: '45px', height: '45px', background: '#3e2723', borderRadius: '50%', border: '2px solid #5d4037', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👤</div>
+                                            )}
+                                        </div>
+
+                                        {/* NAME & STATS */}
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', color: isMe ? '#4caf50' : '#e8e0d5', fontSize: '1.1rem' }}>
+                                                {p.name || 'Anonymous'} {isMe && <span style={{ fontSize: '0.7rem', verticalAlign: 'middle' }}>(YOU)</span>}
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', color: '#a1887f' }}>
+                                                Lvl {p.stats?.level || 1} • <span style={{ color: '#81c784' }}>{p.stats?.wins || 0}W</span> - <span style={{ color: '#e57373' }}>{p.stats?.losses || 0}L</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* XP DISPLAY */}
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>{p.stats?.xp} XP</div>
+                                        <div style={{ fontSize: '0.7rem', color: '#8d6e63' }}>Win Streak: 0</div>
                                     </div>
                                 </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>
-                                    {p.stats?.xp} XP
-                                </div>
-                                {p.isOnline && p.wallet !== wallet && p.wallet && (
-                                    <button
-                                        className="btn-primary"
-                                        style={{ padding: '5px 12px', fontSize: '0.8rem', background: '#4caf50', border: 'none', minWidth: '70px' }}
-                                        onClick={() => handleInvitePlayer(p.wallet, p.name)}
-                                        disabled={isInviting}
-                                    >
-                                        {isInviting ? '...' : 'Invite'}
-                                    </button>
+
+                                {/* EXPANDED VIEW: Challenge / Details */}
+                                {isExpanded && (
+                                    <div style={{
+                                        marginTop: '15px',
+                                        padding: '15px',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(141, 110, 99, 0.3)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px',
+                                        animation: 'slideDown 0.2s ease-out'
+                                    }} onClick={(e) => e.stopPropagation()}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ fontSize: '0.9rem', color: '#bdbdbd' }}>
+                                                Wallet ID: <span style={{ color: '#fff' }}>{p.wallet ? `${p.wallet.slice(0, 10)}...` : 'Hidden'}</span>
+                                            </div>
+                                            <div style={{ fontSize: '0.9rem', color: p.isOnline ? '#4caf50' : '#777', fontWeight: 'bold' }}>
+                                                ● {p.isOnline ? 'Online now' : 'Currently Offline'}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            {!isMe && (
+                                                <button
+                                                    className="btn-primary"
+                                                    style={{
+                                                        flex: 1,
+                                                        background: p.isOnline ? '#4caf50' : '#333',
+                                                        border: 'none',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        padding: '12px',
+                                                        opacity: p.isOnline ? 1 : 0.6
+                                                    }}
+                                                    onClick={() => p.isOnline ? handleInvitePlayer(p.wallet, p.name) : alert("Target player is not online right now.")}
+                                                    disabled={isInviting || !p.isOnline}
+                                                >
+                                                    <span style={{ fontSize: '1.2rem' }}>🎮</span>
+                                                    <span>{isInviting ? 'Inviting...' : 'Send Challenge Invite'}</span>
+                                                </button>
+                                            )}
+                                            <button className="btn-secondary" style={{ flex: 1, fontSize: '0.9rem' }} onClick={() => log("Player profile viewed.")}>
+                                                View Full Career
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
                 <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
             </div>
