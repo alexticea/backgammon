@@ -2542,7 +2542,7 @@ function App() {
                             </div>
                         ) : (
                             <>
-                                <button className="btn-primary" style={{ padding: '15px' }} onClick={handleHostGame}>
+                                <button className="btn-primary" style={{ padding: '15px', background: '#4caf50', border: '1px solid #388e3c' }} onClick={handleHostGame}>
                                     ➕ Create New Table
                                 </button>
 
@@ -2605,7 +2605,7 @@ function App() {
                                     <p style={{ margin: 0, color: '#aaa', fontSize: '0.8rem' }}>Practice vs Random</p>
                                 </div>
                             </div>
-                            <button className="btn-primary" style={{ fontSize: '0.9rem', padding: '8px 15px', minWidth: '80px' }}>Play</button>
+                            <button className="btn-primary" style={{ fontSize: '0.9rem', padding: '8px 15px', minWidth: '80px', background: '#4caf50', border: '1px solid #388e3c' }}>Play</button>
                         </div>
 
                         {/* STAKE PLAY */}
