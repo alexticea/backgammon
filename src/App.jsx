@@ -1423,29 +1423,34 @@ function App() {
 
     const playDiceSound = () => {
         try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
+            // Try to play custom sound first
+            const audio = new Audio('/dice-roll.mp3');
+            audio.play().catch(() => {
+                // FALLBACK: If custom sound fails (e.g., file not found or browser blocks auto-play), use the synthesized version
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
 
-            const ctx = new AudioContext();
-            const t = ctx.currentTime;
+                const ctx = new AudioContext();
+                const t = ctx.currentTime;
 
-            // Create two "hits" to simulate dice rattling/landing
-            [0, 0.1].forEach(offset => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
+                // Create two "hits" to simulate dice rattling/landing
+                [0, 0.1].forEach(offset => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
 
-                osc.type = 'triangle'; // Wood-like sound
-                osc.frequency.setValueAtTime(150 + Math.random() * 50, t + offset);
-                osc.frequency.exponentialRampToValueAtTime(40, t + offset + 0.1);
+                    osc.type = 'triangle'; // Wood-like sound
+                    osc.frequency.setValueAtTime(150 + Math.random() * 50, t + offset);
+                    osc.frequency.exponentialRampToValueAtTime(40, t + offset + 0.1);
 
-                gain.gain.setValueAtTime(0.5, t + offset);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + offset + 0.1);
+                    gain.gain.setValueAtTime(0.5, t + offset);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + offset + 0.1);
 
-                osc.connect(gain);
-                gain.connect(ctx.destination);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
 
-                osc.start(t + offset);
-                osc.stop(t + offset + 0.1);
+                    osc.start(t + offset);
+                    osc.stop(t + offset + 0.1);
+                });
             });
         } catch (e) {
             console.error("Sound Synth Error", e);
