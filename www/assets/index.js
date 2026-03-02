@@ -75798,6 +75798,8 @@ ${err.message}`);
   const [isLobbyOpen, setIsLobbyOpen] = reactExports.useState(false);
   const [isHosting, setIsHosting] = reactExports.useState(false);
   const [onlineCount, setOnlineCount] = reactExports.useState(1);
+  const [incomingInvite, setIncomingInvite] = reactExports.useState(null);
+  const [isInviting, setIsInviting] = reactExports.useState(false);
   const gameStatusRef = reactExports.useRef(gameStatus);
   reactExports.useEffect(() => {
     gameStatusRef.current = gameStatus;
@@ -75843,6 +75845,7 @@ ${err.message}`);
           avatar: (profile == null ? void 0 : profile.avatar) || null
         });
       }
+      fetchLeaderboard();
     });
     newSocket.on("connect_error", (err) => {
       console.error("Connection Error:", err);
@@ -75964,6 +75967,17 @@ ${err.message}`);
       setChatMessages((prev) => [...prev.slice(-49), msg]);
       if (msg.sender !== "You") {
         setUnreadChat((prev) => prev + 1);
+      }
+    });
+    newSocket.on("receive_invite", (data) => {
+      console.log("RECEIVED INVITE:", data);
+      setIncomingInvite(data);
+    });
+    newSocket.on("invite_result", ({ fromWallet, response }) => {
+      console.log("INVITE RESULT:", fromWallet, response);
+      setIsInviting(false);
+      if (response === "decline") {
+        alert("Player declined your invite.");
       }
     });
     newSocket.on("request_state_sync", () => {
@@ -76113,24 +76127,33 @@ ${err.message}`);
       log2("Opponent returned! Resuming...");
       setOpponentDisconnected(false);
     } else if (type2 === "roll") {
-      if (currentStatus === "opening_roll" && payload.length === 1) {
-        const val = payload[0];
-        log2(`Opponent Rolled: ${val} (Opening)`);
-        setOpeningRoll((prev) => {
-          const newState = { ...prev || {}, ai: val };
-          if (newState.human) {
-            setVisualDice([newState.human, val]);
-          } else {
-            setVisualDice([val]);
-          }
-          checkMultiOpeningWinner(newState);
-          return newState;
-        });
-      } else {
-        log2(`Opponent Rolled: ${payload.join(", ")}`);
-        setVisualDice(payload.slice(0, 2));
-        setDice(payload);
+      playDiceSound();
+      setRolling(true);
+      if (currentStatus !== "opening_roll") {
+        setDice([]);
+        setVisualDice([]);
       }
+      setTimeout(() => {
+        setRolling(false);
+        if (currentStatus === "opening_roll" && payload.length === 1) {
+          const val = payload[0];
+          log2(`Opponent Rolled: ${val} (Opening)`);
+          setOpeningRoll((prev) => {
+            const newState = { ...prev || {}, ai: val };
+            if (newState.human) {
+              setVisualDice([newState.human, val]);
+            } else {
+              setVisualDice([val]);
+            }
+            checkMultiOpeningWinner(newState);
+            return newState;
+          });
+        } else {
+          log2(`Opponent Rolled: ${payload.join(", ")}`);
+          setVisualDice(payload.slice(0, 2));
+          setDice(payload);
+        }
+      }, 800);
     } else if (type2 === "opponent_reconnected") {
       console.log("Opponent returned! Resuming...");
       setOpponentDisconnected(false);
@@ -76316,7 +76339,7 @@ ${err.message}`);
     const amount = parseFloat(amountStr);
     if (isNaN(amount) || amount <= 0) return;
     try {
-      if (!publicKey2) return alert("Connect Wallet first");
+      if (!publicKey2) return alert("Wallet Login first");
       const transaction = new Transaction().add(
         SystemProgram.transfer({
           fromPubkey: publicKey2,
@@ -76426,14 +76449,52 @@ ${err.message}`);
     setIsHosting(false);
     log2("Lobby closed.");
   };
+  const handleInvitePlayer = (targetWallet, targetName) => {
+    if (!socket || !wallet) return;
+    if (targetWallet === wallet) return alert("You cannot invite yourself!");
+    if (gameStatus !== "leaderboard") return;
+    setIsInviting(true);
+    socket.emit("invite_player", { targetWallet, stake: 0 });
+    log2(`Inviting ${targetName}...`);
+    alert(`Invite sent to ${targetName}. Waiting for response...`);
+  };
+  const handleRespondToInvite = (response) => {
+    if (!socket || !incomingInvite) return;
+    const fromUserData = {
+      wallet: incomingInvite.fromWallet,
+      name: incomingInvite.fromName,
+      level: 1,
+      // Placeholder
+      stats: { wins: 0, losses: 0, xp: 0 }
+    };
+    const myUserData = {
+      wallet,
+      name: userProfile.name,
+      level: userProfile.stats.level,
+      stats: userProfile.stats
+    };
+    socket.emit("invite_response", {
+      fromWallet: incomingInvite.fromWallet,
+      response,
+      myUserData,
+      fromUserData
+    });
+    setIncomingInvite(null);
+    if (response === "accept") {
+      log2("Accepting invite...");
+    }
+  };
   const [leaderboardData, setLeaderboardData] = reactExports.useState([]);
+  const [expandedLeaderboardIndex, setExpandedLeaderboardIndex] = reactExports.useState(null);
   const fetchLeaderboard = async () => {
     try {
       const res = await fetch(`${SERVER_URL}/leaderboard`);
       const data = await res.json();
       const formatted = data.map((u2) => ({
+        wallet: u2.wallet,
         name: u2.name || `${u2.wallet.slice(0, 4)}...${u2.wallet.slice(-4)}`,
         avatar: u2.avatar || null,
+        isOnline: u2.isOnline,
         stats: {
           level: u2.level || 1,
           wins: u2.wins || 0,
@@ -76473,7 +76534,8 @@ ${err.message}`);
         name: profileData.name,
         avatar: profileData.avatar
       });
-      setTimeout(() => fetchLeaderboard(), 500);
+      fetchLeaderboard();
+      setTimeout(() => fetchLeaderboard(), 1e3);
       if (gameStatus === "menu") {
         socket.emit("check_active_game", pKeyStr);
       }
@@ -76712,22 +76774,25 @@ ${err.message}`);
   };
   const playDiceSound = () => {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const t2 = ctx.currentTime;
-      [0, 0.1].forEach((offset2) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(150 + Math.random() * 50, t2 + offset2);
-        osc.frequency.exponentialRampToValueAtTime(40, t2 + offset2 + 0.1);
-        gain.gain.setValueAtTime(0.5, t2 + offset2);
-        gain.gain.exponentialRampToValueAtTime(0.01, t2 + offset2 + 0.1);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t2 + offset2);
-        osc.stop(t2 + offset2 + 0.1);
+      const audio = new Audio("/dice-roll.mp3");
+      audio.play().catch(() => {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const t2 = ctx.currentTime;
+        [0, 0.1].forEach((offset2) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(150 + Math.random() * 50, t2 + offset2);
+          osc.frequency.exponentialRampToValueAtTime(40, t2 + offset2 + 0.1);
+          gain.gain.setValueAtTime(0.5, t2 + offset2);
+          gain.gain.exponentialRampToValueAtTime(0.01, t2 + offset2 + 0.1);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t2 + offset2);
+          osc.stop(t2 + offset2 + 0.1);
+        });
       });
     } catch (e) {
       console.error("Sound Synth Error", e);
@@ -77435,8 +77500,42 @@ ${err.message}`);
           }, children: "Save" })
         ] })
       ] }) }),
+      showGuestPopup && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "400px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🔒" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Wallet Required" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#bdbdbd", marginBottom: "25px" }, children: "You must connect a real wallet to play Multiplayer!" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: "10px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-primary", style: {
+            fontSize: "1.1rem",
+            padding: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            background: "#4caf50",
+            border: "none"
+          }, onClick: () => {
+            setShowGuestPopup(false);
+            connectWallet();
+          }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "🔗" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Wallet Login" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", onClick: () => setShowGuestPopup(false), children: "Cancel" })
+        ] })
+      ] }) }),
       !wallet || !wallet.startsWith("Guest") && !isLoggedIn ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: "15px" }, children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-primary", style: { fontSize: "1.2rem", padding: "15px 30px", display: "flex", alignItems: "center", gap: "15px", justifyContent: "center", minWidth: "250px" }, onClick: handleGuestLogin, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-primary", style: {
+          fontSize: "1.2rem",
+          padding: "15px 30px",
+          display: "flex",
+          alignItems: "center",
+          gap: "15px",
+          justifyContent: "center",
+          minWidth: "250px",
+          background: "#4caf50",
+          border: "none"
+        }, onClick: handleGuestLogin, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "1.4rem" }, children: "👤" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Guest Mode" })
         ] }),
@@ -77447,8 +77546,8 @@ ${err.message}`);
             style: {
               fontSize: "1.2rem",
               padding: "15px 30px",
-              background: connected && !isLoggedIn ? "#4caf50" : "transparent",
-              border: connected && !isLoggedIn ? "none" : "1px solid #8d6e63",
+              background: "#4caf50",
+              border: "none",
               display: "flex",
               alignItems: "center",
               gap: "15px",
@@ -77459,7 +77558,7 @@ ${err.message}`);
             disabled: isLoggingIn,
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "1.4rem" }, children: connected && !isLoggedIn ? "✅" : "🔗" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: isLoggingIn ? "Verifying..." : connected && !isLoggedIn ? "Verify & Login" : "Connect Wallet" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: isLoggingIn ? "Verifying..." : connected && !isLoggedIn ? "Verify & Login" : "Wallet Login" })
             ]
           }
         )
@@ -77483,7 +77582,13 @@ ${err.message}`);
             ] })
           ] })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", onClick: () => setGameStatus("multiplayer_menu"), children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", onClick: () => {
+          if (wallet && wallet.startsWith("Guest")) {
+            setShowGuestPopup(true);
+          } else {
+            setGameStatus("multiplayer_menu");
+          }
+        }, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "icon", children: "👥" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Multiplayer" })
@@ -77493,7 +77598,10 @@ ${err.message}`);
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "0.8rem", color: "#81c784" }, children: onlineCount })
           ] })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", onClick: () => setGameStatus("leaderboard"), children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", onClick: () => {
+          setGameStatus("leaderboard");
+          fetchLeaderboard();
+        }, children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "icon", children: "📊" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Stats / Leaderboard" })
@@ -77513,7 +77621,19 @@ ${err.message}`);
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", {})
         ] })
-      ] })
+      ] }),
+      incomingInvite && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { zIndex: 3e3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "350px", border: "2px solid #4caf50" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🎲" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Game Invite!" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { color: "#bdbdbd", marginBottom: "20px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff", fontWeight: "bold" }, children: incomingInvite.fromName }),
+          " wants to play a match with you!"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "10px", justifyContent: "center" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#4caf50", border: "none", flex: 1 }, onClick: () => handleRespondToInvite("accept"), children: "Accept" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1 }, onClick: () => handleRespondToInvite("decline"), children: "Decline" })
+        ] })
+      ] }) })
     ] });
   }
   if (gameStatus === "multiplayer_menu") {
@@ -77596,7 +77716,7 @@ ${err.message}`);
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#aaa", fontSize: "0.9rem" }, children: "Waiting for someone to join..." }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { marginTop: "20px", background: "#c62828" }, onClick: handleLeaveLobby, children: "Stop Hosting" })
         ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { padding: "15px" }, onClick: handleHostGame, children: "➕ Create New Table" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { padding: "15px", background: "#4caf50", border: "1px solid #388e3c" }, onClick: handleHostGame, children: "➕ Create New Table" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, overflowY: "auto", maxHeight: "300px", display: "flex", flexDirection: "column", gap: "10px" }, children: activeLobbies.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center", color: "#6d4c41", padding: "40px 0" }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "2rem", marginBottom: "10px" }, children: "🕳️" }),
             "No tables open. Host one!"
@@ -77611,10 +77731,21 @@ ${err.message}`);
               alignItems: "center",
               border: "1px solid #4e342e"
             }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "12px" }, children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "1.5rem" }, children: "👤" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold", fontSize: "1rem" }, children: lobby.hostData.name }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", gap: "12px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "12px" }, children: [
+                lobby.hostData.avatar ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: lobby.hostData.avatar, style: { width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "40px", height: "40px", background: "#3e2723", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }, children: "👤" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold", fontSize: "1.2rem", color: "#fff" }, children: lobby.hostData.name }),
+                  lobby.hostData.isOnline && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                    position: "absolute",
+                    top: "-2px",
+                    right: "-12px",
+                    width: "10px",
+                    height: "10px",
+                    background: "#4caf50",
+                    borderRadius: "50%",
+                    border: "2px solid #231b15",
+                    boxShadow: "0 0 5px #4caf50"
+                  } }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.8rem", color: "#aaa" }, children: [
                     "Lvl ",
                     lobby.hostData.level,
@@ -77625,7 +77756,7 @@ ${err.message}`);
                     "L"
                   ] })
                 ] })
-              ] }),
+              ] }) }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { padding: "8px 20px", fontSize: "0.9rem" }, onClick: () => handleJoinLobby(lobby), children: "Join" })
             ] }, lobby.roomId);
           }) })
@@ -77651,7 +77782,7 @@ ${err.message}`);
               /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { margin: 0, color: "#aaa", fontSize: "0.8rem" }, children: "Practice vs Random" })
             ] })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { fontSize: "0.9rem", padding: "8px 15px", minWidth: "80px" }, children: "Play" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { fontSize: "0.9rem", padding: "8px 15px", minWidth: "80px", background: "#4caf50", border: "1px solid #388e3c" }, children: "Play" })
         ] }),
         userProfile.stats.level < 5 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: {
           textAlign: "center",
@@ -77690,12 +77821,7 @@ ${err.message}`);
             borderRadius: "10px"
           }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "2rem", marginBottom: "5px" }, children: "🔒" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold", fontSize: "1.1rem", color: "#ff5252", marginBottom: "5px" }, children: "LOCKED" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.9rem", color: "#ddd" }, children: [
-              "Reach ",
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#ffd700" }, children: "Level 5" }),
-              " to Unlock"
-            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold", fontSize: "1rem", color: "#ff5252", padding: "0 10px 10px" }, children: "Reach Level 5 to Unlock Play with Stake!" }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.8rem", color: "#aaa", marginTop: "5px" }, children: [
               "Current: Lvl ",
               userProfile.stats.level
@@ -77782,14 +77908,14 @@ ${err.message}`);
             alignItems: "center",
             justifyContent: "center",
             gap: "10px",
-            background: "transparent",
-            border: "1px solid #8d6e63"
+            background: "#4caf50",
+            border: "none"
           }, onClick: () => {
             setShowGuestPopup(false);
             connectWallet();
           }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "🔗" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Connect Wallet" })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Wallet Login" })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", onClick: () => setShowGuestPopup(false), children: "Cancel" })
         ] })
@@ -77816,45 +77942,133 @@ ${err.message}`);
           /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
           "(Connect your wallet to appear)"
         ] }),
-        leaderboard.map((p2, i2) => {
+        leaderboardData.map((p2, i2) => {
           var _a, _b, _c, _d;
-          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "15px",
-            borderBottom: "1px solid #3e2723",
-            background: i2 === 0 ? "rgba(255, 215, 0, 0.1)" : "transparent"
-          }, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "15px" }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "1.2rem", fontWeight: "bold", width: "30px", color: i2 === 0 ? "gold" : i2 === 1 ? "silver" : i2 === 2 ? "#cd7f32" : "#a1887f" }, children: [
-                "#",
-                i2 + 1
-              ] }),
-              p2.avatar ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: p2.avatar, style: { width: "40px", height: "40px", borderRadius: "50%", border: "1px solid #5d4037", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot", style: { width: "40px", height: "40px", position: "static", background: "#3e2723" } }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold", color: "#e8e0d5" }, children: p2.name || "Unknown" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.8rem", color: "#aaa" }, children: [
-                  "Lvl ",
-                  ((_a = p2.stats) == null ? void 0 : _a.level) || 1,
-                  " • ",
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#81c784" }, children: [
-                    ((_b = p2.stats) == null ? void 0 : _b.wins) || 0,
-                    "W"
+          const isExpanded = expandedLeaderboardIndex === i2;
+          const isMe = p2.wallet === wallet;
+          return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              onClick: () => setExpandedLeaderboardIndex(isExpanded ? null : i2),
+              style: {
+                display: "flex",
+                flexDirection: "column",
+                padding: "15px 20px",
+                borderBottom: "1px solid rgba(141, 110, 99, 0.2)",
+                background: isExpanded ? "rgba(255, 255, 255, 0.05)" : i2 === 0 ? "rgba(255, 215, 0, 0.08)" : "transparent",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                borderRadius: isExpanded ? "8px" : "0"
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "15px" }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+                      fontSize: "1.2rem",
+                      fontWeight: "bold",
+                      width: "35px",
+                      color: i2 === 0 ? "#ffd700" : i2 === 1 ? "#e0e0e0" : i2 === 2 ? "#cd7f32" : "#8d6e63",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }, children: [
+                      "#",
+                      i2 + 1
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative", display: "flex", alignItems: "center" }, children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                        width: "12px",
+                        height: "12px",
+                        background: p2.isOnline ? "#4caf50" : "#444",
+                        borderRadius: "50%",
+                        marginRight: "12px",
+                        boxShadow: p2.isOnline ? "0 0 10px rgba(76, 175, 80, 0.6)" : "none",
+                        border: "2px solid #2c241b"
+                      }, title: p2.isOnline ? "Online" : "Offline" }),
+                      p2.avatar ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: p2.avatar, style: { width: "45px", height: "45px", borderRadius: "50%", border: "2px solid #5d4037", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "45px", height: "45px", background: "#3e2723", borderRadius: "50%", border: "2px solid #5d4037", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem" }, children: "👤" })
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontWeight: "bold", color: isMe ? "#4caf50" : "#e8e0d5", fontSize: "1.1rem" }, children: [
+                        p2.name || "Anonymous",
+                        " ",
+                        isMe && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "0.7rem", verticalAlign: "middle" }, children: "(YOU)" })
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.85rem", color: "#a1887f" }, children: [
+                        "Lvl ",
+                        ((_a = p2.stats) == null ? void 0 : _a.level) || 1,
+                        " • ",
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#81c784" }, children: [
+                          ((_b = p2.stats) == null ? void 0 : _b.wins) || 0,
+                          "W"
+                        ] }),
+                        " - ",
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#e57373" }, children: [
+                          ((_c = p2.stats) == null ? void 0 : _c.losses) || 0,
+                          "L"
+                        ] })
+                      ] })
+                    ] })
                   ] }),
-                  " / ",
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#e57373" }, children: [
-                    ((_c = p2.stats) == null ? void 0 : _c.losses) || 0,
-                    "L"
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "right" }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "1.1rem", fontWeight: "bold", color: "#ffca28" }, children: [
+                      (_d = p2.stats) == null ? void 0 : _d.xp,
+                      " XP"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "0.7rem", color: "#8d6e63" }, children: "Win Streak: 0" })
+                  ] })
+                ] }),
+                isExpanded && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+                  marginTop: "15px",
+                  padding: "15px",
+                  background: "rgba(0,0,0,0.3)",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(141, 110, 99, 0.3)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                  animation: "slideDown 0.2s ease-out"
+                }, onClick: (e) => e.stopPropagation(), children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.9rem", color: "#bdbdbd" }, children: [
+                      "Wallet ID: ",
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff" }, children: p2.wallet ? `${p2.wallet.slice(0, 10)}...` : "Hidden" })
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.9rem", color: p2.isOnline ? "#4caf50" : "#777", fontWeight: "bold" }, children: [
+                      "● ",
+                      p2.isOnline ? "Online now" : "Currently Offline"
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "10px" }, children: [
+                    !isMe && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "button",
+                      {
+                        className: "btn-primary",
+                        style: {
+                          flex: 1,
+                          background: p2.isOnline ? "#4caf50" : "#333",
+                          border: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                          padding: "12px",
+                          opacity: p2.isOnline ? 1 : 0.6
+                        },
+                        onClick: () => p2.isOnline ? handleInvitePlayer(p2.wallet, p2.name) : alert("Target player is not online right now."),
+                        disabled: isInviting || !p2.isOnline,
+                        children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "1.2rem" }, children: "🎮" }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: isInviting ? "Inviting..." : "Send Challenge Invite" })
+                        ]
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1, fontSize: "0.9rem" }, onClick: () => log2("Player profile viewed."), children: "View Full Career" })
                   ] })
                 ] })
-              ] })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "1.1rem", fontWeight: "bold", color: "#ffca28" }, children: [
-              ((_d = p2.stats) == null ? void 0 : _d.xp) || 0,
-              " XP"
-            ] })
-          ] }, i2);
+              ]
+            },
+            i2
+          );
         })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#3e2723", padding: "10px 40px" }, onClick: () => setGameStatus("menu"), children: "Back to Menu" })
@@ -77975,10 +78189,10 @@ ${err.message}`);
           /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "1.5rem", color: "#aaa", paddingTop: "20px" }, children: "vs" }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#d32f2f", marginBottom: "10px", fontWeight: "bold", fontSize: "1.2rem" }, children: gameMode === "multi" ? opponentName : "AI" }),
-            openingRoll && openingRoll.ai ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { value: openingRoll.ai, isOpponent: true, style: { width: "70px", height: "70px" } }) : gameMode === "single" && rolling ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { isOpponent: true, style: { width: "70px", height: "70px", animation: "spin 1s infinite linear" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { isOpponent: true, style: { width: "70px", height: "70px", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #d32f2f", background: "transparent", color: "#d32f2f", fontSize: "2rem" }, children: gameMode === "multi" ? "..." : "?" })
+            openingRoll && openingRoll.ai ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { value: openingRoll.ai, isOpponent: true, style: { width: "70px", height: "70px" } }) : rolling ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { isOpponent: true, style: { width: "70px", height: "70px", animation: "spin 1s infinite linear" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { isOpponent: true, style: { width: "70px", height: "70px", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #d32f2f", background: "transparent", color: "#d32f2f", fontSize: "2rem" }, children: gameMode === "multi" ? "..." : "?" })
           ] })
         ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: "80px", display: "flex", alignItems: "center", justifyContent: "center", margin: "30px 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "4rem" }, children: "🎲" }) }),
-        (!openingRoll || !openingRoll.human) && !rolling && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { fontSize: "1.3rem", padding: "15px 50px" }, onClick: handleOpeningRoll, children: "ROLL FOR FIRST TURN" })
+        (!openingRoll || !openingRoll.human) && !rolling && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { fontSize: "1.3rem", padding: "15px 50px", background: "#4caf50", border: "1px solid #388e3c" }, onClick: handleOpeningRoll, children: "ROLL FOR FIRST TURN" })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `dice-table-overlay ${rolling ? "rolling" : ""}`, children: [
         turn === "human" && (canRoll || dice.length > 0) && !rolling && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "turn-message", children: "YOUR TURN!" }),
@@ -78157,6 +78371,18 @@ ${err.message}`);
           setShowResignModal(false);
           handleForfeit();
         }, children: "Confirm" })
+      ] })
+    ] }) }),
+    incomingInvite && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { zIndex: 4e3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "350px", border: "2px solid #4caf50" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🎲" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Game Invite!" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { color: "#bdbdbd", marginBottom: "20px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff", fontWeight: "bold" }, children: incomingInvite.fromName }),
+        " wants to play a match with you!"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "10px", justifyContent: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#4caf50", border: "none", flex: 1 }, onClick: () => handleRespondToInvite("accept"), children: "Accept" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1 }, onClick: () => handleRespondToInvite("decline"), children: "Decline" })
       ] })
     ] }) })
   ] });

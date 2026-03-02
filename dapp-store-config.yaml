@@ -1,0 +1,38 @@
+publisher:
+  # The name of your publisher account
+  name: "AluxiaGames"
+  # The address (public key) of your publisher wallet
+  address: "YOUR_SOLANA_WALLET_ADDRESS"
+  email: "contact@yourdomain.com"
+  website: "https://yourdomain.com"
+  # URLs for legal documents
+  terms_of_use_url: "https://yourdomain.com/terms"
+  privacy_policy_url: "https://yourdomain.com/privacy"
+
+app:
+  # General app information
+  name: "BackgammonSolana"
+  # A short description (maximum 30 characters)
+  short_description: "Classic Backgammon on Solana!"
+  # A comprehensive description
+  description: "Play competitive online backgammon directly on the Solana blockchain. Experience fast, secure gameplay with web3 features seamlessly integrated."
+
+  # URLs for assets
+  # Your icon must be exactly 512x512px
+  icon: "assets/icon_512x512.png"
+  # Your banner must be exactly 1200x600px
+  banner: "assets/banner_1200x600.png"
+
+  # Screenshots (min 1080p resolution, minimum 4 screenshots)
+  screenshots:
+    - "assets/screenshot_1.png"
+    - "assets/screenshot_2.png"
+    - "assets/screenshot_3.png"
+    - "assets/screenshot_4.png"
+
+release:
+  # Version code must match the Android version code in your app
+  version: "1.0.0" # Maps to version in package.json
+  # Path to your signed, release APK
+  files:
+    - "android/app/build/outputs/apk/release/app-release.apk"

@@ -184,8 +184,8 @@
     /* Board Colors */
     --board-surface: #fffefb;
     /* Extra Light Cream */
-    --point-dark: #3e2723;
-    /* Espresso */
+    --point-dark: #cccccc;
+    /* Light Grey */
     --point-light: #8d6e63;
     /* Light Brown/Mocha */
 
@@ -590,7 +590,7 @@ body {
     width: 100%;
     /* Fill available space */
     display: flex;
-    border: 10px solid var(--point-dark);
+    border: 10px solid #3e2723;
     /* Dark Brown Frame slightly thinner for screen space */
     position: relative;
     background: var(--board-surface);
@@ -761,7 +761,7 @@ body {
 }
 
 .checker {
-    width: 70%;
+    width: 80.5%;
     aspect-ratio: 1;
     border-radius: 50%;
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
@@ -1922,8 +1922,8 @@ body {
     justify-content: center;
     align-items: center;
     position: relative;
-    border: 15px solid var(--point-dark);
-    /* Match Frame Thickness */
+    border: 5px solid #3e2723;
+    /* 50% thinner than main board frame */
     transition: all 0.2s;
     overflow: hidden;
     /* Keep pieces inside */
@@ -2015,6 +2015,32 @@ body {
     background: rgba(0, 0, 0, 0.5);
     padding: 2px 8px;
     border-radius: 10px;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.leaderboard-expanded {
+    animation: slideDown 0.3s ease-out forwards;
 }
 
 .wallet-adapter-button {
