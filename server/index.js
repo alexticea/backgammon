@@ -21,6 +21,9 @@ let dbType = 'lowdb';
 let User; // Mongoose Model
 let db;   // LowDB Instance
 
+// Social Tracker
+const onlineWallets = new Map(); // wallet -> socketId
+
 // Check for MongoDB
 if (process.env.MONGO_URI) {
     dbType = 'mongo';
@@ -146,21 +149,27 @@ const updateUserProfile = async (wallet, name, avatar) => {
 };
 
 const getLeaderboard = async () => {
+    let users;
     if (dbType === 'mongo') {
-        const users = await User.find({
+        users = await User.find({
             wallet: { $not: /^Guest/ } // Filter out wallets starting with "Guest"
         })
             .sort({ xp: -1 }) // Descending XP
             .limit(100)
             .lean();
-        return users;
     } else {
         const rawUsers = db.get('users').value();
-        return rawUsers
+        users = rawUsers
             .filter(u => u.wallet && !u.wallet.startsWith('Guest'))
             .sort((a, b) => b.xp - a.xp)
             .slice(0, 100);
     }
+
+    // Add online status
+    return users.map(u => ({
+        ...u,
+        isOnline: onlineWallets.has(u.wallet)
+    }));
 };
 
 
@@ -519,6 +528,10 @@ io.on('connection', (socket) => {
         if (wallet && !wallet.startsWith('Guest')) {
             const user = await getUser(wallet); // Ensure exists
 
+            // Track globally
+            socket.wallet = wallet;
+            onlineWallets.set(wallet, socket.id);
+
             // Update Profile if provided (only if non-empty to avoid wiping existing DB data with defaults)
             if (name || avatar) {
                 await updateUserProfile(wallet, name || undefined, avatar || undefined);
@@ -537,7 +550,65 @@ io.on('connection', (socket) => {
                     level: user.level || 1
                 }
             });
-            console.log(`[SERVER] Sent user_profile_update to ${socket.id} (${wallet})`);
+            console.log(`[SERVER] Registered ${wallet} (onlineWallets size: ${onlineWallets.size})`);
+        }
+    });
+
+    // 7.5 INVITE LOGIC
+    socket.on('invite_player', ({ targetWallet, stake }) => {
+        const targetSocketId = onlineWallets.get(targetWallet);
+        if (targetSocketId) {
+            console.log(`[INVITE] ${socket.wallet} -> ${targetWallet}`);
+            socket.to(targetSocketId).emit('receive_invite', {
+                fromWallet: socket.wallet,
+                fromName: socket.username || socket.wallet.slice(0, 6), // Fallback if name not on socket
+                stake: stake || 0
+            });
+        }
+    });
+
+    socket.on('invite_response', ({ fromWallet, response, myUserData, fromUserData }) => {
+        const requesterSocketId = onlineWallets.get(fromWallet);
+        const requesterSocket = io.sockets.sockets.get(requesterSocketId);
+
+        if (requesterSocket && response === 'accept') {
+            console.log(`[INVITE-ACCEPTED] ${socket.wallet} accepted invite from ${fromWallet}. Starting game...`);
+
+            const gameRoomId = `invite_${fromWallet}_${socket.id}_${Date.now()}`;
+            socket.join(gameRoomId);
+            requesterSocket.join(gameRoomId);
+
+            games[gameRoomId] = {
+                id: gameRoomId,
+                players: [requesterSocketId, socket.id],
+                playerData: {
+                    [requesterSocketId]: { ...fromUserData, color: 'white' },
+                    [socket.id]: { ...myUserData, color: 'red' }
+                }
+            };
+
+            io.to(requesterSocketId).emit('match_found', {
+                roomId: gameRoomId,
+                players: games[gameRoomId].playerData,
+                yourColor: 'white'
+            });
+            socket.emit('match_found', {
+                roomId: gameRoomId,
+                players: games[gameRoomId].playerData,
+                yourColor: 'red'
+            });
+
+            setTimeout(() => {
+                io.to(requesterSocketId).emit('assign_color', 'white');
+                socket.emit('assign_color', 'red');
+            }, 500);
+
+        } else if (requesterSocket) {
+            console.log(`[INVITE-RESPONSE] ${socket.wallet} -> ${fromWallet}: ${response}`);
+            socket.to(requesterSocketId).emit('invite_result', {
+                fromWallet: socket.wallet,
+                response
+            });
         }
     });
 
@@ -556,6 +627,11 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+
+        if (socket.wallet) {
+            onlineWallets.delete(socket.wallet);
+            console.log(`[SERVER] Removed ${socket.wallet} from onlineWallets (size: ${onlineWallets.size})`);
+        }
 
         // Broadcast online count after disconnect
         const count = io.sockets.sockets.size;

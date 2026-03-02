@@ -203,6 +203,8 @@ function App() {
     const [isLobbyOpen, setIsLobbyOpen] = useState(false);
     const [isHosting, setIsHosting] = useState(false);
     const [onlineCount, setOnlineCount] = useState(1);
+    const [incomingInvite, setIncomingInvite] = useState(null); // { fromWallet, fromName, stake }
+    const [isInviting, setIsInviting] = useState(false); // boolean
 
     // --- REFS FOR SOCKET HANDLERS ---
     const gameStatusRef = useRef(gameStatus);
@@ -405,6 +407,19 @@ function App() {
             if (msg.sender !== 'You') {
                 // Optional: play sound
                 setUnreadChat(prev => prev + 1);
+            }
+        });
+
+        newSocket.on('receive_invite', (data) => {
+            console.log("RECEIVED INVITE:", data);
+            setIncomingInvite(data);
+        });
+
+        newSocket.on('invite_result', ({ fromWallet, response }) => {
+            console.log("INVITE RESULT:", fromWallet, response);
+            setIsInviting(false);
+            if (response === 'decline') {
+                alert("Player declined your invite.");
             }
         });
 
@@ -1046,6 +1061,39 @@ function App() {
         log("Lobby closed.");
     };
 
+    const handleInvitePlayer = (targetWallet, targetName) => {
+        if (!socket || !wallet) return;
+        if (targetWallet === wallet) return alert("You cannot invite yourself!");
+
+        setIsInviting(true);
+        socket.emit('invite_player', { targetWallet, stake: 0 });
+        log(`Inviting ${targetName}...`);
+        alert(`Invite sent to ${targetName}. Waiting for response...`);
+    };
+
+    const handleRespondToInvite = (response) => {
+        if (!socket || !incomingInvite) return;
+
+        const myUserData = {
+            wallet: wallet,
+            name: userProfile.name,
+            level: userProfile.stats.level,
+            stats: userProfile.stats
+        };
+
+        socket.emit('invite_response', {
+            fromWallet: incomingInvite.fromWallet,
+            response,
+            myUserData,
+            fromUserData: { name: incomingInvite.fromName, wallet: incomingInvite.fromWallet } // Simple placeholder
+        });
+
+        setIncomingInvite(null);
+        if (response === 'accept') {
+            log("Accepting invite...");
+        }
+    };
+
     // --- LEADERBOARD ---
 
     // --- LEADERBOARD LOGIC ---
@@ -1057,8 +1105,10 @@ function App() {
             const data = await res.json();
             // Format for UI
             const formatted = data.map(u => ({
+                wallet: u.wallet,
                 name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
                 avatar: u.avatar || null,
+                isOnline: u.isOnline,
                 stats: {
                     level: u.level || 1,
                     wins: u.wins || 0,
@@ -1398,6 +1448,47 @@ function App() {
     };
 
     // --- GAME CONSTANTS ---
+
+    const handleInvitePlayer = (targetWallet, targetName) => {
+        if (!socket || !wallet) return;
+        if (targetWallet === wallet) return alert("You cannot invite yourself!");
+        if (gameStatus !== 'leaderboard') return; // Only from leaderboard for now
+
+        setIsInviting(true);
+        socket.emit('invite_player', { targetWallet, stake: 0 }); // Default free for now
+        log(`Inviting ${targetName}...`);
+    };
+
+    const handleRespondToInvite = (response) => {
+        if (!socket || !incomingInvite) return;
+
+        const fromUserData = {
+            wallet: incomingInvite.fromWallet,
+            name: incomingInvite.fromName,
+            level: 1, // Placeholder
+            stats: { wins: 0, losses: 0, xp: 0 }
+        };
+
+        const myUserData = {
+            wallet: wallet,
+            name: userProfile.name,
+            level: userProfile.stats.level,
+            stats: userProfile.stats
+        };
+
+        socket.emit('invite_response', {
+            fromWallet: incomingInvite.fromWallet,
+            response,
+            myUserData,
+            fromUserData
+        });
+
+        setIncomingInvite(null);
+        if (response === 'accept') {
+            log("Accepting invite...");
+            // Match Found listener will handle the rest (room creation etc)
+        }
+    };
 
     const playMoveSound = () => {
         try {
@@ -1838,8 +1929,8 @@ function App() {
                                                     const nextDice = [...currentDice];
                                                     nextDice.splice(nextDice.indexOf(die), 1);
 
-                                                    // Use -1 logic (or 24?) for Bear Off destination? 
-                                                    // We used -1 for Human. Let's use -1 for AI too to signify 'Off Board'. 
+                                                    // Use -1 logic (or 24?) for Bear Off destination?
+                                                    // We used -1 for Human. Let's use -1 for AI too to signify 'Off Board'.
                                                     // The visualizer MUST handle this.
                                                     search(nextBoard, nextBar, nextDice, [...moveSeq, {
                                                         from: i, to: -1, dieVal: die, action: 'bearoff'
@@ -1854,7 +1945,7 @@ function App() {
 
                         // If no moves could be made (Leaf Node decision)
                         if (!validMovesFound) {
-                            // Rule: Must use max dice. 
+                            // Rule: Must use max dice.
                             // Rule 2: If dice count equal, must use max VALUE (Pips).
                             const diceUsed = moveSeq.length;
                             const valSum = moveSeq.reduce((a, b) => a + b.dieVal, 0);
@@ -1888,10 +1979,10 @@ function App() {
                 // Determine Moves
                 let sequence = [];
                 if (difficulty === 'beginner') {
-                    // Keep random simple recursive logic? 
-                    // Actually, for beginner, just run search with BAD evaluation? 
+                    // Keep random simple recursive logic?
+                    // Actually, for beginner, just run search with BAD evaluation?
                     // Or just use the first valid random path found?
-                    // Let's stick to the high-quality search for now as the user requested "Pro". 
+                    // Let's stick to the high-quality search for now as the user requested "Pro".
                     // Beginner can just pick random moves locally (revert to random if needed, but lets just make AI smart overall first).
                     // To allow beginner, we can inject noise into `evaluateBoard`.
                     sequence = getBestSequence(board, bar, aiDice); // Just use smart for now
@@ -2512,6 +2603,27 @@ function App() {
                         </div>
                     )
                 }
+
+                {/* INCOMING INVITE MODAL */}
+                {incomingInvite && (
+                    <div className="modal-overlay" style={{ zIndex: 3000 }}>
+                        <div className="modal-content" style={{ textAlign: 'center', maxWidth: '350px', border: '2px solid #4caf50' }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🎲</div>
+                            <h3 style={{ marginBottom: '10px' }}>Game Invite!</h3>
+                            <p style={{ color: '#bdbdbd', marginBottom: '20px' }}>
+                                <span style={{ color: '#fff', fontWeight: 'bold' }}>{incomingInvite.fromName}</span> wants to play a match with you!
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                <button className="btn-primary" style={{ background: '#4caf50', border: 'none', flex: 1 }} onClick={() => handleRespondToInvite('accept')}>
+                                    Accept
+                                </button>
+                                <button className="btn-secondary" style={{ flex: 1 }} onClick={() => handleRespondToInvite('decline')}>
+                                    Decline
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div >
         );
     }
@@ -2626,11 +2738,32 @@ function App() {
                                                 border: '1px solid #4e342e'
                                             }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <div style={{ fontSize: '1.5rem' }}>👤</div>
-                                                    <div>
-                                                        <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{lobby.hostData.name}</div>
-                                                        <div style={{ fontSize: '0.8rem', color: '#aaa' }}>
-                                                            Lvl {lobby.hostData.level} | {lobby.hostData.stats?.wins}W - {lobby.hostData.stats?.losses}L
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        {lobby.hostData.avatar ? (
+                                                            <img src={lobby.hostData.avatar} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                        ) : (
+                                                            <div style={{ width: '40px', height: '40px', background: '#3e2723', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                👤
+                                                            </div>
+                                                        )}
+                                                        <div style={{ position: 'relative' }}>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#fff' }}>{lobby.hostData.name}</div>
+                                                            {lobby.hostData.isOnline && (
+                                                                <div style={{
+                                                                    position: 'absolute',
+                                                                    top: '-2px',
+                                                                    right: '-12px',
+                                                                    width: '10px',
+                                                                    height: '10px',
+                                                                    background: '#4caf50',
+                                                                    borderRadius: '50%',
+                                                                    border: '2px solid #231b15',
+                                                                    boxShadow: '0 0 5px #4caf50'
+                                                                }}></div>
+                                                            )}
+                                                            <div style={{ fontSize: '0.8rem', color: '#aaa' }}>
+                                                                Lvl {lobby.hostData.level} | {lobby.hostData.stats?.wins}W - {lobby.hostData.stats?.losses}L
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2875,7 +3008,26 @@ function App() {
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '30px', color: i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? '#cd7f32' : '#a1887f' }}>#{i + 1}</div>
-                                {p.avatar ? <img src={p.avatar} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #5d4037', objectFit: 'cover' }} /> : <div className="dot" style={{ width: '40px', height: '40px', position: 'static', background: '#3e2723' }}></div>}
+                                <div style={{ position: 'relative' }}>
+                                    {p.avatar ? (
+                                        <img src={p.avatar} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #5d4037', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '40px', height: '40px', background: '#3e2723', borderRadius: '50%', border: '1px solid #5d4037', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
+                                    )}
+                                    {p.isOnline && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '0',
+                                            right: '0',
+                                            width: '12px',
+                                            height: '12px',
+                                            background: '#4caf50',
+                                            borderRadius: '50%',
+                                            border: '2px solid #2c241b',
+                                            boxShadow: '0 0 5px #4caf50'
+                                        }} title="Online"></div>
+                                    )}
+                                </div>
                                 <div>
                                     <div style={{ fontWeight: 'bold', color: '#e8e0d5' }}>{p.name || 'Unknown'}</div>
                                     <div style={{ fontSize: '0.8rem', color: '#aaa' }}>
@@ -2883,8 +3035,20 @@ function App() {
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>
-                                {p.stats?.xp || 0} XP
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>
+                                    {p.stats?.xp} XP
+                                </div>
+                                {p.isOnline && p.wallet !== wallet && p.wallet && (
+                                    <button
+                                        className="btn-primary"
+                                        style={{ padding: '5px 12px', fontSize: '0.8rem', background: '#4caf50', border: 'none', minWidth: '70px' }}
+                                        onClick={() => handleInvitePlayer(p.wallet, p.name)}
+                                        disabled={isInviting}
+                                    >
+                                        {isInviting ? '...' : 'Invite'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -3316,6 +3480,26 @@ function App() {
             )}
 
             {/* RIGHT SIDEBAR REMOVED */}
+            {/* INCOMING INVITE MODAL */}
+            {incomingInvite && (
+                <div className="modal-overlay" style={{ zIndex: 4000 }}>
+                    <div className="modal-content" style={{ textAlign: 'center', maxWidth: '350px', border: '2px solid #4caf50' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🎲</div>
+                        <h3 style={{ marginBottom: '10px' }}>Game Invite!</h3>
+                        <p style={{ color: '#bdbdbd', marginBottom: '20px' }}>
+                            <span style={{ color: '#fff', fontWeight: 'bold' }}>{incomingInvite.fromName}</span> wants to play a match with you!
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                            <button className="btn-primary" style={{ background: '#4caf50', border: 'none', flex: 1 }} onClick={() => handleRespondToInvite('accept')}>
+                                Accept
+                            </button>
+                            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => handleRespondToInvite('decline')}>
+                                Decline
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
