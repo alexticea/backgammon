@@ -75869,6 +75869,8 @@ ${err.message}`);
       console.log("My Socket ID:", newSocket.id);
       setRoomId(data.roomId);
       setIsSearching(false);
+      setIsInviting(false);
+      setInvitingPlayerName(null);
       const pIds = Object.keys(data.players);
       const oppId = pIds.find((id2) => id2 !== newSocket.id);
       console.log("Opponent ID found:", oppId);
@@ -75976,6 +75978,7 @@ ${err.message}`);
     newSocket.on("invite_result", ({ fromWallet, response }) => {
       console.log("INVITE RESULT:", fromWallet, response);
       setIsInviting(false);
+      setInvitingPlayerName(null);
       if (response === "decline") {
         alert("Player declined your invite.");
       }
@@ -76449,14 +76452,15 @@ ${err.message}`);
     setIsHosting(false);
     log2("Lobby closed.");
   };
+  const [invitingPlayerName, setInvitingPlayerName] = reactExports.useState(null);
   const handleInvitePlayer = (targetWallet, targetName) => {
     if (!socket || !wallet) return;
     if (targetWallet === wallet) return alert("You cannot invite yourself!");
     if (gameStatus !== "leaderboard") return;
     setIsInviting(true);
+    setInvitingPlayerName(targetName);
     socket.emit("invite_player", { targetWallet, stake: 0 });
     log2(`Inviting ${targetName}...`);
-    alert(`Invite sent to ${targetName}. Waiting for response...`);
   };
   const handleRespondToInvite = (response) => {
     if (!socket || !incomingInvite) return;
@@ -78384,6 +78388,19 @@ ${err.message}`);
         /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#4caf50", border: "none", flex: 1 }, onClick: () => handleRespondToInvite("accept"), children: "Accept" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1 }, onClick: () => handleRespondToInvite("decline"), children: "Decline" })
       ] })
+    ] }) }),
+    invitingPlayerName && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { zIndex: 4e3, background: "rgba(0,0,0,0.85)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "350px", border: "1px solid #8d6e63", background: "#2c241b" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "loader", style: { margin: "10px auto 20px auto", width: "40px", height: "40px", border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#ffca28" } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px", color: "#fff" }, children: "Invite Sent!" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { color: "#bdbdbd", marginBottom: "20px" }, children: [
+        "Waiting for ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#ffca28", fontWeight: "bold" }, children: invitingPlayerName }),
+        " to accept your challenge..."
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { width: "100%" }, onClick: () => {
+        setInvitingPlayerName(null);
+        setIsInviting(false);
+      }, children: "Cancel" })
     ] }) })
   ] });
 }

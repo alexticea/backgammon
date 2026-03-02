@@ -23,6 +23,7 @@ let db;   // LowDB Instance
 
 // Social Tracker
 const onlineWallets = new Map(); // wallet -> socketId
+const onlineNames = new Map();   // name -> socketId
 
 // Check for MongoDB
 if (process.env.MONGO_URI) {
@@ -168,7 +169,7 @@ const getLeaderboard = async () => {
     // Add online status
     const result = users.map(u => ({
         ...u,
-        isOnline: onlineWallets.has(u.wallet)
+        isOnline: onlineWallets.has(u.wallet) || (u.name && onlineNames.has(u.name))
     }));
 
     console.log(`[LEADERBOARD] Serving ${result.length} players. Online wallets: ${Array.from(onlineWallets.keys()).join(', ')}`);
@@ -534,11 +535,24 @@ io.on('connection', (socket) => {
             // Track globally
             socket.wallet = wallet;
             onlineWallets.set(wallet, socket.id);
+            if (user.name) {
+                socket.username = user.name;
+                onlineNames.set(user.name, socket.id);
+            }
 
             // Update Profile if provided (only if non-empty to avoid wiping existing DB data with defaults)
             if (name || avatar) {
+                // If changing name, cleanup old name from tracker
+                if (name && socket.username && socket.username !== name) {
+                    onlineNames.delete(socket.username);
+                }
+
                 await updateUserProfile(wallet, name || undefined, avatar || undefined);
-                if (name) user.name = name;
+                if (name) {
+                    user.name = name;
+                    socket.username = name;
+                    onlineNames.set(name, socket.id);
+                }
                 if (avatar) user.avatar = avatar;
             }
 
@@ -629,11 +643,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-
         if (socket.wallet) {
             onlineWallets.delete(socket.wallet);
-            console.log(`[SERVER] Removed ${socket.wallet} from onlineWallets (size: ${onlineWallets.size})`);
+            if (socket.username) {
+                onlineNames.delete(socket.username);
+            }
+            console.log(`[SERVER] User disconnected: ${socket.wallet}`);
         }
 
         // Broadcast online count after disconnect
