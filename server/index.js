@@ -540,20 +540,22 @@ io.on('connection', (socket) => {
                 onlineNames.set(user.name, socket.id);
             }
 
-            // Update Profile if provided (only if non-empty to avoid wiping existing DB data with defaults)
-            if (name || avatar) {
+            // Update Profile if provided
+            if (name !== undefined || avatar !== undefined) {
                 // If changing name, cleanup old name from tracker
                 if (name && socket.username && socket.username !== name) {
                     onlineNames.delete(socket.username);
                 }
 
-                await updateUserProfile(wallet, name || undefined, avatar || undefined);
-                if (name) {
+                await updateUserProfile(wallet, name, avatar);
+                if (name !== undefined) {
                     user.name = name;
                     socket.username = name;
-                    onlineNames.set(name, socket.id);
+                    if (name) {
+                        onlineNames.set(name, socket.id);
+                    }
                 }
-                if (avatar) user.avatar = avatar;
+                if (avatar !== undefined) user.avatar = avatar;
             }
 
             // Emit back authoritative stats from DB

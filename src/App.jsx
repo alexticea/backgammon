@@ -1164,11 +1164,7 @@ function App() {
 
         // Register with Server (Sync Profile)
         if (socket) {
-            socket.emit('register_user', {
-                wallet: pKeyStr,
-                name: profileData.name,
-                avatar: profileData.avatar
-            });
+            socket.emit('register_user', pKeyStr);
             fetchLeaderboard(); // Immediate
             setTimeout(() => fetchLeaderboard(), 1000); // And slightly delayed to catch DB update
 
