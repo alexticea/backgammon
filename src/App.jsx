@@ -2465,7 +2465,10 @@ function App() {
                                 </button>
                                 */}
 
-                            <button className="btn-mode" onClick={() => setGameStatus('leaderboard')}>
+                            <button className="btn-mode" onClick={() => {
+                                setGameStatus('leaderboard');
+                                fetchLeaderboard();
+                            }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <span className="icon">📊</span>
                                     <span>Stats / Leaderboard</span>
