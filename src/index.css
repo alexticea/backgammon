@@ -1867,8 +1867,8 @@ body {
     justify-content: center;
     align-items: center;
     position: relative;
-    border: 15px solid var(--point-dark);
-    /* Match Frame Thickness */
+    border: 5px solid #3e2723;
+    /* 50% thinner than main board frame */
     transition: all 0.2s;
     overflow: hidden;
     /* Keep pieces inside */
