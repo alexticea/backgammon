@@ -574,7 +574,7 @@ io.on('connection', (socket) => {
     });
 
     // 7.5 INVITE LOGIC
-    socket.on('invite_player', ({ targetWallet, stake }) => {
+    socket.on('invite_player', async ({ targetWallet, stake }) => {
         if (!socket.wallet) {
             console.error(`[INVITE] Blocked: Socket ${socket.id} tried to invite without a registered wallet.`);
             return;
@@ -583,21 +583,36 @@ io.on('connection', (socket) => {
         const targetSocketId = onlineWallets.get(targetWallet);
         if (targetSocketId) {
             console.log(`[INVITE] ${socket.wallet} -> ${targetWallet}`);
+
+            // Fetch requester profile to send high-quality invite data
+            const requesterProfile = await getUser(socket.wallet);
+
             socket.to(targetSocketId).emit('receive_invite', {
                 fromWallet: socket.wallet,
-                fromName: socket.username || (socket.wallet ? socket.wallet.slice(0, 6) : 'Anonymous'),
+                fromName: requesterProfile.name || socket.wallet.slice(0, 6),
+                avatar: requesterProfile.avatar,
+                level: requesterProfile.level || 1,
+                stats: {
+                    wins: requesterProfile.wins || 0,
+                    losses: requesterProfile.losses || 0,
+                    xp: requesterProfile.xp || 0
+                },
                 stake: stake || 0
             });
         }
     });
 
-    socket.on('invite_response', ({ fromWallet, response, myUserData, fromUserData }) => {
+    socket.on('invite_response', async ({ fromWallet, response, myUserData, fromUserData }) => {
         if (!socket.wallet) return; // Guard against unregistered sockets
         const requesterSocketId = onlineWallets.get(fromWallet);
         const requesterSocket = io.sockets.sockets.get(requesterSocketId);
 
         if (requesterSocket && response === 'accept') {
             console.log(`[INVITE-ACCEPTED] ${socket.wallet} accepted invite from ${fromWallet}. Starting game...`);
+
+            // Fetch absolute latest data from DB to ensure sync is perfect
+            const profileA = await getUser(fromWallet); // Requester
+            const profileB = await getUser(socket.wallet); // Accepter
 
             const gameRoomId = `invite_${fromWallet}_${socket.id}_${Date.now()}`;
             socket.join(gameRoomId);
@@ -607,8 +622,22 @@ io.on('connection', (socket) => {
                 id: gameRoomId,
                 players: [requesterSocketId, socket.id],
                 playerData: {
-                    [requesterSocketId]: { ...fromUserData, color: 'white' },
-                    [socket.id]: { ...myUserData, color: 'red' }
+                    [requesterSocketId]: {
+                        wallet: fromWallet,
+                        name: profileA.name,
+                        avatar: profileA.avatar,
+                        level: profileA.level,
+                        stats: { wins: profileA.wins, losses: profileA.losses, xp: profileA.xp },
+                        color: 'white'
+                    },
+                    [socket.id]: {
+                        wallet: socket.wallet,
+                        name: profileB.name,
+                        avatar: profileB.avatar,
+                        level: profileB.level,
+                        stats: { wins: profileB.wins, losses: profileB.losses, xp: profileB.xp },
+                        color: 'red'
+                    }
                 }
             };
 

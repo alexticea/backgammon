@@ -43,21 +43,16 @@ function App() {
     const SERVER_URL = isCapacitor ? PRODUCTION_BACKEND_URL : (isLocal ? `http://${window.location.hostname}:3001` : PRODUCTION_BACKEND_URL);
 
     // --- STATE ---
-    const [wallet, setWallet] = useState(() => {
-        return localStorage.getItem('bg_wallet_address') || null;
-    });
+    const [wallet, setWallet] = useState(null);
     const setWalletValue = (val) => {
         setWallet(val);
+        // We keep localStorage for profile caching, but we don't auto-revive the 'session' on mount
         if (val) {
             localStorage.setItem('bg_wallet_address', val);
-        } else {
-            localStorage.removeItem('bg_wallet_address');
         }
     };
     const [balance, setBalance] = useState(0);
-    const [isLoggedIn, setIsLoggedIn] = useState(() => {
-        return localStorage.getItem('bg_is_logged_in') === 'true';
-    });
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const setLoggedInValue = (val) => {
         setIsLoggedIn(val);
         localStorage.setItem('bg_is_logged_in', val ? 'true' : 'false');
@@ -1083,13 +1078,15 @@ function App() {
         const fromUserData = {
             wallet: incomingInvite.fromWallet,
             name: incomingInvite.fromName,
-            level: 1, // Placeholder
-            stats: { wins: 0, losses: 0, xp: 0 }
+            avatar: incomingInvite.avatar,
+            level: incomingInvite.level || 1,
+            stats: incomingInvite.stats || { wins: 0, losses: 0, xp: 0 }
         };
 
         const myUserData = {
             wallet: wallet,
             name: userProfile.name,
+            avatar: userProfile.avatar,
             level: userProfile.stats.level,
             stats: userProfile.stats
         };
@@ -1134,7 +1131,7 @@ function App() {
             setLeaderboardData(formatted);
         } catch (e) {
             console.error("Failed to fetch leaderboard:", e);
-            setLeaderboardData([]); // Empty if fail
+            // Don't clear the data if it fails, just keep the last known good data to prevent flickering
         }
     };
 
