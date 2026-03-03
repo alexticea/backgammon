@@ -1,6 +1,6 @@
 {
   "name": "backgammon-solana",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Backgammon on Solana",
   "scripts": {
     "dev": "vite",

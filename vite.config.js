@@ -15,13 +15,19 @@ export default defineConfig({
     ],
     build: {
         outDir: 'www',
-        minify: 'esbuild',
+        minify: false, // Human-readable JS avoids "packed payload" heuristic flags
         cssCodeSplit: true,
         rollupOptions: {
             output: {
                 manualChunks(id) {
+                    if (id.includes('react') || id.includes('react-dom')) {
+                        return 'react-core';
+                    }
+                    if (id.includes('@solana') || id.includes('tweetnacl') || id.includes('bs58')) {
+                        return 'solana-web3';
+                    }
                     if (id.includes('node_modules')) {
-                        return 'vendor';
+                        return 'vendor-libs';
                     }
                 },
                 entryFileNames: 'assets/[name].js',
