@@ -76533,11 +76533,7 @@ ${err.message}`);
     }
     setUserProfile(profileData);
     if (socket) {
-      socket.emit("register_user", {
-        wallet: pKeyStr,
-        name: profileData.name,
-        avatar: profileData.avatar
-      });
+      socket.emit("register_user", pKeyStr);
       fetchLeaderboard();
       setTimeout(() => fetchLeaderboard(), 1e3);
       if (gameStatus === "menu") {

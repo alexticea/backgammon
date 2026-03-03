@@ -2949,16 +2949,16 @@ function App() {
         const leaderboard = leaderboardData;
         return (
             <div className="landing-page">
-                <h2 className="landing-title" style={{ fontSize: '2.5rem', marginBottom: '20px' }}>Top 100 Players</h2>
+                <h2 className="landing-title" style={{ fontSize: '1.8rem', marginBottom: '15px' }}>Leaderboard</h2>
                 <div style={{
-                    background: 'rgba(44, 36, 27, 0.95)',
-                    padding: '20px',
-                    borderRadius: '12px',
-                    width: '90%',
-                    maxWidth: '600px',
-                    maxHeight: '60vh',
+                    background: 'rgba(44, 36, 27, 0.98)',
+                    padding: '10px 5px',
+                    borderRadius: '10px',
+                    width: '95%',
+                    maxWidth: '500px',
+                    maxHeight: '70vh',
                     overflowY: 'auto',
-                    marginBottom: '20px',
+                    marginBottom: '15px',
                     border: '1px solid #5d4037'
                 }}>
                     {leaderboard.length === 0 && (
@@ -2968,124 +2968,91 @@ function App() {
                         </div>
                     )}
                     {leaderboardData.map((p, i) => {
-                        const isExpanded = expandedLeaderboardIndex === i;
                         const isMe = p.wallet === wallet;
 
                         return (
                             <div key={i}
-                                onClick={() => setExpandedLeaderboardIndex(isExpanded ? null : i)}
                                 style={{
                                     display: 'flex',
-                                    flexDirection: 'column',
-                                    padding: '15px 20px',
-                                    borderBottom: '1px solid rgba(141, 110, 99, 0.2)',
-                                    background: isExpanded ? 'rgba(255, 255, 255, 0.05)' : (i === 0 ? 'rgba(255, 215, 0, 0.08)' : 'transparent'),
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    borderRadius: isExpanded ? '8px' : '0'
+                                    alignItems: 'center',
+                                    padding: '10px 12px',
+                                    borderBottom: '1px solid rgba(141, 110, 99, 0.15)',
+                                    background: i === 0 ? 'rgba(255, 215, 0, 0.05)' : 'transparent',
+                                    gap: '10px',
+                                    minHeight: '60px'
                                 }}>
 
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                        {/* RANK */}
-                                        <div style={{
-                                            fontSize: '1.2rem',
-                                            fontWeight: 'bold',
-                                            width: '35px',
-                                            color: i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#cd7f32' : '#8d6e63',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}>
-                                            #{i + 1}
-                                        </div>
+                                {/* RANK # */}
+                                <div style={{
+                                    fontSize: '0.9rem',
+                                    fontWeight: '800',
+                                    width: '28px',
+                                    color: i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#cd7f32' : '#6d4c41',
+                                    textAlign: 'center'
+                                }}>
+                                    {i + 1}
+                                </div>
 
-                                        {/* AVATAR + STATUS INDICATOR (IN FRONT) */}
-                                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                            <div style={{
-                                                width: '12px',
-                                                height: '12px',
-                                                background: p.isOnline ? '#4caf50' : '#444',
-                                                borderRadius: '50%',
-                                                marginRight: '12px',
-                                                boxShadow: p.isOnline ? '0 0 10px rgba(76, 175, 80, 0.6)' : 'none',
-                                                border: '2px solid #2c241b'
-                                            }} title={p.isOnline ? "Online" : "Offline"}></div>
+                                {/* STATUS DOT */}
+                                <div style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    background: p.isOnline ? '#4caf50' : '#444',
+                                    borderRadius: '50%',
+                                    boxShadow: p.isOnline ? '0 0 8px rgba(76, 175, 80, 0.8)' : 'none',
+                                    flexShrink: 0
+                                }} title={p.isOnline ? "Online" : "Offline"}></div>
 
-                                            {p.avatar ? (
-                                                <img src={p.avatar} style={{ width: '45px', height: '45px', borderRadius: '50%', border: '2px solid #5d4037', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: '45px', height: '45px', background: '#3e2723', borderRadius: '50%', border: '2px solid #5d4037', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👤</div>
-                                            )}
-                                        </div>
+                                {/* AVATAR */}
+                                <div style={{ flexShrink: 0 }}>
+                                    {p.avatar ? (
+                                        <img src={p.avatar} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #5d4037', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '36px', height: '36px', background: '#3e2723', borderRadius: '50%', border: '1px solid #5d4037', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>👤</div>
+                                    )}
+                                </div>
 
-                                        {/* NAME & STATS */}
-                                        <div>
-                                            <div style={{ fontWeight: 'bold', color: isMe ? '#4caf50' : '#e8e0d5', fontSize: '1.1rem' }}>
-                                                {p.name || 'Anonymous'} {isMe && <span style={{ fontSize: '0.7rem', verticalAlign: 'middle' }}>(YOU)</span>}
-                                            </div>
-                                            <div style={{ fontSize: '0.85rem', color: '#a1887f' }}>
-                                                Lvl {p.stats?.level || 1} • <span style={{ color: '#81c784' }}>{p.stats?.wins || 0}W</span> - <span style={{ color: '#e57373' }}>{p.stats?.losses || 0}L</span>
-                                            </div>
-                                        </div>
+                                {/* NAME & COMPACT STATS */}
+                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                    <div style={{
+                                        fontWeight: 'bold',
+                                        color: isMe ? '#4caf50' : '#e8e0d5',
+                                        fontSize: '0.95rem',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}>
+                                        {p.name || 'Anonymous'}
                                     </div>
-
-                                    {/* XP DISPLAY */}
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffca28' }}>{p.stats?.xp} XP</div>
-                                        <div style={{ fontSize: '0.7rem', color: '#8d6e63' }}>Win Streak: 0</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#8d6e63', display: 'flex', gap: '8px' }}>
+                                        <span>Lvl {p.stats?.level || 1}</span>
+                                        <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
+                                        <span>{p.stats?.wins || 0}W</span>
+                                        <span>{p.stats?.xp} XP</span>
                                     </div>
                                 </div>
 
-                                {/* EXPANDED VIEW: Challenge / Details */}
-                                {isExpanded && (
-                                    <div style={{
-                                        marginTop: '15px',
-                                        padding: '15px',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(141, 110, 99, 0.3)',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '12px',
-                                        animation: 'slideDown 0.2s ease-out'
-                                    }} onClick={(e) => e.stopPropagation()}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ fontSize: '0.9rem', color: '#bdbdbd' }}>
-                                                Wallet ID: <span style={{ color: '#fff' }}>{p.wallet ? `${p.wallet.slice(0, 10)}...` : 'Hidden'}</span>
-                                            </div>
-                                            <div style={{ fontSize: '0.9rem', color: p.isOnline ? '#4caf50' : '#777', fontWeight: 'bold' }}>
-                                                ● {p.isOnline ? 'Online now' : 'Currently Offline'}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            {!isMe && (
-                                                <button
-                                                    className="btn-primary"
-                                                    style={{
-                                                        flex: 1,
-                                                        background: p.isOnline ? '#4caf50' : '#333',
-                                                        border: 'none',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        gap: '8px',
-                                                        padding: '12px',
-                                                        opacity: p.isOnline ? 1 : 0.6
-                                                    }}
-                                                    onClick={() => p.isOnline ? handleInvitePlayer(p.wallet, p.name) : alert("Target player is not online right now.")}
-                                                    disabled={isInviting || !p.isOnline}
-                                                >
-                                                    <span style={{ fontSize: '1.2rem' }}>🎮</span>
-                                                    <span>{isInviting ? 'Inviting...' : 'Send Challenge Invite'}</span>
-                                                </button>
-                                            )}
-                                            <button className="btn-secondary" style={{ flex: 1, fontSize: '0.9rem' }} onClick={() => log("Player profile viewed.")}>
-                                                View Full Career
-                                            </button>
-                                        </div>
-                                    </div>
+                                {/* INVITE BUTTON (SMALLER) */}
+                                {!isMe && (
+                                    <button
+                                        style={{
+                                            background: p.isOnline ? '#2e7d32' : 'transparent',
+                                            border: p.isOnline ? 'none' : '1px solid #5d4037',
+                                            color: p.isOnline ? '#fff' : '#5d4037',
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 'bold',
+                                            cursor: p.isOnline ? 'pointer' : 'default',
+                                            opacity: p.isOnline ? 1 : 0.5,
+                                            transition: 'all 0.2s',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                        onClick={() => p.isOnline ? handleInvitePlayer(p.wallet, p.name) : null}
+                                        disabled={isInviting || !p.isOnline}
+                                    >
+                                        {p.isOnline ? 'Invite' : 'Offline'}
+                                    </button>
                                 )}
                             </div>
                         );
