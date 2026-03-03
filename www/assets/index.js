@@ -1,7 +1,2904 @@
-import{B as Mn,b as Be,n as ot,P as an,r as a,u as Fn,a as Gn,c as Un,A as nn,S as Vn,l as Yn,j as e,T as sn,d as ln,W as Hn,e as Kn,C as qn,f as Jn,g as Xn,h as Zn,R as Qn}from"./vendor.js";(function(){const P=document.createElement("link").relList;if(P&&P.supports&&P.supports("modulepreload"))return;for(const i of document.querySelectorAll('link[rel="modulepreload"]'))G(i);new MutationObserver(i=>{for(const O of i)if(O.type==="childList")for(const z of O.addedNodes)z.tagName==="LINK"&&z.rel==="modulepreload"&&G(z)}).observe(document,{childList:!0,subtree:!0});function B(i){const O={};return i.integrity&&(O.integrity=i.integrity),i.referrerPolicy&&(O.referrerPolicy=i.referrerPolicy),i.crossOrigin==="use-credentials"?O.credentials="include":i.crossOrigin==="anonymous"?O.credentials="omit":O.credentials="same-origin",O}function G(i){if(i.ep)return;i.ep=!0;const O=B(i);fetch(i.href,O)}})();typeof window<"u"&&(window.global||(window.global=window),window.Buffer||(window.Buffer=Mn),window.process||(window.process={env:{}}));let ee=null;const es=()=>{try{const v=localStorage.getItem("dapp_session_secret");if(v){const P=Be.decode(v);return ee={dappKeyPair:ot.box.keyPair.fromSecretKey(P)},ee}}catch{}return null},ts=()=>{const v=ot.box.keyPair();return ee={dappKeyPair:v},localStorage.setItem("dapp_session_secret",Be.encode(v.secretKey)),ee},ns=()=>{ee||ts();const{dappKeyPair:v}=ee;return`solflare://ul/v1/connect?${new URLSearchParams({dapp_encryption_public_key:Be.encode(v.publicKey),cluster:"mainnet-beta",app_url:"https://backgammon-beige.vercel.app",redirect_link:"backgammon://connect"}).toString()}`},ss=v=>{var P;if(ee||es(),!ee)throw new Error("No session state found.");try{let B=v.includes("?")?v.split("?")[1].split("#")[0]:null;if(!B)throw new Error(`Invalid URL format: no query params in ${v}`);const G=new URLSearchParams(B),i=Object.fromEntries(G.entries());if(!i)throw new Error("No queryParams parsed");if(i.errorCode)throw new Error(`Solflare Error: ${i.errorMessage}`);const O=((P=i.phantom_encryption_public_key||i.solflare_encryption_public_key)==null?void 0:P.trim())||"",z=(i.data||"").trim(),ue=(i.nonce||"").trim();if(O&&z&&ue){console.log("[SolanaLogin] Key found, attempting decrypt...");let ce,te,Ue;try{ce=Be.decode(O)}catch(me){throw new Error(`Invalid base58 in public_key [${O}]: ${me.message}`)}try{te=Be.decode(z)}catch(me){throw new Error(`Invalid base58 in data [${z}]: ${me.message}`)}try{Ue=Be.decode(ue)}catch(me){throw new Error(`Invalid base58 in nonce [${ue}]: ${me.message}`)}const xe=ot.box.before(ce,ee.dappKeyPair.secretKey);ee.sharedSecret=xe,ee.phantomPublicKey=ce;const we=ot.box.open.after(te,Ue,xe);if(!we)throw new Error("Decryption failed. Invalid shared root.");const Se=JSON.parse(new TextDecoder().decode(we));if(Se.public_key)return ee.session=Se.session,{publicKey:new an(Se.public_key),session:Se.session}}else throw new Error(`Missing expected fields. pubKey=${!!O}, data=${!!z}, nonce=${!!ue}`)}catch(B){throw console.error("Error handling connect callback",B),B}},c=1,d=-1;function ls(){const v=!!window.Capacitor,P=window.location.hostname==="localhost"||window.location.hostname==="127.0.0.1"||window.location.hostname.startsWith("192.168.")||window.location.hostname.startsWith("10.")||window.location.hostname.startsWith("172.")||window.location.protocol==="file:",B="https://backgammon-usxq.onrender.com",G=v?B:P?`http://${window.location.hostname}:3001`:B,[i,O]=a.useState(()=>localStorage.getItem("bg_wallet_address")||null),z=t=>{O(t),t?localStorage.setItem("bg_wallet_address",t):localStorage.removeItem("bg_wallet_address")},[ue,ce]=a.useState(0),[te,Ue]=a.useState(()=>localStorage.getItem("bg_is_logged_in")==="true"),xe=t=>{Ue(t),localStorage.setItem("bg_is_logged_in",t?"true":"false")},[we,Se]=a.useState(!1),{connection:me}=Fn(),{publicKey:V,sendTransaction:kt,signMessage:Ve,disconnect:rn,connected:ne,select:cn,wallets:dn,connect:pn,wallet:at}=Gn(),{setVisible:os}=Un();a.useEffect(()=>{if(v){const t=s=>{if(console.log(`App processing URL: ${s}`),s&&s.includes("backgammon://"))try{const l=ss(s);if(l&&l.publicKey){const o=l.publicKey.toBase58();console.log(`Deep link connect success! Key: ${o.slice(0,4)}...`),xe(!0),z(o),tt(o)}else alert("Solflare callback yielded no keys. Try again."),console.log("Deep link result was null.")}catch(l){alert(`Deep Link Error:
+import { r as reactExports, u as useConnection, b as useWallet, d as useWalletModal, j as jsxRuntimeExports, C as ConnectionProvider, W as WalletProvider$1, e as WalletModalProvider, f as client, R as React } from "./react-core.js";
+import { B as Buffer$1, N as App$1, O as StatusBar, P as lookup } from "./vendor-libs.js";
+import { l as bs58, F as nacl, P as PublicKey, T as Transaction, G as SystemProgram, H as WalletAdapterNetwork, I as SolflareWalletAdapter } from "./solana-web3.js";
+(function polyfill() {
+  const relList = document.createElement("link").relList;
+  if (relList && relList.supports && relList.supports("modulepreload")) {
+    return;
+  }
+  for (const link of document.querySelectorAll('link[rel="modulepreload"]')) {
+    processPreload(link);
+  }
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type !== "childList") {
+        continue;
+      }
+      for (const node of mutation.addedNodes) {
+        if (node.tagName === "LINK" && node.rel === "modulepreload")
+          processPreload(node);
+      }
+    }
+  }).observe(document, { childList: true, subtree: true });
+  function getFetchOpts(link) {
+    const fetchOpts = {};
+    if (link.integrity) fetchOpts.integrity = link.integrity;
+    if (link.referrerPolicy) fetchOpts.referrerPolicy = link.referrerPolicy;
+    if (link.crossOrigin === "use-credentials")
+      fetchOpts.credentials = "include";
+    else if (link.crossOrigin === "anonymous") fetchOpts.credentials = "omit";
+    else fetchOpts.credentials = "same-origin";
+    return fetchOpts;
+  }
+  function processPreload(link) {
+    if (link.ep)
+      return;
+    link.ep = true;
+    const fetchOpts = getFetchOpts(link);
+    fetch(link.href, fetchOpts);
+  }
+})();
+if (typeof window !== "undefined") {
+  if (!window.global) {
+    window.global = window;
+  }
+  if (!window.Buffer) {
+    window.Buffer = Buffer$1;
+  }
+  if (!window.process) {
+    window.process = { env: {} };
+  }
+}
+let sessionState = null;
+const loadSession = () => {
+  try {
+    const saved = localStorage.getItem("dapp_session_secret");
+    if (saved) {
+      const secretKey = bs58.decode(saved);
+      const keyPair = nacl.box.keyPair.fromSecretKey(secretKey);
+      sessionState = { dappKeyPair: keyPair };
+      return sessionState;
+    }
+  } catch (e) {
+  }
+  return null;
+};
+const initSession = () => {
+  const keyPair = nacl.box.keyPair();
+  sessionState = { dappKeyPair: keyPair };
+  localStorage.setItem("dapp_session_secret", bs58.encode(keyPair.secretKey));
+  return sessionState;
+};
+const buildConnectUrl = () => {
+  if (!sessionState) initSession();
+  const { dappKeyPair } = sessionState;
+  const params = new URLSearchParams({
+    dapp_encryption_public_key: bs58.encode(dappKeyPair.publicKey),
+    cluster: "mainnet-beta",
+    app_url: "https://backgammon-beige.vercel.app",
+    redirect_link: "backgammon://connect"
+  });
+  return `solflare://ul/v1/connect?${params.toString()}`;
+};
+const handleConnectCallback = (urlStr) => {
+  var _a;
+  if (!sessionState) loadSession();
+  if (!sessionState) {
+    throw new Error("No session state found.");
+  }
+  try {
+    let qs = urlStr.includes("?") ? urlStr.split("?")[1].split("#")[0] : null;
+    if (!qs) throw new Error(`Invalid URL format: no query params in ${urlStr}`);
+    const searchParams = new URLSearchParams(qs);
+    const queryParams = Object.fromEntries(searchParams.entries());
+    if (!queryParams) throw new Error("No queryParams parsed");
+    if (queryParams.errorCode) {
+      throw new Error(`Solflare Error: ${queryParams.errorMessage}`);
+    }
+    const phantomPublicKeyStr = ((_a = queryParams.phantom_encryption_public_key || queryParams.solflare_encryption_public_key) == null ? void 0 : _a.trim()) || "";
+    const dataStr = (queryParams.data || "").trim();
+    const nonceStr = (queryParams.nonce || "").trim();
+    if (phantomPublicKeyStr && dataStr && nonceStr) {
+      console.log("[SolanaLogin] Key found, attempting decrypt...");
+      let phantomPublicKey, dataBytes, nonceBytes;
+      try {
+        phantomPublicKey = bs58.decode(phantomPublicKeyStr);
+      } catch (e) {
+        throw new Error(`Invalid base58 in public_key [${phantomPublicKeyStr}]: ${e.message}`);
+      }
+      try {
+        dataBytes = bs58.decode(dataStr);
+      } catch (e) {
+        throw new Error(`Invalid base58 in data [${dataStr}]: ${e.message}`);
+      }
+      try {
+        nonceBytes = bs58.decode(nonceStr);
+      } catch (e) {
+        throw new Error(`Invalid base58 in nonce [${nonceStr}]: ${e.message}`);
+      }
+      const sharedSecret = nacl.box.before(phantomPublicKey, sessionState.dappKeyPair.secretKey);
+      sessionState.sharedSecret = sharedSecret;
+      sessionState.phantomPublicKey = phantomPublicKey;
+      const decryptedBox = nacl.box.open.after(dataBytes, nonceBytes, sharedSecret);
+      if (!decryptedBox) {
+        throw new Error("Decryption failed. Invalid shared root.");
+      }
+      const decryptedPayload = JSON.parse(new TextDecoder().decode(decryptedBox));
+      if (decryptedPayload.public_key) {
+        sessionState.session = decryptedPayload.session;
+        return {
+          publicKey: new PublicKey(decryptedPayload.public_key),
+          session: decryptedPayload.session
+        };
+      }
+    } else {
+      throw new Error(`Missing expected fields. pubKey=${!!phantomPublicKeyStr}, data=${!!dataStr}, nonce=${!!nonceStr}`);
+    }
+  } catch (e) {
+    console.error("Error handling connect callback", e);
+    throw e;
+  }
+};
+const PLAYER_HUMAN = 1;
+const PLAYER_AI = -1;
+function App() {
+  const isCapacitor = !!window.Capacitor;
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname.startsWith("192.168.") || window.location.hostname.startsWith("10.") || window.location.hostname.startsWith("172.") || window.location.protocol === "file:";
+  const PRODUCTION_BACKEND_URL = "https://backgammon-usxq.onrender.com";
+  const SERVER_URL = isCapacitor ? PRODUCTION_BACKEND_URL : isLocal ? `http://${window.location.hostname}:3001` : PRODUCTION_BACKEND_URL;
+  const [wallet, setWallet] = reactExports.useState(() => {
+    return localStorage.getItem("bg_wallet_address") || null;
+  });
+  const setWalletValue = (val) => {
+    setWallet(val);
+    if (val) {
+      localStorage.setItem("bg_wallet_address", val);
+    } else {
+      localStorage.removeItem("bg_wallet_address");
+    }
+  };
+  const [balance, setBalance] = reactExports.useState(0);
+  const [isLoggedIn, setIsLoggedIn] = reactExports.useState(() => {
+    return localStorage.getItem("bg_is_logged_in") === "true";
+  });
+  const setLoggedInValue = (val) => {
+    setIsLoggedIn(val);
+    localStorage.setItem("bg_is_logged_in", val ? "true" : "false");
+  };
+  const [isLoggingIn, setIsLoggingIn] = reactExports.useState(false);
+  const { connection } = useConnection();
+  const { publicKey, sendTransaction, signMessage, disconnect, connected, select, wallets, connect, wallet: activeWallet } = useWallet();
+  const { setVisible } = useWalletModal();
+  reactExports.useEffect(() => {
+    if (isCapacitor) {
+      const processUrl = (url) => {
+        console.log(`App processing URL: ${url}`);
+        if (url && url.includes("backgammon://")) {
+          try {
+            const result = handleConnectCallback(url);
+            if (result && result.publicKey) {
+              const pKeyStr = result.publicKey.toBase58();
+              console.log(`Deep link connect success! Key: ${pKeyStr.slice(0, 4)}...`);
+              setLoggedInValue(true);
+              setWalletValue(pKeyStr);
+              handleWalletConnection(pKeyStr);
+            } else {
+              alert("Solflare callback yielded no keys. Try again.");
+              console.log(`Deep link result was null.`);
+            }
+          } catch (err) {
+            alert(`Deep Link Error:
 
-${l.message}`),console.log(`Deep link connect error: ${l.message}`)}};nn.getLaunchUrl().then(s=>{s&&s.url&&t(s.url)});const n=nn.addListener("appUrlOpen",s=>{s&&s.url&&t(s.url)});return()=>{n.remove&&n.remove()}}},[v]),a.useEffect(()=>{v&&Vn.hide().catch(t=>console.warn("StatusBar hide failed",t))},[v]),a.useEffect(()=>{if(ne&&V){const t=V.toBase58();i!==t&&(z(t),tt(t),r(`Connected: ${t.slice(0,4)}...${t.slice(-4)}`))}else!v&&!ne&&i&&!i.startsWith("Guest")&&!i.startsWith("Mock")&&(z(null),xe(!1))},[ne,V,i]),a.useEffect(()=>{at&&!ne&&!we&&(r(`Attempting connection to ${at.adapter.name}...`),pn().catch(t=>{var n;r(`Connection failed: ${(n=t.message)==null?void 0:n.slice(0,30)}`)}))},[at,ne,we]);const Te=Array(24).fill(null).map(()=>({count:0,player:0})),he=(t,n,s)=>{Te[t]={count:n,player:s}};he(23,2,c),he(12,5,c),he(7,3,c),he(5,5,c),he(0,2,d),he(11,5,d),he(16,3,d),he(18,5,d);const[N,Z]=a.useState(Te),[A,se]=a.useState({[c]:0,[d]:0}),[ze,Ne]=a.useState({[c]:0,[d]:0}),[L,R]=a.useState([]),[It,_]=a.useState([]),[T,Y]=a.useState(null),[Ct,fn]=a.useState("beginner"),[rt,un]=a.useState(!1),[as,Ye]=a.useState(["Welcome to Solana Backgammon!"]),[D,We]=a.useState(null),[de,Ee]=a.useState([]),[Q,le]=a.useState(!1),[He,ie]=a.useState(!1),[Ke,ge]=a.useState([]),[E,W]=a.useState("menu"),[M,Pe]=a.useState("single"),[f,ct]=a.useState(c),[De,dt]=a.useState(null),[Me,Ot]=a.useState("Opponent (Waiting)"),[rs,Rt]=a.useState(null),[cs,mn]=a.useState(1),[ds,xn]=a.useState({wins:0,losses:0}),[j,hn]=a.useState(null),[_t,Tt]=a.useState(!1),[Fe,ke]=a.useState(!1),[ye,Ie]=a.useState(0),[pt,oe]=a.useState(!1),[gn,yn]=a.useState([]),[ps,fs]=a.useState(""),[us,bn]=a.useState(0),[Le,vn]=a.useState(0),[Wt,jn]=a.useState([]),[wn,ft]=a.useState(!1),[Sn,Et]=a.useState(!1),[Pt,Nn]=a.useState(1),[be,Lt]=a.useState(null),[kn,qe]=a.useState(!1),ut=a.useRef(E);a.useEffect(()=>{ut.current=E},[E]);const mt=a.useRef(Le);a.useEffect(()=>{mt.current=Le},[Le]);const $t=a.useRef(ye);a.useEffect(()=>{$t.current=ye},[ye]);const H=a.useRef(i);a.useEffect(()=>{H.current=i},[i]);const At=a.useRef(M);a.useEffect(()=>{At.current=M},[M]);const xt=a.useRef(Me);a.useEffect(()=>{xt.current=Me},[Me]),a.useEffect(()=>{const t=Yn(G);hn(t),t.on("connect",()=>{if(console.log("Connected to Game Server:",t.id),Ye(s=>["Connected to Server!",...s]),H.current){console.log("Reconnected to socket. Checking for active game and registering:",H.current),t.emit("check_active_game",H.current);const s=localStorage.getItem("bg_profile_"+H.current);let l;try{l=s?JSON.parse(s):null}catch{}t.emit("register_user",{wallet:H.current,name:(l==null?void 0:l.name)||"",avatar:(l==null?void 0:l.avatar)||null})}je()}),t.on("connect_error",s=>{console.error("Connection Error:",s),Ye(l=>["Connection Failed! Check Server URL.",...l])}),t.on("online_count_update",s=>{Nn(s.count)}),t.on("waiting_for_match",()=>{Ye(s=>["Waiting for an opponent...",...s])}),t.on("active_game_found",({roomId:s})=>{console.log("Found Active Game:",s),i&&!Gt&&Ze(null)}),t.on("match_found",s=>{var p,m;console.log("Match Found Event Data:",s),console.log("My Socket ID:",t.id),dt(s.roomId),yt(!1),qe(!1),Qe(null);const o=Object.keys(s.players).find(g=>g!==t.id);console.log("Opponent ID found:",o);const u=((p=s.players[o])==null?void 0:p.name)||"Opponent";console.log("Opponent Name resolved:",u),Ot(u),Rt(((m=s.players[o])==null?void 0:m.wallet)||null),s.players[o]&&(mn(s.players[o].level||1),xn(s.players[o].stats||{wins:0,losses:0})),s.isRejoin}),t.on("assign_color",s=>{const l=s==="white"?c:d;ct(l),console.log("Assigned Color:",s,l);const o=mt.current;if(o&&o>0)if(($t.current||0)>=o){Ie(g=>parseFloat((g-o).toFixed(2))),r(`Staked ${o} SOL from Escrow Balance.`),Pe("multi"),W("opening_roll"),fe(null);const p=Array(24).fill(null).map(()=>({count:0,player:0})),m=(g,y,b)=>{p[g]={count:y,player:b}};m(23,2,c),m(12,5,c),m(7,3,c),m(5,5,c),m(0,2,d),m(11,5,d),m(16,3,d),m(18,5,d),Z(p),se({[c]:0,[d]:0}),Ne({[c]:0,[d]:0}),R([]),_([]),ge([]),le(!1),Y("human"),r(`Match Found against ${xt.current}! Good luck!`)}else{alert(`Insufficient Escrow Balance! You need ${o} SOL. Please deposit.`),W("multiplayer_menu");return}else{Pe("multi"),W("opening_roll"),fe(null);const u=Array(24).fill(null).map(()=>({count:0,player:0})),p=(m,g,y)=>{u[m]={count:g,player:y}};p(23,2,c),p(12,5,c),p(7,3,c),p(5,5,c),p(0,2,d),p(11,5,d),p(16,3,d),p(18,5,d),Z(u),se({[c]:0,[d]:0}),Ne({[c]:0,[d]:0}),R([]),_([]),ge([]),le(!1),Y("human"),r(`Match Found against ${xt.current}! Have fun!`)}}),t.on("game_update",({type:s,payload:l})=>{console.log(`[CLIENT] Received game_update: ${s}`,l),ht.current?ht.current(s,l):console.error("[CLIENT] handleRemoteEventRef is null!")}),t.on("withdraw_success",({amount:s,signature:l})=>{r(`Withdrawal of ${s} SOL sent! Sig: ${l.slice(0,8)}...`),alert("Funds sent to your wallet!"),Ie(o=>parseFloat((o-s).toFixed(2)))}),t.on("chat_message",s=>{yn(l=>[...l.slice(-49),s]),s.sender!=="You"&&bn(l=>l+1)}),t.on("receive_invite",s=>{console.log("RECEIVED INVITE:",s),Lt(s)}),t.on("invite_result",({fromWallet:s,response:l})=>{console.log("INVITE RESULT:",s,l),qe(!1),Qe(null),l==="decline"&&alert("Player declined your invite.")}),t.on("request_state_sync",()=>{const s=Bt.current;s.roomId&&(r("Syncing state to opponent..."),t.emit("sync_state",{roomId:s.roomId,state:{board:s.board,bar:s.bar,off:s.off,dice:s.dice,turn:s.turn}}))}),t.on("sync_state_received",s=>{r("Game State Synced!"),Z(s.board),se(s.bar),Ne(s.off);const l=s.turn==="human"?"opponent":"human";Y(l),l==="human"?s.dice&&s.dice.length>0?(R(s.dice),_(s.dice.slice(0,2)),ie(!1),r("Your Turn! Resume moving.")):(R([]),_([]),ie(!0),r("Your Turn! Please Roll.")):(s.dice&&s.dice.length>0?(_(s.dice.slice(0,2)),R([])):(_([]),R([])),r("Waiting for opponent...")),oe(!1)}),t.on("user_profile_update",s=>{console.log("[SOCKET] Profile updated from server:",s),Ce(l=>{const o={...l,name:s.name!==void 0?s.name:l.name,avatar:s.avatar!==void 0?s.avatar:l.avatar,stats:{...s.stats}};return H.current&&!H.current.startsWith("Guest")&&localStorage.setItem("bg_profile_"+H.current,JSON.stringify(o)),o})}),t.on("lobby_list_update",s=>{console.log("Lobbies Updated:",s),jn(s)}),t.on("rejoin_success",({roomId:s,color:l,players:o})=>{var p,m;if(r("Rejoined match! Waiting for sync..."),ct(l==="white"?c:d),dt(s),Pe("multi"),W("playing"),fe(null),oe(!1),o){const y=Object.keys(o).find(b=>o[b].wallet!==H.current);if(y){const b=((p=o[y])==null?void 0:p.name)||"Opponent";Ot(b),Rt(((m=o[y])==null?void 0:m.wallet)||null),console.log("Opponent Updated (Rejoin):",b)}}}),t.on("active_game_not_found",()=>{const s=ut.current,l=At.current;if(l!=="multi"){console.log("Ignoring active_game_not_found in non-multiplayer mode:",l);return}console.log("No active game found."),(s==="playing"||s==="waiting_for_match")&&(console.log("Forcing return to menu from stale game."),W("menu"),dt(null),oe(!1),setTimeout(()=>je(),1e3),H.current&&t.emit("register_user",H.current),alert("Game session expired. You may have timed out."))});const n=()=>{document.visibilityState==="visible"&&(console.log("App returned to foreground."),t.connected?H.current&&t.emit("check_active_game",H.current):(console.log("Socket disconnected. Reconnecting..."),t.connect()))};return document.addEventListener("visibilitychange",n),()=>{t.close(),document.removeEventListener("visibilitychange",n)}},[]);const Bt=a.useRef({});a.useEffect(()=>{Bt.current={board:N,bar:A,off:ze,dice:L,turn:T,roomId:De}},[N,A,ze,L,T,De]);const ht=a.useRef(null);a.useEffect(()=>{ht.current=In});const In=(t,n)=>{const s=ut.current;if(t==="opponent_disconnectING")console.log("EVENT RECEIVED: Opponent Disconnecting"),r(`Opponent disconnected! Waiting ${n.timeLeft}s...`),oe(!0);else if(t==="opponent_reconnected")r("Opponent returned! Resuming..."),oe(!1);else if(t==="roll")Ge(),le(!0),s!=="opening_roll"&&(R([]),_([])),setTimeout(()=>{if(le(!1),s==="opening_roll"&&n.length===1){const l=n[0];r(`Opponent Rolled: ${l} (Opening)`),fe(o=>{const u={...o||{},ai:l};return u.human?_([u.human,l]):_([l]),Jt(u),u})}else r(`Opponent Rolled: ${n.join(", ")}`),_(n.slice(0,2)),R(n)},800);else if(t==="opponent_reconnected")console.log("Opponent returned! Resuming..."),oe(!1);else if(t==="opponent_disconnectING")console.log("Opponent Disconnecting... Waiting..."),oe(!0);else if(t==="state_update"){if(console.log("Applying State Sync:",n),n.board&&Z(n.board),n.bar&&se(n.bar),n.off&&Ne(n.off),n.dice&&(T==="human"&&L.length>0?console.warn("Ignored remote dice update because I have active dice:",L,"Remote:",n.dice):(R(n.dice),n.dice.length>0&&_(n.dice.slice(0,2)))),n.turn){const l=n.turn==="human"?"ai":"human";Y(l),l==="human"?!n.dice||n.dice.length===0?(ie(!0),le(!1),r("It's your turn. Please Roll.")):(ie(!1),le(!1),r("It's your turn. Please Move.")):ie(!1)}r("Game State Synchronized.")}else t==="move"?n.board&&(Z(n.board),se(n.bar)):t==="end_turn"?(r("Opponent finished turn."),Y("human"),R([]),_([]),ie(!0)):t==="resign"?(W("gameover"),pe("win"),r("Opponent Resigned! You Win!"),Ge(),Xe("win")):t==="opponent_disconnected"&&(W("gameover"),pe("win"),r("Opponent Disconnected! You Win!"),oe(!1))},$e=(t,n)=>{j&&De&&j.emit("game_event",{roomId:De,type:t,payload:n})},[w,Ce]=a.useState({name:"",avatar:null,stats:{wins:0,losses:0,xp:0,level:1}}),[Cn,Je]=a.useState(!1),[zt,Dt]=a.useState(180);a.useEffect(()=>{let t=null;return E==="playing"&&T==="human"?t=setInterval(()=>{Dt(n=>n<=1?(clearInterval(t),gt(),0):n-1)},1e3):(Dt(180),ke(!1)),()=>clearInterval(t)},[T,E]);const gt=()=>{M==="multi"?($e("resign",{}),W("gameover"),pe("loss"),r("You resigned."),Xe("loss")):(W("menu"),Pe("single"),r("You resigned from single player."))};a.useEffect(()=>{if(i&&!i.startsWith("Guest")){const t=localStorage.getItem("bg_profile_"+i);if(t)try{const s=JSON.parse(t);s.stats||(s.stats={wins:0,losses:0,xp:0,level:1}),Ce(s)}catch(s){console.error(s)}else Ce({name:"",avatar:null,stats:{wins:0,losses:0,xp:0,level:1}});const n=localStorage.getItem("escrow_balance_"+i);Ie(n?parseFloat(n):0)}else i&&i.startsWith("Guest")&&(Ce({name:"Guest",avatar:null,stats:{wins:0,losses:0,xp:0,level:1}}),Ie(0))},[i]),a.useEffect(()=>{i&&!i.startsWith("Guest")&&localStorage.setItem("escrow_balance_"+i,ye.toString())},[ye,i]);const Xe=t=>{!i||i.startsWith("Guest")||Ce(n=>{const s={...n.stats};t==="win"?(s.wins+=1,s.xp+=20):(s.losses+=1,s.xp+=5),s.level=Math.floor(s.xp/100)+1;const l={...n,stats:s};return localStorage.setItem("bg_profile_"+i,JSON.stringify(l)),l})},Mt=(t,n)=>{const s={...w,name:t,avatar:n};if(Ce(s),i&&!i.startsWith("Guest"))try{localStorage.setItem("bg_profile_"+i,JSON.stringify(s)),j&&(j.emit("register_user",{wallet:i,name:t,avatar:n}),setTimeout(()=>je(),500))}catch(l){alert("Image too large/Error saving profile."),console.error(l)}Je(!1)},Ft=a.useRef(null);a.useEffect(()=>{Ft.current&&Ft.current.scrollIntoView({behavior:"smooth"})},[gn]);const[ve,pe]=a.useState(null),[ms,xs]=a.useState(null),On=async()=>{const t=prompt("Enter annual amount to deposit (SOL):","0.1");if(!t)return;const n=parseFloat(t);if(!(isNaN(n)||n<=0))try{if(!V)return alert("Wallet Login first");const s=new sn().add(ln.transfer({fromPubkey:V,toPubkey:new an("6cgsK8ph5tNUCiKG5WXLMZFX1CoL4jzuVouTPBwPC8fk"),lamports:n*1e9})),l=await kt(s,me);r("Escrow Deposit: "+n+" SOL"),Ie(o=>parseFloat((o+n).toFixed(2)))}catch(s){alert("Deposit Error: "+s.message)}},Rn=()=>{const t=prompt("Enter amount to withdraw (SOL):","0.1");if(!t)return;const n=parseFloat(t);if(isNaN(n)||n<=0){alert("Please enter a valid amount.");return}if(ye<n){alert(`Insufficient Escrow Balance (Current: ${ye} SOL)`);return}r(`Requesting Withdrawal of ${n} SOL...`),console.log("Emitting request_withdraw",{wallet:i,amount:n}),j&&j.connected?j.emit("request_withdraw",{wallet:i,amount:n}):(alert("Not connected to server. Please try refreshing or checking connection."),j&&j.connect())},[Gt,yt]=a.useState(!1),[_n,Ut]=a.useState(!1),[Vt,Ae]=a.useState(!1),[Tn,bt]=a.useState(!1),Ze=t=>{var n,s,l;if(t!==null&&t!==0&&(!i||i.startsWith("Guest"))){Ae(!0);return}if(vn(t),t===null||t===0)ft(!0),j&&(console.log("Requesting lobbies from server..."),j.emit("get_lobbies"));else if(yt(!0),j){const o=w,u=i,p=o.name&&o.name.trim()!==""?o.name:`${u.slice(0,4)}...${u.slice(-4)}`;j.emit("find_match",{name:p,wallet:u,level:((n=o.stats)==null?void 0:n.level)||1,stats:{wins:((s=o.stats)==null?void 0:s.wins)||0,losses:((l=o.stats)==null?void 0:l.losses)||0}})}},Wn=()=>{var s;if(!j||!i)return;const t=w,n=t.name&&t.name.trim()!==""?t.name:`${i.slice(0,4)}...${i.slice(-4)}`;Et(!0),j.emit("create_lobby",{name:n,wallet:i,level:((s=t.stats)==null?void 0:s.level)||1,stats:t.stats}),r("Hosting Free Play Game...")},En=t=>{var l;if(!j||!i)return;const n=w,s=n.name&&n.name.trim()!==""?n.name:`${i.slice(0,4)}...${i.slice(-4)}`;j.emit("join_lobby",{roomId:t.roomId,userData:{name:s,wallet:i,level:((l=n.stats)==null?void 0:l.level)||1,stats:n.stats}}),ft(!1),r(`Joining ${t.hostData.name}'s table...`)},Pn=()=>{j&&j.emit("leave_lobby"),Et(!1),r("Lobby closed.")},[Yt,Qe]=a.useState(null),Ln=(t,n)=>{if(!(!j||!i)){if(t===i)return alert("You cannot invite yourself!");E==="leaderboard"&&(qe(!0),Qe(n),j.emit("invite_player",{targetWallet:t,stake:0}),r(`Inviting ${n}...`))}},et=t=>{if(!j||!be)return;const n={wallet:be.fromWallet,name:be.fromName,level:1,stats:{wins:0,losses:0,xp:0}},s={wallet:i,name:w.name,level:w.stats.level,stats:w.stats};j.emit("invite_response",{fromWallet:be.fromWallet,response:t,myUserData:s,fromUserData:n}),Lt(null),t==="accept"&&r("Accepting invite...")},[Ht,Kt]=a.useState([]),[hs,gs]=a.useState(null),je=async()=>{try{const s=(await(await fetch(`${G}/leaderboard`)).json()).map(l=>({wallet:l.wallet,name:l.name||`${l.wallet.slice(0,4)}...${l.wallet.slice(-4)}`,avatar:l.avatar||null,isOnline:l.isOnline,stats:{level:l.level||1,wins:l.wins||0,losses:l.losses||0,xp:l.xp||0}}));Kt(s)}catch(t){console.error("Failed to fetch leaderboard:",t),Kt([])}};a.useEffect(()=>{je();const t=setInterval(je,1e4);return()=>clearInterval(t)},[]);const tt=async t=>{r(`Handshake with ${t.slice(0,8)}...`),z(t);const n=localStorage.getItem("bg_profile_"+t);let s;if(n)try{s=JSON.parse(n)}catch{s={name:"",avatar:null,stats:{level:1,wins:0,losses:0,xp:0}}}else s={name:"",avatar:null,stats:{level:1,wins:0,losses:0,xp:0}};Ce(s),j&&(j.emit("register_user",t),je(),setTimeout(()=>je(),1e3),E==="menu"&&j.emit("check_active_game",t))},$n=async()=>{var t,n;if(!(!Ve||!V)){try{Se(!0),r("IDENTITY: Requesting proof of ownership...");const s=new TextEncoder().encode("Login to Backgammon Solana");if(await Ve(s))return xe(!0),r("IDENTITY: Success!"),tt(V.toBase58()),!0}catch(s){if(r(`ID ERR: ${(t=s.message)==null?void 0:t.slice(0,30)}`),!((n=s.message)!=null&&n.includes("User rejected"))){r("IDENTITY: Message blocked, trying transaction proof...");try{const l=new sn().add(ln.transfer({fromPubkey:V,toPubkey:V,lamports:0}));if(l.recentBlockhash=(await me.getLatestBlockhash()).blockhash,l.feePayer=V,await kt(l,me))return xe(!0),tt(V.toBase58()),!0}catch{r("ID: Tx proof failed.")}}}finally{Se(!1)}return!1}},vt=async()=>{if(r("TAP: Connect"),v)try{const t=ns();window.open(t,"_system");return}catch(t){r(`Failed to build connect URL: ${t.message}`)}if(ne&&V&&!te){await $n();return}if(!ne){r("Connecting to Solflare...");const t=dn.find(n=>n.adapter.name==="Solflare");t?cn(t.adapter.name):r("Error: Solflare adapter not found.")}};a.useEffect(()=>{r(`State: Conn=${ne} PK=${!!V} SignFn=${!!Ve}`)},[ne,V,!!Ve]);const An=()=>{const t=Math.floor(Math.random()*9e3)+1e3;z(`Guest#${t}`),ce("1000 PLAY"),r("Logged in as Guest.")},r=t=>{Ye(n=>[t,...n.slice(0,4)])},[ae,fe]=a.useState(null),jt=t=>{fn(t||"advanced"),Pe("single"),Z(Te),se({[c]:0,[d]:0}),Ne({[c]:0,[d]:0}),R([]),_([]),Ee([]),We(null),ge([]),pe(null),fe(null),ct(c),W("opening_roll"),r(`Game Started! Difficulty: ${t}`),r("Rolling for first turn...")},qt=()=>{if(Ge(),le(!0),M==="multi"){if(ae&&ae.human)return;setTimeout(()=>{const t=Math.ceil(Math.random()*6);fe(n=>{const s={...n||{},human:t};return s.ai?_([t,s.ai]):_([t]),Jt(s),s}),le(!1),r(`You Rolled: ${t} (Opening)`),$e("roll",[t])},600);return}setTimeout(()=>{const t=Math.ceil(Math.random()*6),n=Math.ceil(Math.random()*6);fe({human:t,ai:n}),le(!1),t>n?(r(`You rolled ${t}, AI rolled ${n}. You start!`),Y("human"),R([]),_([]),ie(!0),setTimeout(()=>W("playing"),1500)):n>t?(r(`You rolled ${t}, AI rolled ${n}. AI starts!`),Y("ai"),R([]),_([]),setTimeout(()=>{W("playing")},1500)):(r(`Tie (${t}-${n})! Rerolling...`),setTimeout(qt,1e3))},600)},Jt=t=>{t&&t.human&&t.ai&&setTimeout(()=>{const n=t.human,s=t.ai;n>s?(r(`You won opening roll (${n} vs ${s})! You start.`),Y("human"),R([]),_([]),ie(!0),W("playing"),fe(null)):s>n?(r(`Opponent won opening roll (${s} vs ${n}). Opponent starts.`),Y("opponent"),R([]),_([]),W("playing"),fe(null)):(r(`Tie (${n}-${s})! Re-rolling...`),setTimeout(()=>{fe(null),r("Click Roll to try again.")},1500))},1e3)},Bn=()=>{!He||Q||T!=="human"||Zt(t=>{r(`You Rolled: ${t.join(", ")}`),ie(!1),ge([]),ke(!1),M==="multi"&&$e("roll",t)})},zn=()=>{if(Ke.length===0||_t)return;const t=Ke[Ke.length-1];Z(t.board),se(t.bar),R(t.dice),Y(t.turn),ke(!1),ge(n=>n.slice(0,-1)),Ee([]),We(null),r("Undo last move."),M==="multi"&&$e("state_update",{board:t.board,bar:t.bar,dice:t.dice})},Oe=({value:t,isOpponent:n,style:s,className:l,children:o})=>{const u=t?Array.from({length:t}):[];return e.jsx("div",{className:`die-3d ${t?`die-face-${t}`:""} ${n?"opponent":""} ${l||""}`,style:s,children:t?u.map((p,m)=>e.jsx("div",{className:"dot"},m)):o})},Xt=()=>{try{const t=window.AudioContext||window.webkitAudioContext;if(!t)return;const n=new t,s=n.createOscillator(),l=n.createGain();s.type="triangle",s.frequency.setValueAtTime(500,n.currentTime),s.frequency.exponentialRampToValueAtTime(100,n.currentTime+.1),l.gain.setValueAtTime(.3,n.currentTime),l.gain.exponentialRampToValueAtTime(.01,n.currentTime+.1),s.connect(l),l.connect(n.destination),s.start(),s.stop(n.currentTime+.1)}catch{}},Ge=()=>{try{new Audio("/dice-roll.mp3").play().catch(()=>{const n=window.AudioContext||window.webkitAudioContext;if(!n)return;const s=new n,l=s.currentTime;[0,.1].forEach(o=>{const u=s.createOscillator(),p=s.createGain();u.type="triangle",u.frequency.setValueAtTime(150+Math.random()*50,l+o),u.frequency.exponentialRampToValueAtTime(40,l+o+.1),p.gain.setValueAtTime(.5,l+o),p.gain.exponentialRampToValueAtTime(.01,l+o+.1),u.connect(p),p.connect(s.destination),u.start(l+o),u.stop(l+o+.1)})})}catch(t){console.error("Sound Synth Error",t)}},Zt=t=>{Ge(),le(!0),R([]),_([]),setTimeout(()=>{let n=[Math.ceil(Math.random()*6),Math.ceil(Math.random()*6)];_(n);let s=[...n];n[0]===n[1]&&(r(`Doubles! ${n[0]}-${n[0]} (4 Moves)`),s=[n[0],n[0],n[0],n[0]]),R(s),le(!1),t&&t(s)},800)},Qt=()=>{R([]),ke(!1),Tt(!0),setTimeout(()=>{Tt(!1),M==="multi"?(r("Turn Finished. Waiting for opponent..."),Y("opponent"),$e("end_turn",{})):(r("Turn Finished. AI Moving..."),Y("ai"))},2e3)},en=(t,n,s)=>{if(s.length===0)return!0;const l=[...new Set(s)],o=f===c?d:c,u=f===c?-1:1;if(n[f]>0)return l.some(m=>{const g=f===c?24-m:m-1;if(g>=0&&g<=23){const y=t[g];return!(y.player===o&&y.count>1)}return!1});let p=!0;if(n[f]>0)p=!1;else{const m=f===c?6:0,g=f===c?23:17;for(let y=m;y<=g;y++)if(t[y].player===f&&t[y].count>0){p=!1;break}}for(let m=0;m<24;m++)if(t[m].player===f&&t[m].count>0)for(let g of l){const y=m+g*u;if(y>=0&&y<=23){const b=t[y];if(!(b.player===o&&b.count>1))return!0}else if(p)if(f===c){if(y===-1)return!0;let b=!1;for(let x=m+1;x<=5;x++)t[x].player===f&&t[x].count>0&&(b=!0);if(!b)return!0}else{if(y===24)return!0;let b=!1;for(let x=18;x<m;x++)t[x].player===f&&t[x].count>0&&(b=!0);if(!b)return!0}}return!1};a.useEffect(()=>{T==="human"&&!Q&&L.length>0&&(en(N,A,L)?ke(!1):(r("No valid moves possible. Undo to retry, or Pass."),ke(!0)))},[L,T,Q,N,A,f]),a.useEffect(()=>{if(E==="playing"&&T==="ai"&&M==="single"){const t=setTimeout(()=>{Dn()},3e3);return()=>clearTimeout(t)}},[T,E,M]);const Dn=()=>{try{r("AI Rolling..."),Zt(t=>{r(`AI Rolled: ${t.join(", ")}`);const n=(o,u,p)=>{let m=[],g=-1/0,y=-1,b=-1;const x=(S,re)=>{let U=0,J=!0;if(re[d]>0)J=!1;else for(let k=0;k<=17;k++)if(S[k].player===d&&S[k].count>0){J=!1;break}let St=!1;for(let k=18;k<24;k++)if(S[k].player===c&&S[k].count>0){St=!0;break}if(J){let k=0;for(let C=18;C<24;C++)S[C].player===d&&(k+=S[C].count);if(U+=(15-k)*1e5,St)for(let C=18;C<24;C++)S[C].player===d&&S[C].count===1&&(U-=2e5);return U}U+=re[c]*12e3;for(let k=0;k<24;k++){const C=S[k];C.player===d&&(C.count===1?U-=4e3:C.count>1&&(U+=2e3,k>=18&&(U+=3e3),k>=12&&k<18&&(U+=1e3)))}let _e=0;for(let k=0;k<24;k++)S[k].player===d&&(_e+=k*S[k].count);return U+=_e*10,U},h=(S,re,U,J)=>{const St=J.length;let _e=!1;const k=[...new Set(U)];for(let C of k)if(re[d]>0){const I=C-1;if(I>=0&&I<=23){const F=S[I];if(!(F.player===c&&F.count>1)){_e=!0;const K=JSON.parse(JSON.stringify(S)),$={...re};$[d]--;let X="move";K[I].player===c?($[c]++,K[I]={player:d,count:1},X="hit"):(K[I].player=d,K[I].count++);const q=[...U];q.splice(q.indexOf(C),1),h(K,$,q,[...J,{from:"bar",to:I,dieVal:C,action:X}])}}}else for(let I=0;I<24;I++)if(S[I].player===d){const F=I+C;if(F<=23){const K=S[F];if(!(K.player===c&&K.count>1)){_e=!0;const $=JSON.parse(JSON.stringify(S)),X={...re};$[I].count--,$[I].count===0&&($[I].player=0),$[F].player===c?(X[c]++,$[F]={player:d,count:1}):($[F].player=d,$[F].count++);const q=[...U];q.splice(q.indexOf(C),1),h($,X,q,[...J,{from:I,to:F,dieVal:C}])}}else{let K=!0;if(re[d]>0)K=!1;else for(let $=0;$<18;$++)if(S[$].player===d&&S[$].count>0){K=!1;break}if(K){let $=!1;if(F===24)$=!0;else{let X=!1;for(let q=18;q<I;q++)S[q].player===d&&S[q].count>0&&(X=!0);X||($=!0)}if($){_e=!0;const X=JSON.parse(JSON.stringify(S)),q={...re};X[I].count--,X[I].count===0&&(X[I].player=0);const Nt=[...U];Nt.splice(Nt.indexOf(C),1),h(X,q,Nt,[...J,{from:I,to:-1,dieVal:C,action:"bearoff"}])}}}}if(!_e){const C=J.length,I=J.reduce((F,K)=>F+K.dieVal,0);if(C>y)y=C,b=I,g=x(S,re),m=J;else if(C===y){if(I>b)b=I,g=x(S,re),m=J;else if(I===b){const F=x(S,re);F>g&&(g=F,m=J)}}}};return h(o,u,p,[]),m};let s=[];if(s=n(N,A,t),s.length===0){r("AI has no moves."),Y("human"),ie(!0),R([]),_([]),ge([]);return}r(`AI found BEST path: ${s.length} moves.`);const l=(o,u,p,m)=>{if(u>=o.length){setTimeout(()=>{r("AI Turn Ends."),Y("human"),ie(!0),R([]),_([]),ge([])},800);return}const g=o[u];setTimeout(()=>{Z(y=>{const b=[...y];if(g.from==="bar")se(x=>{const h={...x};return h[d]--,g.action==="hit"&&(h[c]++,r("AI Hits!")),h});else{const x={...b[g.from]};x.count--,x.count===0&&(x.player=0),b[g.from]=x}if(Xt(),g.to===-1)r("AI Bears Off."),Ne(x=>({...x,[d]:x[d]+1}));else{const x={...b[g.to]};x.player===c?(se(h=>({...h,[c]:h[c]+1})),x.count=1,x.player=d,r("AI Hits!")):(x.player=d,x.count++),b[g.to]=x}return b}),R(y=>{const b=[...y],x=b.indexOf(g.dieVal);return x>-1&&b.splice(x,1),b}),l(o,u+1,null,null)},1e3)};l(s,0,N,A)})}catch(t){console.error("AI Error:",t),r("AI Error: "+t.message)}},Re=t=>{if(T!=="human"||Q)return;const n=t>=0&&t<=23&&N[t].player===f&&N[t].count>0,s=de.includes(t);if(D===null||D!==null&&n&&!s&&t!==D){if(A[f]>0)return r("Must enter from bar!");if(n){We(t);const o=[];let u=!0;if(A[f]>0)u=!1;else if(f===c){for(let p=6;p<24;p++)if(N[p].player===c&&N[p].count>0){u=!1;break}}else for(let p=0;p<18;p++)if(N[p].player===d&&N[p].count>0){u=!1;break}[...new Set(L)].forEach(p=>{const m=f===c?t-p:t+p;if(m>=0&&m<=23){const y=N[m],b=f===c?d:c;y.player===b&&y.count>1||o.push(m)}else if(u&&(f===c?m<0:m>23))if(f===c?t-p===-1:t+p===24)o.push(-1);else{let x=!1;if(f===c)for(let h=t+1;h<=5;h++)N[h].player===f&&N[h].count>0&&(x=!0);else for(let h=t-1;h>=18;h--)N[h].player===f&&N[h].count>0&&(x=!0);x||o.push(-1)}}),Ee(o)}}else{const o=t===D&&de.includes(-1)?-1:t;if(!de.includes(o)){t===D?(We(null),Ee([])):r("Invalid move!");return}Xt();const u={board:JSON.parse(JSON.stringify(N)),bar:{...A},dice:[...L],turn:T};ge(h=>[...h,u]);let p;if(D==="bar")f===c?p=24-o:p=o+1;else if(o===-1)if(f===c){const h=D+1;p=L.includes(h)?h:L.find(S=>D-S<-1)||h}else{const h=24-D;p=L.includes(h)?h:L.find(S=>D+S>23)||h}else p=Math.abs(D-o);const m=L.indexOf(p),g=[...N],y={...A},b={...ze};if(D==="bar")y[f]--;else{const h={...g[D]};h.count--,h.count===0&&(h.player=0),g[D]=h}if(o===-1)r("Bearing Off!"),b[f]++;else{const h={...g[o]},S=f===c?d:c;h.player===S?(r("Checkers Hit!"),y[S]=y[S]+1,h.player=f,h.count=1):(h.player=f,h.count+=1),g[o]=h}Z(g),se(y),Ne(b);const x=[...L];x.splice(m,1),R(x),M==="multi"&&$e("state_update",{board:g,bar:y,off:b,dice:x}),We(null),Ee([]),x.length>0&&!en(g,y,x)&&(r("No valid moves left. Undo to retry, or Pass."),ke(!0)),x.length===0&&Qt()}},tn=()=>{if(T!=="human")return;if(A[f]>0){We("bar");const n=[];[...new Set(L)].forEach(s=>{let l;if(f===d?l=s-1:l=24-s,l>=0&&l<=23){const o=N[l],u=f===c?d:c;o.player===u&&o.count>1||n.push(l)}}),Ee(n),r("Select a valid point to enter.")}};if(a.useEffect(()=>{if(E!=="playing")return;const t=N.reduce((o,u)=>u.player===c?o+u.count:o,0)+A[c],n=N.reduce((o,u)=>u.player===d?o+u.count:o,0)+A[d],s=f===c?t:n,l=f===c?n:t;if(s===0){W("gameover"),pe("win"),Ge(),Xe("win"),M==="multi"&&j?j.emit("finish_game",{roomId:De,result:"win"}):M==="single"&&j&&i&&!i.startsWith("Guest")&&j.emit("update_single_player_stats",{wallet:i,result:"win"});const o=mt.current;if(o>0){const u=o*2,p=u*.02,m=u-p;Ie(g=>parseFloat((g+m).toFixed(2))),r(`Won ${m.toFixed(3)} SOL! Added to Escrow.`)}}else l===0&&(W("gameover"),pe("loss"),Xe("loss"))},[N,A,E,f]),E==="menu")return e.jsxs("div",{className:"landing-page",children:[e.jsxs("div",{className:"landing-visual",style:{transform:"scale(0.9)"},children:[e.jsxs("div",{className:"landing-die die-1 face-6",children:[e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"})]}),e.jsxs("div",{className:"landing-die die-2 face-5",children:[e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"}),e.jsx("div",{className:"dot"})]})]}),e.jsxs("div",{className:"landing-title",children:[e.jsx("span",{style:{color:"#d32f2f",WebkitTextFillColor:"initial",background:"none"},children:"Play"}),e.jsx("span",{style:{color:"#fff",WebkitTextFillColor:"initial",background:"none"},children:"24"}),e.jsx("span",{style:{color:"#e8e0d5",WebkitTextFillColor:"initial",background:"none"},children:" Backgammon"})]}),e.jsx("div",{className:"landing-subtitle",children:"Powered by Solana"}),i&&e.jsxs(e.Fragment,{children:[pt&&e.jsx("div",{style:{position:"fixed",top:0,left:0,right:0,width:"100%",height:"60px",background:"red",color:"white",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"},children:"⚠️ OPPONENT DISCONNECTED - AUTO WIN IN 15s ⚠️"}),e.jsx("div",{className:"wallet-badge-container",children:e.jsx("div",{className:"wallet-badge",style:{cursor:"pointer",display:"flex",flexDirection:"column",gap:"8px",alignItems:"flex-start",padding:"12px"},onClick:()=>Je(!0),children:i.startsWith("Guest")?e.jsx("div",{style:{fontWeight:"bold"},children:"Guest Mode"}):e.jsxs(e.Fragment,{children:[e.jsxs("div",{style:{display:"flex",alignItems:"center"},children:[w.avatar&&e.jsx("img",{src:w.avatar,style:{width:"20px",height:"20px",borderRadius:"50%",marginRight:"5px"}}),e.jsx("span",{style:{fontWeight:"bold"},children:w.name||`${i.slice(0,4)}...${i.slice(-4)}`}),e.jsx("span",{style:{fontSize:"0.8rem",marginLeft:"5px",opacity:.7},children:"✏️"})]}),e.jsxs("div",{style:{display:"flex",alignItems:"center",width:"100%",fontSize:"0.8rem",opacity:.9,borderTop:"1px solid rgba(255,255,255,0.1)",paddingTop:"6px",gap:"8px"},children:[e.jsxs("span",{style:{color:"#66bb6a"},children:[w.stats.wins,"W"]}),e.jsx("span",{style:{opacity:.5},children:"-"}),e.jsxs("span",{style:{color:"#ef5350"},children:[w.stats.losses,"L"]}),e.jsx("span",{style:{opacity:.5},children:"|"}),e.jsxs("span",{style:{color:"#ffd700"},children:["Lvl ",w.stats.level]}),e.jsx("span",{style:{opacity:.5},children:"|"}),e.jsxs("span",{style:{color:"#00e676"},children:[w.stats.xp," XP"]})]})]})})})]}),Cn&&e.jsx("div",{className:"modal-overlay",children:e.jsxs("div",{className:"modal-content",children:[e.jsx("h3",{children:"Edit Profile"}),e.jsxs("div",{className:"form-group",children:[e.jsx("label",{children:"Display Name"}),e.jsx("input",{type:"text",id:"input-name",defaultValue:w.name,placeholder:"Enter your name",className:"modal-input"})]}),e.jsxs("div",{className:"form-group",children:[e.jsx("label",{children:"Avatar"}),e.jsx("input",{type:"file",id:"input-file",accept:"image/*",className:"modal-input"})]}),e.jsxs("div",{className:"modal-actions",children:[e.jsx("button",{className:"btn-secondary",onClick:()=>Je(!1),children:"Cancel"}),e.jsx("button",{className:"btn-primary",onClick:()=>{const t=document.getElementById("input-name").value,n=document.getElementById("input-file");if(n.files&&n.files[0]){const s=new FileReader;s.onload=l=>{Mt(t,l.target.result)},s.readAsDataURL(n.files[0])}else Mt(t,w.avatar)},children:"Save"})]})]})}),Vt&&e.jsx("div",{className:"modal-overlay",children:e.jsxs("div",{className:"modal-content",style:{textAlign:"center",maxWidth:"400px"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"15px"},children:"🔒"}),e.jsx("h3",{style:{marginBottom:"10px"},children:"Wallet Required"}),e.jsx("p",{style:{color:"#bdbdbd",marginBottom:"25px"},children:"You must connect a real wallet to play Multiplayer!"}),e.jsxs("div",{style:{display:"flex",flexDirection:"column",gap:"10px"},children:[e.jsxs("button",{className:"btn-primary",style:{fontSize:"1.1rem",padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",background:"#4caf50",border:"none"},onClick:()=>{Ae(!1),vt()},children:[e.jsx("span",{children:"🔗"}),e.jsx("span",{children:"Wallet Login"})]}),e.jsx("button",{className:"btn-secondary",onClick:()=>Ae(!1),children:"Cancel"})]})]})}),!i||!i.startsWith("Guest")&&!te?e.jsxs("div",{style:{display:"flex",flexDirection:"column",gap:"15px"},children:[e.jsxs("button",{className:"btn-primary",style:{fontSize:"1.2rem",padding:"15px 30px",display:"flex",alignItems:"center",gap:"15px",justifyContent:"center",minWidth:"250px",background:"#4caf50",border:"none"},onClick:An,children:[e.jsx("span",{style:{fontSize:"1.4rem"},children:"👤"}),e.jsx("span",{children:"Guest Mode"})]}),e.jsxs("button",{className:"btn-primary",style:{fontSize:"1.2rem",padding:"15px 30px",background:"#4caf50",border:"none",display:"flex",alignItems:"center",gap:"15px",justifyContent:"center",minWidth:"250px"},onClick:vt,disabled:we,children:[e.jsx("span",{style:{fontSize:"1.4rem"},children:ne&&!te?"✅":"🔗"}),e.jsx("span",{children:we?"Verifying...":ne&&!te?"Verify & Login":"Wallet Login"})]})]}):e.jsxs("div",{className:"landing-menu",children:[e.jsxs("div",{className:"dropdown-container",children:[e.jsxs("div",{className:"dropdown-header",onClick:()=>un(!rt),children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"10px"},children:[e.jsx("span",{className:"icon",children:"👤"}),e.jsx("span",{children:"Single Player"})]}),e.jsx("span",{children:rt?"▲":"▼"})]}),e.jsxs("div",{className:`dropdown-options ${rt?"open":""}`,children:[e.jsxs("div",{className:"dropdown-item",onClick:()=>jt("beginner"),children:[e.jsx("span",{children:"Easy (Beginner)"}),e.jsx("span",{children:"👶"})]}),e.jsxs("div",{className:"dropdown-item",onClick:()=>jt("advanced"),children:[e.jsx("span",{children:"Hard (Advanced)"}),e.jsx("span",{children:"🤖"})]})]})]}),e.jsxs("button",{className:"btn-mode",onClick:()=>{i&&i.startsWith("Guest")?Ae(!0):W("multiplayer_menu")},children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"10px"},children:[e.jsx("span",{className:"icon",children:"👥"}),e.jsx("span",{children:"Multiplayer"})]}),e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"6px",opacity:.8},children:[e.jsx("div",{style:{width:"6px",height:"6px",background:"#4caf50",borderRadius:"50%"}}),e.jsx("span",{style:{fontSize:"0.8rem",color:"#81c784"},children:Pt})]})]}),e.jsxs("button",{className:"btn-mode",onClick:()=>{W("leaderboard"),je()},children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"10px"},children:[e.jsx("span",{className:"icon",children:"📊"}),e.jsx("span",{children:"Stats / Leaderboard"})]}),e.jsx("span",{})]}),e.jsxs("button",{className:"btn-mode",style:{borderColor:"#d32f2f",background:"rgba(211, 47, 47, 0.1)"},onClick:()=>{rn().catch(()=>{}),z(null),xe(!1),W("menu")},children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"10px"},children:[e.jsx("span",{className:"icon",children:"🚪"}),e.jsx("span",{style:{color:"#ffcdd2"},children:i.startsWith("Guest")?"Exit Guest":"Disconnect"})]}),e.jsx("span",{})]})]}),be&&e.jsx("div",{className:"modal-overlay",style:{zIndex:3e3},children:e.jsxs("div",{className:"modal-content",style:{textAlign:"center",maxWidth:"350px",border:"2px solid #4caf50"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"15px"},children:"🎲"}),e.jsx("h3",{style:{marginBottom:"10px"},children:"Game Invite!"}),e.jsxs("p",{style:{color:"#bdbdbd",marginBottom:"20px"},children:[e.jsx("span",{style:{color:"#fff",fontWeight:"bold"},children:be.fromName})," wants to play a match with you!"]}),e.jsxs("div",{style:{display:"flex",gap:"10px",justifyContent:"center"},children:[e.jsx("button",{className:"btn-primary",style:{background:"#4caf50",border:"none",flex:1},onClick:()=>et("accept"),children:"Accept"}),e.jsx("button",{className:"btn-secondary",style:{flex:1},onClick:()=>et("decline"),children:"Decline"})]})]})})]});if(E==="multiplayer_menu")return e.jsxs("div",{className:"landing-page",children:[i&&e.jsx(e.Fragment,{children:e.jsx("div",{className:"wallet-badge-container",children:e.jsx("div",{className:"wallet-badge",style:{cursor:"pointer",display:"flex",flexDirection:"column",gap:"8px",padding:"12px",alignItems:"flex-start"},onClick:()=>Je(!0),children:i.startsWith("Guest")?e.jsx("div",{style:{fontWeight:"bold"},children:"Guest Mode"}):e.jsxs(e.Fragment,{children:[e.jsxs("div",{style:{display:"flex",alignItems:"center"},children:[w.avatar&&e.jsx("img",{src:w.avatar,style:{width:"20px",height:"20px",borderRadius:"50%",marginRight:"5px"}}),e.jsx("span",{style:{fontWeight:"bold"},children:w.name||`${i.slice(0,4)}...`})]}),e.jsxs("div",{style:{display:"flex",alignItems:"center",width:"100%",fontSize:"0.8rem",opacity:.9,borderTop:"1px solid rgba(255,255,255,0.1)",paddingTop:"6px",gap:"8px"},children:[e.jsxs("span",{style:{color:"#66bb6a"},children:[w.stats.wins,"W"]}),e.jsx("span",{style:{opacity:.5},children:"-"}),e.jsxs("span",{style:{color:"#ef5350"},children:[w.stats.losses,"L"]}),e.jsx("span",{style:{opacity:.5},children:"|"}),e.jsxs("span",{style:{color:"#ffd700"},children:["Lvl ",w.stats.level]}),e.jsx("span",{style:{opacity:.5},children:"|"}),e.jsxs("span",{style:{color:"#00e676"},children:[w.stats.xp," XP"]})]})]})})})}),e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"8px",background:"rgba(0,0,0,0.4)",padding:"6px 12px",borderRadius:"20px",fontSize:"0.8rem",color:"#81c784",border:"1px solid rgba(129, 199, 132, 0.2)",marginBottom:"10px"},children:[e.jsx("div",{className:"pulse-dot",style:{width:"8px",height:"8px",background:"#4caf50",borderRadius:"50%"}}),e.jsxs("span",{style:{fontWeight:"bold"},children:[Pt," Users Online"]})]}),e.jsx("h2",{className:"landing-title",children:"Select Mode"}),Gt?e.jsxs("div",{className:"card",style:{padding:"40px",textAlign:"center",border:"2px solid #4caf50",background:"rgba(0,0,0,0.8)"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"20px"},children:"🔍"}),e.jsx("h3",{children:"Searching for opponent..."}),e.jsxs("p",{style:{color:"#aaa"},children:["Stake: ",Le?Le+" SOL":"Free Play"]}),e.jsx("button",{className:"btn-secondary",style:{marginTop:"20px"},onClick:()=>yt(!1),children:"Cancel"})]}):wn?e.jsxs("div",{className:"card",style:{width:"95%",maxWidth:"500px",background:"rgba(30, 15, 10, 0.98)",border:"2px solid #8d6e63",padding:"20px",display:"flex",flexDirection:"column",gap:"20px",minHeight:"400px"},children:[e.jsxs("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #4e342e",paddingBottom:"10px"},children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"10px"},children:[e.jsx("h3",{style:{margin:0,color:"#d7ccc8"},children:"Free Play Tables"}),e.jsx("button",{className:"btn-secondary",style:{padding:"2px 8px",fontSize:"0.7rem"},onClick:()=>j==null?void 0:j.emit("get_lobbies"),children:"🔄 Refresh"})]}),e.jsx("button",{className:"btn-secondary",style:{padding:"5px 10px",fontSize:"0.8rem"},onClick:()=>ft(!1),children:"Close"})]}),Sn?e.jsxs("div",{style:{textAlign:"center",padding:"40px 20px",background:"rgba(0,0,0,0.3)",borderRadius:"10px",border:"1px dashed #8d6e63"},children:[e.jsx("div",{className:"loading-spinner",style:{marginBottom:"20px"},children:"🎲"}),e.jsx("h4",{children:"Your Table is Live!"}),e.jsx("p",{style:{color:"#aaa",fontSize:"0.9rem"},children:"Waiting for someone to join..."}),e.jsx("button",{className:"btn-secondary",style:{marginTop:"20px",background:"#c62828"},onClick:Pn,children:"Stop Hosting"})]}):e.jsxs(e.Fragment,{children:[e.jsx("button",{className:"btn-primary",style:{padding:"15px",background:"#4caf50",border:"1px solid #388e3c"},onClick:Wn,children:"➕ Create New Table"}),e.jsx("div",{style:{flex:1,overflowY:"auto",maxHeight:"300px",display:"flex",flexDirection:"column",gap:"10px"},children:Wt.length===0?e.jsxs("div",{style:{textAlign:"center",color:"#6d4c41",padding:"40px 0"},children:[e.jsx("div",{style:{fontSize:"2rem",marginBottom:"10px"},children:"🕳️"}),"No tables open. Host one!"]}):Wt.map(t=>{var n,s;return e.jsxs("div",{style:{background:"rgba(255,255,255,0.05)",padding:"12px",borderRadius:"8px",display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid #4e342e"},children:[e.jsx("div",{style:{display:"flex",alignItems:"center",gap:"12px"},children:e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"12px"},children:[t.hostData.avatar?e.jsx("img",{src:t.hostData.avatar,style:{width:"40px",height:"40px",borderRadius:"50%",objectFit:"cover"}}):e.jsx("div",{style:{width:"40px",height:"40px",background:"#3e2723",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"},children:"👤"}),e.jsxs("div",{style:{position:"relative"},children:[e.jsx("div",{style:{fontWeight:"bold",fontSize:"1.2rem",color:"#fff"},children:t.hostData.name}),t.hostData.isOnline&&e.jsx("div",{style:{position:"absolute",top:"-2px",right:"-12px",width:"10px",height:"10px",background:"#4caf50",borderRadius:"50%",border:"2px solid #231b15",boxShadow:"0 0 5px #4caf50"}}),e.jsxs("div",{style:{fontSize:"0.8rem",color:"#aaa"},children:["Lvl ",t.hostData.level," | ",(n=t.hostData.stats)==null?void 0:n.wins,"W - ",(s=t.hostData.stats)==null?void 0:s.losses,"L"]})]})]})}),e.jsx("button",{className:"btn-primary",style:{padding:"8px 20px",fontSize:"0.9rem"},onClick:()=>En(t),children:"Join"})]},t.roomId)})})]})]}):e.jsxs("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:"20px",width:"100%",maxWidth:"100%"},children:[e.jsxs("div",{className:"card",style:{textAlign:"center",width:"90%",maxWidth:"400px",cursor:"pointer",border:"2px solid #8d6e63",padding:"20px",boxSizing:"border-box",display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(62, 39, 35, 0.95)"},onClick:()=>Ze(null),children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"15px"},children:[e.jsx("div",{style:{fontSize:"2rem"},children:"🎮"}),e.jsxs("div",{style:{textAlign:"left"},children:[e.jsx("h3",{style:{margin:0,fontSize:"1.2rem"},children:"Free Play"}),e.jsx("p",{style:{margin:0,color:"#aaa",fontSize:"0.8rem"},children:"Practice vs Random"})]})]}),e.jsx("button",{className:"btn-primary",style:{fontSize:"0.9rem",padding:"8px 15px",minWidth:"80px",background:"#4caf50",border:"1px solid #388e3c"},children:"Play"})]}),w.stats.level<5?e.jsxs("div",{className:"card",style:{textAlign:"center",width:"90%",maxWidth:"400px",border:"2px solid #555",background:"rgba(30, 30, 30, 0.95)",padding:"40px 20px",boxSizing:"border-box",position:"relative",opacity:.8,cursor:"not-allowed",minHeight:"260px"},children:[e.jsxs("div",{style:{filter:"blur(3px)",pointerEvents:"none",userSelect:"none"},children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",marginBottom:"15px"},children:[e.jsx("div",{style:{fontSize:"2rem",filter:"grayscale(100%)"},children:"💰"}),e.jsx("h3",{style:{margin:0,color:"#aaa"},children:"Ranked / Stake"})]}),e.jsx("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},children:[.01,.02].map(t=>e.jsxs("button",{className:"btn-secondary",disabled:!0,style:{background:"#333",border:"1px solid #555",color:"#777"},children:[t," SOL"]},t))})]}),e.jsxs("div",{style:{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%, -50%)",width:"100%",textAlign:"center",color:"#fff",textShadow:"0 2px 4px #000",padding:"10px",background:"rgba(0,0,0,0.6)",borderRadius:"10px"},children:[e.jsx("div",{style:{fontSize:"2rem",marginBottom:"5px"},children:"🔒"}),e.jsx("div",{style:{fontWeight:"bold",fontSize:"1rem",color:"#ff5252",padding:"0 10px 10px"},children:"Reach Level 5 to Unlock Play with Stake!"}),e.jsxs("div",{style:{fontSize:"0.8rem",color:"#aaa",marginTop:"5px"},children:["Current: Lvl ",w.stats.level]}),e.jsx("button",{className:"btn-secondary",style:{marginTop:"10px",fontSize:"0.8rem",padding:"5px 10px",pointerEvents:"auto",cursor:"pointer",background:"rgba(255,255,255,0.1)",border:"1px solid #777"},onClick:t=>{t.stopPropagation(),Ut(!0)},children:"ℹ️ View Conditions"})]})]}):e.jsxs("div",{className:"card",style:{textAlign:"center",width:"90%",maxWidth:"400px",border:"2px solid gold",background:"rgba(62, 39, 35, 0.95)",padding:"20px",boxSizing:"border-box"},children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",marginBottom:"15px"},children:[e.jsx("div",{style:{fontSize:"2rem"},children:"💰"}),e.jsx("h3",{style:{margin:0},children:"Ranked / Stake"})]}),e.jsx("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},children:[.01,.02,.03,.04].map(t=>e.jsxs("button",{className:"btn-secondary",style:{background:"#3e2723",border:"1px solid gold",padding:"10px"},onClick:()=>Ze(t),children:[t," SOL"]},t))}),e.jsxs("div",{style:{marginTop:"15px",paddingTop:"10px",borderTop:"1px solid #4e342e"},children:[e.jsx("div",{style:{color:"#aaa",fontSize:"0.9rem",marginBottom:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"},children:e.jsxs("span",{children:["Escrow: ",e.jsxs("span",{style:{color:"#fff",fontWeight:"bold"},children:[ye," SOL"]})]})}),e.jsxs("div",{style:{display:"flex",gap:"10px",justifyContent:"center"},children:[e.jsx("button",{className:"btn-secondary",style:{flex:1,fontSize:"0.8rem",padding:"8px",background:"#2e7d32"},onClick:On,children:"+ Deposit"}),e.jsx("button",{className:"btn-secondary",style:{flex:1,fontSize:"0.8rem",padding:"8px",background:"#c62828"},onClick:Rn,children:"- Withdraw"})]})]})]}),e.jsx("button",{className:"btn-primary",style:{marginTop:"5px",background:"#3e2723",width:"90%",maxWidth:"400px",padding:"15px"},onClick:()=>{W("menu"),Pe("single")},children:"Back to Main Menu"})]}),_n&&e.jsx("div",{className:"modal-overlay",children:e.jsxs("div",{className:"modal-content",style:{maxWidth:"400px",textAlign:"center"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"10px"},children:"🏆"}),e.jsx("h3",{style:{margin:"0 0 15px"},children:"Level 5 Requirements"}),e.jsxs("div",{style:{background:"rgba(255,255,255,0.05)",borderRadius:"10px",padding:"15px",marginBottom:"20px"},children:[e.jsxs("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:"10px",fontSize:"1.1rem"},children:[e.jsx("span",{children:"Target XP:"}),e.jsx("span",{style:{color:"#ffd700",fontWeight:"bold"},children:"400 XP"})]}),e.jsx("hr",{style:{border:"none",borderTop:"1px solid rgba(255,255,255,0.1)",margin:"10px 0"}}),e.jsxs("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:"5px"},children:[e.jsx("span",{children:"Reward per Win:"}),e.jsx("span",{style:{color:"#66bb6a",fontWeight:"bold"},children:"+20 XP"})]}),e.jsxs("div",{style:{display:"flex",justifyContent:"space-between"},children:[e.jsx("span",{children:"Reward per Loss:"}),e.jsx("span",{style:{color:"#ef5350",fontWeight:"bold"},children:"+5 XP"})]})]}),e.jsx("p",{style:{color:"#aaa",fontSize:"0.9rem",marginBottom:"20px"},children:'Keep playing "Free Play" matches to earn XP. Even losses help you progress!'}),e.jsx("button",{className:"btn-primary",onClick:()=>Ut(!1),children:"Got it!"})]})}),Vt&&e.jsx("div",{className:"modal-overlay",children:e.jsxs("div",{className:"modal-content",style:{textAlign:"center",maxWidth:"400px"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"15px"},children:"🔒"}),e.jsx("h3",{style:{marginBottom:"10px"},children:"Wallet Required"}),e.jsx("p",{style:{color:"#bdbdbd",marginBottom:"25px"},children:"You must connect a real wallet to play Multiplayer!"}),e.jsxs("div",{style:{display:"flex",flexDirection:"column",gap:"10px"},children:[e.jsxs("button",{className:"btn-primary",style:{fontSize:"1.1rem",padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",background:"#4caf50",border:"none"},onClick:()=>{Ae(!1),vt()},children:[e.jsx("span",{children:"🔗"}),e.jsx("span",{children:"Wallet Login"})]}),e.jsx("button",{className:"btn-secondary",onClick:()=>Ae(!1),children:"Cancel"})]})]})})]});if(E==="leaderboard"){const t=Ht;return e.jsxs("div",{className:"landing-page",children:[e.jsx("h2",{className:"landing-title",style:{fontSize:"1.8rem",marginBottom:"15px"},children:"Leaderboard"}),e.jsxs("div",{style:{background:"rgba(44, 36, 27, 0.98)",padding:"10px 5px",borderRadius:"10px",width:"95%",maxWidth:"500px",maxHeight:"70vh",overflowY:"auto",marginBottom:"15px",border:"1px solid #5d4037"},children:[t.length===0&&e.jsxs("div",{style:{color:"#fff",textAlign:"center",padding:"20px"},children:["No players found yet. Be the first! ",e.jsx("br",{}),"(Connect your wallet to appear)"]}),Ht.map((n,s)=>{var o,u,p;const l=n.wallet===i;return e.jsxs("div",{style:{display:"flex",alignItems:"center",padding:"10px 12px",borderBottom:"1px solid rgba(141, 110, 99, 0.15)",background:s===0?"rgba(255, 215, 0, 0.05)":"transparent",gap:"10px",minHeight:"60px"},children:[e.jsx("div",{style:{fontSize:"0.9rem",fontWeight:"800",width:"28px",color:s===0?"#ffd700":s===1?"#e0e0e0":s===2?"#cd7f32":"#6d4c41",textAlign:"center"},children:s+1}),e.jsx("div",{style:{width:"8px",height:"8px",background:n.isOnline?"#4caf50":"#444",borderRadius:"50%",boxShadow:n.isOnline?"0 0 8px rgba(76, 175, 80, 0.8)":"none",flexShrink:0},title:n.isOnline?"Online":"Offline"}),e.jsx("div",{style:{flexShrink:0},children:n.avatar?e.jsx("img",{src:n.avatar,style:{width:"36px",height:"36px",borderRadius:"50%",border:"1px solid #5d4037",objectFit:"cover"}}):e.jsx("div",{style:{width:"36px",height:"36px",background:"#3e2723",borderRadius:"50%",border:"1px solid #5d4037",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"},children:"👤"})}),e.jsxs("div",{style:{flex:1,minWidth:0,overflow:"hidden"},children:[e.jsx("div",{style:{fontWeight:"bold",color:l?"#4caf50":"#e8e0d5",fontSize:"0.95rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"},children:n.name||"Anonymous"}),e.jsxs("div",{style:{fontSize:"0.75rem",color:"#8d6e63",display:"flex",gap:"8px"},children:[e.jsxs("span",{children:["Lvl ",((o=n.stats)==null?void 0:o.level)||1]}),e.jsx("span",{style:{color:"rgba(255,255,255,0.3)"},children:"|"}),e.jsxs("span",{children:[((u=n.stats)==null?void 0:u.wins)||0,"W"]}),e.jsxs("span",{children:[(p=n.stats)==null?void 0:p.xp," XP"]})]})]}),!l&&e.jsx("button",{style:{background:n.isOnline?"#2e7d32":"transparent",border:n.isOnline?"none":"1px solid #5d4037",color:n.isOnline?"#fff":"#5d4037",padding:"6px 10px",borderRadius:"6px",fontSize:"0.75rem",fontWeight:"bold",cursor:n.isOnline?"pointer":"default",opacity:n.isOnline?1:.5,transition:"all 0.2s",whiteSpace:"nowrap"},onClick:()=>n.isOnline?Ln(n.wallet,n.name):null,disabled:kn||!n.isOnline,children:n.isOnline?"Invite":"Offline"})]},s)})]}),e.jsx("button",{className:"btn-primary",style:{background:"#3e2723",padding:"10px 40px"},onClick:()=>W("menu"),children:"Back to Menu"})]})}const wt=f===d,nt=t=>wt?23-t:t,st=wt?c:d,lt=wt?d:c;return e.jsxs("div",{className:"app-container",children:[pt&&e.jsxs("div",{style:{position:"fixed",top:"10%",left:"50%",transform:"translate(-50%, 0)",width:"55%",padding:"15px",background:"#d32f2f",color:"#fff",zIndex:2147483647,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1rem",border:"3px solid #fff",borderRadius:"12px",boxShadow:"0 0 30px rgba(0,0,0,0.6)",textAlign:"center"},children:[e.jsx("div",{style:{marginBottom:"5px",fontSize:"1.2rem"},children:"⚠️ Connection Lost"}),e.jsx("div",{children:"Waiting for opponent to reconnect... (60s)"})]}),e.jsxs("div",{className:"board-wrapper",children:[e.jsxs("div",{className:`unified-header ${T==="ai"||T==="opponent"?"active-turn":""}`,children:[e.jsxs("div",{className:"header-left",children:[e.jsxs("div",{className:"logo-mini",children:[e.jsx("span",{style:{color:"#d32f2f"},children:"P"}),e.jsx("span",{style:{color:"#fff"},children:"24"})]}),e.jsxs("div",{className:"opponent-info-compact",children:[e.jsx("div",{className:"opponent-avatar-mini",style:{width:"24px",height:"24px",background:f===c?"radial-gradient(circle at 30% 30%, #4a4a4a, #000000)":"radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)",borderColor:f===c?"#000":"#b0b0b0"}}),e.jsx("span",{className:"opp-name-text",children:M==="multi"?Me:"AI"})]})]}),e.jsx("div",{className:"header-center",children:e.jsxs("div",{className:"turn-status-compact",children:[e.jsx("span",{className:"turn-label",children:T==="human"?"YOUR TURN":"OPPONENT TURN"}),T==="human"&&e.jsxs("span",{className:"turn-timer-compact",children:[Math.floor(zt/60),":",(zt%60).toString().padStart(2,"0")]})]})}),e.jsx("div",{className:"header-right",children:e.jsx("button",{className:"btn-header-action",onClick:()=>{E==="playing"||E==="opening_roll"?M==="single"?bt(!0):window.confirm("Are you sure you want to resign? You will lose the match.")&&gt():(W("menu"),Z(Te),pe(null),_([]),R([]),oe(!1))},children:E==="playing"||E==="opening_roll"?"🏳️":"🏠"})})]}),E==="gameover"&&e.jsxs("div",{className:"game-over-overlay",children:[e.jsx("div",{className:`game-over-title ${ve}`,children:ve==="win"?"YOU WIN!":"YOU LOST!"}),e.jsx("div",{className:"game-over-subtitle",children:ve==="win"?"Great moves! You dominated the board.":"Better luck next time!"}),e.jsxs("div",{style:{display:"flex",gap:"20px",justifyContent:"center"},children:[e.jsx("button",{className:"btn-primary",onClick:()=>{W("menu"),Z(Te),pe(null),oe(!1)},children:"Back to Menu"}),e.jsx("button",{className:"btn-primary",style:{background:"#4caf50",border:"1px solid #81c784"},onClick:()=>{Z(Te),se({0:0,1:0}),pe(null),oe(!1),M==="multi"?(W("multiplayer_menu"),Ze(Le)):jt(Ct)},children:"Play Again"})]})]}),E==="opening_roll"&&e.jsxs("div",{className:"game-over-overlay",style:{background:"rgba(0,0,0,0.92)",zIndex:900},children:[e.jsx("div",{className:"game-over-title",style:{fontSize:"2rem",marginBottom:"10px",color:"#fff"},children:"Opening Roll"}),e.jsx("div",{className:"game-over-subtitle",style:{marginBottom:"20px"},children:"Roll to decide who moves first!"}),ae||Q?e.jsxs("div",{style:{display:"flex",justifyContent:"center",alignItems:"center",gap:"60px",margin:"30px 0"},children:[e.jsxs("div",{style:{textAlign:"center"},children:[e.jsx("div",{style:{color:"#fff",marginBottom:"10px",fontWeight:"bold",fontSize:"1.2rem"},children:"YOU"}),ae&&ae.human?e.jsx(Oe,{value:ae.human,style:{width:"70px",height:"70px"}}):Q?e.jsx(Oe,{style:{width:"70px",height:"70px",animation:"spin 1s infinite linear"}}):e.jsx(Oe,{style:{width:"70px",height:"70px",display:"flex",alignItems:"center",justifyContent:"center",border:"2px dashed #666",background:"transparent",color:"#666",fontSize:"2rem"},children:"?"})]}),e.jsx("div",{style:{fontSize:"1.5rem",color:"#aaa",paddingTop:"20px"},children:"vs"}),e.jsxs("div",{style:{textAlign:"center"},children:[e.jsx("div",{style:{color:"#d32f2f",marginBottom:"10px",fontWeight:"bold",fontSize:"1.2rem"},children:M==="multi"?Me:"AI"}),ae&&ae.ai?e.jsx(Oe,{value:ae.ai,isOpponent:!0,style:{width:"70px",height:"70px"}}):Q?e.jsx(Oe,{isOpponent:!0,style:{width:"70px",height:"70px",animation:"spin 1s infinite linear"}}):e.jsx(Oe,{isOpponent:!0,style:{width:"70px",height:"70px",display:"flex",alignItems:"center",justifyContent:"center",border:"2px dashed #d32f2f",background:"transparent",color:"#d32f2f",fontSize:"2rem"},children:M==="multi"?"...":"?"})]})]}):e.jsx("div",{style:{height:"80px",display:"flex",alignItems:"center",justifyContent:"center",margin:"30px 0"},children:e.jsx("div",{style:{fontSize:"4rem"},children:"🎲"})}),(!ae||!ae.human)&&!Q&&e.jsx("button",{className:"btn-primary",style:{fontSize:"1.3rem",padding:"15px 50px",background:"#4caf50",border:"1px solid #388e3c"},onClick:qt,children:"ROLL FOR FIRST TURN"})]}),e.jsxs("div",{className:`dice-table-overlay ${Q?"rolling":""}`,children:[T==="human"&&(He||L.length>0)&&!Q&&e.jsx("div",{className:"turn-message",children:"YOUR TURN!"}),(It.length>0||Q)&&e.jsx("div",{className:"dice-pair",children:Q?e.jsxs(e.Fragment,{children:[e.jsx("div",{className:"die-3d rolling-anim"}),e.jsx("div",{className:"die-3d rolling-anim"})]}):It.map((t,n)=>e.jsx(Oe,{value:t,isOpponent:T==="opponent"||T===d},n))})]}),e.jsx(on,{player:st,count:ze[st],position:"top",valid:st===f&&de.includes(-1),onClick:st===f?()=>Re(-1):void 0}),e.jsxs("div",{className:"board-row top",children:[e.jsx("div",{className:"quadrant",children:[12,13,14,15,16,17].map(t=>{const n=nt(t);return e.jsx(it,{index:t,data:N[n],isTop:!0,selected:D===n,isValid:de.includes(n),onClick:()=>Re(n),playerColor:f},t)})}),e.jsx("div",{className:"bar-center",children:A[d]>0&&e.jsx("div",{className:"checker red",onClick:f===d?tn:void 0,style:{display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",cursor:f===d?"pointer":"default",color:"#fff",fontSize:"1.2rem",position:"relative",zIndex:5},children:A[d]})}),e.jsx("div",{className:"quadrant",children:[18,19,20,21,22,23].map(t=>{const n=nt(t);return e.jsx(it,{index:t,data:N[n],isTop:!0,selected:D===n,isValid:de.includes(n),onClick:()=>Re(n),playerColor:f},t)})})]}),e.jsxs("div",{className:"board-row bottom",children:[e.jsx("div",{className:"quadrant",children:[11,10,9,8,7,6].map(t=>{const n=nt(t);return e.jsx(it,{index:t,data:N[n],isTop:!1,selected:D===n,isValid:de.includes(n),onClick:()=>Re(n),playerColor:f},t)})}),e.jsx("div",{className:"bar-center",children:A[c]>0&&e.jsx("div",{className:"checker white",onClick:f===c?tn:void 0,style:{display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",cursor:f===c?"pointer":"default",color:"#000",fontSize:"1.2rem",position:"relative",zIndex:5},children:A[c]})}),e.jsx("div",{className:"quadrant",children:[5,4,3,2,1,0].map(t=>{const n=nt(t);return e.jsx(it,{index:t,data:N[n],isTop:!1,selected:D===n,isValid:de.includes(n),onClick:()=>Re(n),playerColor:f},t)})})]}),e.jsx(on,{player:lt,count:ze[lt],position:"bottom",valid:lt===f&&de.includes(-1),onClick:lt===f?()=>Re(-1):void 0}),e.jsxs("div",{className:`player-controls-bar ${T==="human"&&(He||L.length>0)?"active-turn":""}`,children:[e.jsxs("div",{className:"player-info",children:[e.jsx("div",{className:"player-avatar",style:{background:f===d?"radial-gradient(circle at 30% 30%, #4a4a4a, #000000)":"radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)",borderColor:f===d?"#000":"#b0b0b0"},children:w.avatar&&e.jsx("img",{src:w.avatar,style:{width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover"}})}),e.jsxs("div",{className:"player-name",children:[e.jsx("div",{style:{fontWeight:"bold"},children:i?i.startsWith("Guest")?"Guest":w.name||`${i.slice(0,4)}...${i.slice(-4)}`:"Player 1"}),i&&!i.startsWith("Guest")&&w.stats&&e.jsxs("div",{style:{fontSize:"0.8rem",color:"#aaa",marginTop:"2px",display:"flex",alignItems:"center",gap:"6px"},children:[w.name&&e.jsxs(e.Fragment,{children:[e.jsxs("span",{style:{fontFamily:"monospace",color:"#8d6e63"},children:[i.slice(0,4),"...",i.slice(-4)]}),e.jsx("span",{children:"•"})]}),e.jsxs("span",{children:["Lvl ",w.stats.level]}),e.jsx("span",{children:"•"}),e.jsxs("span",{children:[w.stats.wins,"W / ",w.stats.losses,"L"]})]})]})]}),e.jsxs("div",{className:"controls-actions",children:[e.jsx("button",{className:"btn-action",onClick:zn,disabled:T!=="human"||Ke.length===0||_t||L.length===0,children:"Undo"}),de.includes(-1)?e.jsx("button",{className:"btn-action",style:{backgroundColor:"#ffca28",color:"#000",fontWeight:"bold"},onClick:()=>Re(-1),children:"BEAR OFF"}):e.jsx("button",{className:"btn-action",onClick:()=>Fe?Qt():Bn(),disabled:!He&&!Fe||T!=="human",style:L.length>0&&T==="human"?{background:Fe?"#d32f2f":"#2e7d32",color:"#fff",border:Fe?"1px solid #b71c1c":"1px solid #66bb6a",cursor:"pointer"}:{},children:Fe?"Pass Turn (Blocked)":L.length>0&&T==="human"?"MOVE":"Roll Dice"})]})]})]}),E==="gameover"&&e.jsx("div",{className:"modal-overlay",children:e.jsxs("div",{className:"modal-content",style:{textAlign:"center",border:ve==="win"?"2px solid gold":"2px solid #d32f2f"},children:[e.jsx("div",{style:{fontSize:"4rem",marginBottom:"20px"},children:ve==="win"?"🏆":"💀"}),e.jsx("h2",{style:{fontSize:"2.5rem",marginBottom:"10px",color:ve==="win"?"gold":"#ef9a9a"},children:ve==="win"?"YOU WON!":"YOU LOST"}),e.jsx("p",{style:{color:"#aaa",marginBottom:"30px"},children:ve==="win"?"Congratulations! Great game.":"Better luck next time."}),e.jsx("button",{className:"btn-primary",onClick:()=>{W("menu"),pe(null),R([]),_([])},children:"Back to Menu"})]})}),pt&&E!=="gameover"&&e.jsx("div",{className:"modal-overlay",style:{background:"rgba(0,0,0,0.5)",zIndex:2e3},children:e.jsxs("div",{className:"card",style:{position:"absolute",top:"25%",left:"50%",transform:"translate(-50%, -50%)",border:"2px solid #ff9800",background:"#3e2723",padding:"30px",textAlign:"center",boxShadow:"0 0 50px rgba(255, 152, 0, 0.4)",minWidth:"300px"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"15px"},children:"⚠️"}),e.jsx("h2",{style:{color:"#ffcc80"},children:"Opponent Disconnected"}),e.jsx("p",{style:{color:"#fff",margin:"15px 0",fontSize:"1.2rem"},children:"Waiting for opponent to reconnect..."}),e.jsx("div",{className:"loader",style:{margin:"20px auto",borderColor:"#ffcc80",borderTopColor:"transparent"}}),e.jsx("p",{style:{fontSize:"0.9rem",color:"#ffecb3",marginTop:"15px",fontWeight:"bold"},children:"Auto-win in 15 seconds."})]})}),Tn&&e.jsx("div",{className:"modal-overlay",style:{zIndex:3e3},children:e.jsxs("div",{className:"modal-content",style:{textAlign:"center",border:"1px solid #8d6e63"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"15px"},children:"🏳️"}),e.jsx("h3",{style:{marginBottom:"10px"},children:"Resign Game?"}),e.jsx("p",{style:{color:"#bdbdbd",marginBottom:"20px",fontSize:"1rem"},children:"Are you sure you want to return to the menu?"}),e.jsxs("div",{style:{background:"rgba(255,255,255,0.05)",padding:"15px",borderRadius:"8px",marginBottom:"20px"},children:[e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"5px"},children:[e.jsx("span",{style:{color:"#aaa"},children:"•"}),e.jsx("span",{children:"No Loss Recorded"})]}),e.jsxs("div",{style:{display:"flex",alignItems:"center",gap:"10px"},children:[e.jsx("span",{style:{color:"#aaa"},children:"•"}),e.jsx("span",{children:"No XP Changed"})]})]}),e.jsxs("div",{style:{display:"flex",gap:"15px",justifyContent:"center"},children:[e.jsx("button",{className:"btn-secondary",onClick:()=>bt(!1),style:{flex:1},children:"Cancel"}),e.jsx("button",{className:"btn-primary",style:{background:"#d32f2f",border:"1px solid #b71c1c",flex:1},onClick:()=>{bt(!1),gt()},children:"Confirm"})]})]})}),be&&e.jsx("div",{className:"modal-overlay",style:{zIndex:4e3},children:e.jsxs("div",{className:"modal-content",style:{textAlign:"center",maxWidth:"350px",border:"2px solid #4caf50"},children:[e.jsx("div",{style:{fontSize:"3rem",marginBottom:"15px"},children:"🎲"}),e.jsx("h3",{style:{marginBottom:"10px"},children:"Game Invite!"}),e.jsxs("p",{style:{color:"#bdbdbd",marginBottom:"20px"},children:[e.jsx("span",{style:{color:"#fff",fontWeight:"bold"},children:be.fromName})," wants to play a match with you!"]}),e.jsxs("div",{style:{display:"flex",gap:"10px",justifyContent:"center"},children:[e.jsx("button",{className:"btn-primary",style:{background:"#4caf50",border:"none",flex:1},onClick:()=>et("accept"),children:"Accept"}),e.jsx("button",{className:"btn-secondary",style:{flex:1},onClick:()=>et("decline"),children:"Decline"})]})]})}),Yt&&e.jsx("div",{className:"modal-overlay",style:{zIndex:4e3,background:"rgba(0,0,0,0.85)"},children:e.jsxs("div",{className:"modal-content",style:{textAlign:"center",maxWidth:"350px",border:"1px solid #8d6e63",background:"#2c241b"},children:[e.jsx("div",{className:"loader",style:{margin:"10px auto 20px auto",width:"40px",height:"40px",border:"3px solid rgba(255,255,255,0.1)",borderTopColor:"#ffca28"}}),e.jsx("h3",{style:{marginBottom:"10px",color:"#fff"},children:"Invite Sent!"}),e.jsxs("p",{style:{color:"#bdbdbd",marginBottom:"20px"},children:["Waiting for ",e.jsx("span",{style:{color:"#ffca28",fontWeight:"bold"},children:Yt})," to accept your challenge..."]}),e.jsx("button",{className:"btn-secondary",style:{width:"100%"},onClick:()=>{Qe(null),qe(!1)},children:"Cancel"})]})})]})}function it({index:v,data:P,isTop:B,selected:G,isValid:i,onClick:O,playerColor:z}){const ue=[];for(let te=0;te<P.count;te++)ue.push(e.jsx("div",{className:`checker ${P.player===1?"white":"red"}`},te));const ce=v%2!==0;return e.jsxs("div",{className:`point ${B?"down":"up"} ${ce?"dark":"light"} ${G?"selected":""} ${i?"valid":""}`,onClick:O,children:[e.jsx("div",{className:"point-triangle"}),e.jsx("div",{className:"checker-stack",children:ue})]})}function on({player:v,count:P,position:B,valid:G,onClick:i}){const O=v===c,z=Array.from({length:P});return e.jsxs("div",{className:`off-tray ${B} ${G?"valid":""}`,onClick:G?i:void 0,children:[e.jsx("div",{className:"off-tray-label",children:"OFF"}),e.jsx("div",{className:"off-pieces-row",children:z.map((ue,ce)=>e.jsx("div",{className:`off-piece ${O?"white":"red"}`,style:{zIndex:ce}},ce))}),P>0&&e.jsx("div",{className:"off-counter-text",children:P})]})}const is=({children:v})=>{const P=Hn.Devnet,B=a.useMemo(()=>"https://api.devnet.solana.com",[]),G=a.useMemo(()=>[new Kn],[P]);return e.jsx(qn,{endpoint:B,children:e.jsx(Jn,{wallets:G,autoConnect:!1,children:e.jsx(Xn,{children:v})})})};window.onerror=function(v,P,B,G,i){console.error("Global Error:",v);const O=document.getElementById("root");O&&(O.innerHTML=`<div style="color:red; padding:20px;">
+${err.message}`);
+            console.log(`Deep link connect error: ${err.message}`);
+          }
+        }
+      };
+      App$1.getLaunchUrl().then((launchData) => {
+        if (launchData && launchData.url) {
+          processUrl(launchData.url);
+        }
+      });
+      const listener = App$1.addListener("appUrlOpen", (data) => {
+        if (data && data.url) {
+          processUrl(data.url);
+        }
+      });
+      return () => {
+        if (listener.remove) listener.remove();
+      };
+    }
+  }, [isCapacitor]);
+  reactExports.useEffect(() => {
+    if (isCapacitor) {
+      StatusBar.hide().catch((e) => console.warn("StatusBar hide failed", e));
+    }
+  }, [isCapacitor]);
+  reactExports.useEffect(() => {
+    if (connected && publicKey) {
+      const pKeyStr = publicKey.toBase58();
+      if (wallet !== pKeyStr) {
+        setWalletValue(pKeyStr);
+        handleWalletConnection(pKeyStr);
+        log(`Connected: ${pKeyStr.slice(0, 4)}...${pKeyStr.slice(-4)}`);
+      }
+    } else if (!isCapacitor && !connected && wallet && !wallet.startsWith("Guest") && !wallet.startsWith("Mock")) {
+      setWalletValue(null);
+      setLoggedInValue(false);
+    }
+  }, [connected, publicKey, wallet]);
+  reactExports.useEffect(() => {
+    if (activeWallet && !connected && !isLoggingIn) {
+      log(`Attempting connection to ${activeWallet.adapter.name}...`);
+      connect().catch((err) => {
+        var _a;
+        log(`Connection failed: ${(_a = err.message) == null ? void 0 : _a.slice(0, 30)}`);
+      });
+    }
+  }, [activeWallet, connected, isLoggingIn]);
+  const initialBoard = Array(24).fill(null).map(() => ({ count: 0, player: 0 }));
+  const place = (idx, count, player) => {
+    initialBoard[idx] = { count, player };
+  };
+  place(23, 2, PLAYER_HUMAN);
+  place(12, 5, PLAYER_HUMAN);
+  place(7, 3, PLAYER_HUMAN);
+  place(5, 5, PLAYER_HUMAN);
+  place(0, 2, PLAYER_AI);
+  place(11, 5, PLAYER_AI);
+  place(16, 3, PLAYER_AI);
+  place(18, 5, PLAYER_AI);
+  const [board, setBoard] = reactExports.useState(initialBoard);
+  const [bar, setBar] = reactExports.useState({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+  const [off, setOff] = reactExports.useState({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+  const [dice, setDice] = reactExports.useState([]);
+  const [visualDice, setVisualDice] = reactExports.useState([]);
+  const [turn, setTurn] = reactExports.useState(null);
+  const [difficulty, setDifficulty] = reactExports.useState("beginner");
+  const [isDropdownOpen, setIsDropdownOpen] = reactExports.useState(false);
+  const [logs, setLogs] = reactExports.useState(["Welcome to Solana Backgammon!"]);
+  const [selectedPoint, setSelectedPoint] = reactExports.useState(null);
+  const [validMoves, setValidMoves] = reactExports.useState([]);
+  const [rolling, setRolling] = reactExports.useState(false);
+  const [canRoll, setCanRoll] = reactExports.useState(false);
+  const [history, setHistory] = reactExports.useState([]);
+  const [gameStatus, setGameStatus] = reactExports.useState("menu");
+  const [gameMode, setGameMode] = reactExports.useState("single");
+  const [playerColor, setPlayerColor] = reactExports.useState(PLAYER_HUMAN);
+  const [roomId, setRoomId] = reactExports.useState(null);
+  const [opponentName, setOpponentName] = reactExports.useState("Opponent (Waiting)");
+  const [opponentWallet, setOpponentWallet] = reactExports.useState(null);
+  const [opponentLevel, setOpponentLevel] = reactExports.useState(1);
+  const [opponentStats, setOpponentStats] = reactExports.useState({ wins: 0, losses: 0 });
+  const [socket, setSocket] = reactExports.useState(null);
+  const [finishingTurn, setFinishingTurn] = reactExports.useState(false);
+  const [isBlocked, setIsBlocked] = reactExports.useState(false);
+  const [escrowBalance, setEscrowBalance] = reactExports.useState(0);
+  const [opponentDisconnected, setOpponentDisconnected] = reactExports.useState(false);
+  const [chatMessages, setChatMessages] = reactExports.useState([]);
+  const [chatInput, setChatInput] = reactExports.useState("");
+  const [unreadChat, setUnreadChat] = reactExports.useState(0);
+  const [selectedStake, setSelectedStake] = reactExports.useState(0);
+  const [activeLobbies, setActiveLobbies] = reactExports.useState([]);
+  const [isLobbyOpen, setIsLobbyOpen] = reactExports.useState(false);
+  const [isHosting, setIsHosting] = reactExports.useState(false);
+  const [onlineCount, setOnlineCount] = reactExports.useState(1);
+  const [incomingInvite, setIncomingInvite] = reactExports.useState(null);
+  const [isInviting, setIsInviting] = reactExports.useState(false);
+  const gameStatusRef = reactExports.useRef(gameStatus);
+  reactExports.useEffect(() => {
+    gameStatusRef.current = gameStatus;
+  }, [gameStatus]);
+  const selectedStakeRef = reactExports.useRef(selectedStake);
+  reactExports.useEffect(() => {
+    selectedStakeRef.current = selectedStake;
+  }, [selectedStake]);
+  const escrowBalanceRef = reactExports.useRef(escrowBalance);
+  reactExports.useEffect(() => {
+    escrowBalanceRef.current = escrowBalance;
+  }, [escrowBalance]);
+  const walletRef = reactExports.useRef(wallet);
+  reactExports.useEffect(() => {
+    walletRef.current = wallet;
+  }, [wallet]);
+  const gameModeRef = reactExports.useRef(gameMode);
+  reactExports.useEffect(() => {
+    gameModeRef.current = gameMode;
+  }, [gameMode]);
+  const opponentNameRef = reactExports.useRef(opponentName);
+  reactExports.useEffect(() => {
+    opponentNameRef.current = opponentName;
+  }, [opponentName]);
+  reactExports.useEffect(() => {
+    const newSocket = lookup(SERVER_URL);
+    setSocket(newSocket);
+    newSocket.on("connect", () => {
+      console.log("Connected to Game Server:", newSocket.id);
+      setLogs((prev) => ["Connected to Server!", ...prev]);
+      if (walletRef.current) {
+        console.log("Reconnected to socket. Checking for active game and registering:", walletRef.current);
+        newSocket.emit("check_active_game", walletRef.current);
+        const existing = localStorage.getItem("bg_profile_" + walletRef.current);
+        let profile;
+        try {
+          profile = existing ? JSON.parse(existing) : null;
+        } catch (e) {
+        }
+        newSocket.emit("register_user", {
+          wallet: walletRef.current,
+          name: (profile == null ? void 0 : profile.name) || "",
+          avatar: (profile == null ? void 0 : profile.avatar) || null
+        });
+      }
+      fetchLeaderboard();
+    });
+    newSocket.on("connect_error", (err) => {
+      console.error("Connection Error:", err);
+      setLogs((prev) => ["Connection Failed! Check Server URL.", ...prev]);
+    });
+    newSocket.on("online_count_update", (data) => {
+      setOnlineCount(data.count);
+    });
+    newSocket.on("waiting_for_match", () => {
+      setLogs((prev) => ["Waiting for an opponent...", ...prev]);
+    });
+    newSocket.on("active_game_found", ({ roomId: roomId2 }) => {
+      console.log("Found Active Game:", roomId2);
+      if (wallet && !isSearching) {
+        handleSearchMatch(null);
+      }
+    });
+    newSocket.on("match_found", (data) => {
+      var _a, _b;
+      console.log("Match Found Event Data:", data);
+      console.log("My Socket ID:", newSocket.id);
+      setRoomId(data.roomId);
+      setIsSearching(false);
+      setIsInviting(false);
+      setInvitingPlayerName(null);
+      const pIds = Object.keys(data.players);
+      const oppId = pIds.find((id) => id !== newSocket.id);
+      console.log("Opponent ID found:", oppId);
+      const oppName = ((_a = data.players[oppId]) == null ? void 0 : _a.name) || "Opponent";
+      console.log("Opponent Name resolved:", oppName);
+      setOpponentName(oppName);
+      setOpponentWallet(((_b = data.players[oppId]) == null ? void 0 : _b.wallet) || null);
+      if (data.players[oppId]) {
+        setOpponentLevel(data.players[oppId].level || 1);
+        setOpponentStats(data.players[oppId].stats || { wins: 0, losses: 0 });
+      }
+      if (data.isRejoin) {
+        return;
+      }
+    });
+    newSocket.on("assign_color", (colorStr) => {
+      const myColor = colorStr === "white" ? PLAYER_HUMAN : PLAYER_AI;
+      setPlayerColor(myColor);
+      console.log("Assigned Color:", colorStr, myColor);
+      const stake = selectedStakeRef.current;
+      if (stake && stake > 0) {
+        const balance2 = escrowBalanceRef.current || 0;
+        if (balance2 >= stake) {
+          setEscrowBalance((prev) => parseFloat((prev - stake).toFixed(2)));
+          log(`Staked ${stake} SOL from Escrow Balance.`);
+          setGameMode("multi");
+          setGameStatus("opening_roll");
+          setOpeningRoll(null);
+          const resetBoard = Array(24).fill(null).map(() => ({ count: 0, player: 0 }));
+          const placeReset = (idx, count, player) => {
+            resetBoard[idx] = { count, player };
+          };
+          placeReset(23, 2, PLAYER_HUMAN);
+          placeReset(12, 5, PLAYER_HUMAN);
+          placeReset(7, 3, PLAYER_HUMAN);
+          placeReset(5, 5, PLAYER_HUMAN);
+          placeReset(0, 2, PLAYER_AI);
+          placeReset(11, 5, PLAYER_AI);
+          placeReset(16, 3, PLAYER_AI);
+          placeReset(18, 5, PLAYER_AI);
+          setBoard(resetBoard);
+          setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+          setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+          setDice([]);
+          setVisualDice([]);
+          setHistory([]);
+          setRolling(false);
+          setTurn("human");
+          log(`Match Found against ${opponentNameRef.current}! Good luck!`);
+        } else {
+          alert(`Insufficient Escrow Balance! You need ${stake} SOL. Please deposit.`);
+          setGameStatus("multiplayer_menu");
+          return;
+        }
+      } else {
+        setGameMode("multi");
+        setGameStatus("opening_roll");
+        setOpeningRoll(null);
+        const resetBoard = Array(24).fill(null).map(() => ({ count: 0, player: 0 }));
+        const placeReset = (idx, count, player) => {
+          resetBoard[idx] = { count, player };
+        };
+        placeReset(23, 2, PLAYER_HUMAN);
+        placeReset(12, 5, PLAYER_HUMAN);
+        placeReset(7, 3, PLAYER_HUMAN);
+        placeReset(5, 5, PLAYER_HUMAN);
+        placeReset(0, 2, PLAYER_AI);
+        placeReset(11, 5, PLAYER_AI);
+        placeReset(16, 3, PLAYER_AI);
+        placeReset(18, 5, PLAYER_AI);
+        setBoard(resetBoard);
+        setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+        setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+        setDice([]);
+        setVisualDice([]);
+        setHistory([]);
+        setRolling(false);
+        setTurn("human");
+        log(`Match Found against ${opponentNameRef.current}! Have fun!`);
+      }
+    });
+    newSocket.on("game_update", ({ type, payload }) => {
+      console.log(`[CLIENT] Received game_update: ${type}`, payload);
+      if (handleRemoteEventRef.current) {
+        handleRemoteEventRef.current(type, payload);
+      } else {
+        console.error("[CLIENT] handleRemoteEventRef is null!");
+      }
+    });
+    newSocket.on("withdraw_success", ({ amount, signature }) => {
+      log(`Withdrawal of ${amount} SOL sent! Sig: ${signature.slice(0, 8)}...`);
+      alert(`Funds sent to your wallet!`);
+      setEscrowBalance((prev) => parseFloat((prev - amount).toFixed(2)));
+    });
+    newSocket.on("chat_message", (msg) => {
+      setChatMessages((prev) => [...prev.slice(-49), msg]);
+      if (msg.sender !== "You") {
+        setUnreadChat((prev) => prev + 1);
+      }
+    });
+    newSocket.on("receive_invite", (data) => {
+      console.log("RECEIVED INVITE:", data);
+      setIncomingInvite(data);
+    });
+    newSocket.on("invite_result", ({ fromWallet, response }) => {
+      console.log("INVITE RESULT:", fromWallet, response);
+      setIsInviting(false);
+      setInvitingPlayerName(null);
+      if (response === "decline") {
+        alert("Player declined your invite.");
+      }
+    });
+    newSocket.on("request_state_sync", () => {
+      const state = gameStateRef.current;
+      if (state.roomId) {
+        log("Syncing state to opponent...");
+        newSocket.emit("sync_state", {
+          roomId: state.roomId,
+          state: {
+            board: state.board,
+            bar: state.bar,
+            off: state.off,
+            dice: state.dice,
+            turn: state.turn
+          }
+        });
+      }
+    });
+    newSocket.on("sync_state_received", (state) => {
+      log("Game State Synced!");
+      setBoard(state.board);
+      setBar(state.bar);
+      setOff(state.off);
+      const myTurnStr = state.turn === "human" ? "opponent" : "human";
+      setTurn(myTurnStr);
+      if (myTurnStr === "human") {
+        if (state.dice && state.dice.length > 0) {
+          setDice(state.dice);
+          setVisualDice(state.dice.slice(0, 2));
+          setCanRoll(false);
+          log("Your Turn! Resume moving.");
+        } else {
+          setDice([]);
+          setVisualDice([]);
+          setCanRoll(true);
+          log("Your Turn! Please Roll.");
+        }
+      } else {
+        if (state.dice && state.dice.length > 0) {
+          setVisualDice(state.dice.slice(0, 2));
+          setDice([]);
+        } else {
+          setVisualDice([]);
+          setDice([]);
+        }
+        log("Waiting for opponent...");
+      }
+      setOpponentDisconnected(false);
+    });
+    newSocket.on("user_profile_update", (data) => {
+      console.log("[SOCKET] Profile updated from server:", data);
+      setUserProfile((prev) => {
+        const updated = {
+          ...prev,
+          name: data.name !== void 0 ? data.name : prev.name,
+          avatar: data.avatar !== void 0 ? data.avatar : prev.avatar,
+          stats: {
+            ...data.stats
+            // Accept all stats from server (wins, losses, xp, level)
+          }
+        };
+        if (walletRef.current && !walletRef.current.startsWith("Guest")) {
+          localStorage.setItem("bg_profile_" + walletRef.current, JSON.stringify(updated));
+        }
+        return updated;
+      });
+    });
+    newSocket.on("lobby_list_update", (lobbies) => {
+      console.log("Lobbies Updated:", lobbies);
+      setActiveLobbies(lobbies);
+    });
+    newSocket.on("rejoin_success", ({ roomId: roomId2, color, players }) => {
+      var _a, _b;
+      log("Rejoined match! Waiting for sync...");
+      const myColor = color === "white" ? PLAYER_HUMAN : PLAYER_AI;
+      setPlayerColor(myColor);
+      setRoomId(roomId2);
+      setGameMode("multi");
+      setGameStatus("playing");
+      setOpeningRoll(null);
+      setOpponentDisconnected(false);
+      if (players) {
+        const pIds = Object.keys(players);
+        const oppId = pIds.find((id) => players[id].wallet !== walletRef.current);
+        if (oppId) {
+          const oppName = ((_a = players[oppId]) == null ? void 0 : _a.name) || "Opponent";
+          setOpponentName(oppName);
+          setOpponentWallet(((_b = players[oppId]) == null ? void 0 : _b.wallet) || null);
+          console.log("Opponent Updated (Rejoin):", oppName);
+        }
+      }
+    });
+    newSocket.on("active_game_not_found", () => {
+      const currentStatus = gameStatusRef.current;
+      const mode = gameModeRef.current;
+      if (mode !== "multi") {
+        console.log("Ignoring active_game_not_found in non-multiplayer mode:", mode);
+        return;
+      }
+      console.log("No active game found.");
+      if (currentStatus === "playing" || currentStatus === "waiting_for_match") {
+        console.log("Forcing return to menu from stale game.");
+        setGameStatus("menu");
+        setRoomId(null);
+        setOpponentDisconnected(false);
+        setTimeout(() => fetchLeaderboard(), 1e3);
+        if (walletRef.current) {
+          newSocket.emit("register_user", walletRef.current);
+        }
+        alert("Game session expired. You may have timed out.");
+      }
+    });
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("App returned to foreground.");
+        if (!newSocket.connected) {
+          console.log("Socket disconnected. Reconnecting...");
+          newSocket.connect();
+        } else {
+          if (walletRef.current) {
+            newSocket.emit("check_active_game", walletRef.current);
+          }
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      newSocket.close();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+  const gameStateRef = reactExports.useRef({});
+  reactExports.useEffect(() => {
+    gameStateRef.current = { board, bar, off, dice, turn, roomId };
+  }, [board, bar, off, dice, turn, roomId]);
+  const handleRemoteEventRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    handleRemoteEventRef.current = handleRemoteEvent;
+  });
+  const handleRemoteEvent = (type, payload) => {
+    const currentStatus = gameStatusRef.current;
+    if (type === "opponent_disconnectING") {
+      console.log("EVENT RECEIVED: Opponent Disconnecting");
+      log(`Opponent disconnected! Waiting ${payload.timeLeft}s...`);
+      setOpponentDisconnected(true);
+    } else if (type === "opponent_reconnected") {
+      log("Opponent returned! Resuming...");
+      setOpponentDisconnected(false);
+    } else if (type === "roll") {
+      playDiceSound();
+      setRolling(true);
+      if (currentStatus !== "opening_roll") {
+        setDice([]);
+        setVisualDice([]);
+      }
+      setTimeout(() => {
+        setRolling(false);
+        if (currentStatus === "opening_roll" && payload.length === 1) {
+          const val = payload[0];
+          log(`Opponent Rolled: ${val} (Opening)`);
+          setOpeningRoll((prev) => {
+            const newState = { ...prev || {}, ai: val };
+            if (newState.human) {
+              setVisualDice([newState.human, val]);
+            } else {
+              setVisualDice([val]);
+            }
+            checkMultiOpeningWinner(newState);
+            return newState;
+          });
+        } else {
+          log(`Opponent Rolled: ${payload.join(", ")}`);
+          setVisualDice(payload.slice(0, 2));
+          setDice(payload);
+        }
+      }, 800);
+    } else if (type === "opponent_reconnected") {
+      console.log("Opponent returned! Resuming...");
+      setOpponentDisconnected(false);
+    } else if (type === "opponent_disconnectING") {
+      console.log("Opponent Disconnecting... Waiting...");
+      setOpponentDisconnected(true);
+    } else if (type === "state_update") {
+      console.log("Applying State Sync:", payload);
+      if (payload.board) setBoard(payload.board);
+      if (payload.bar) setBar(payload.bar);
+      if (payload.off) setOff(payload.off);
+      if (payload.dice) {
+        if (turn === "human" && dice.length > 0) {
+          console.warn("Ignored remote dice update because I have active dice:", dice, "Remote:", payload.dice);
+        } else {
+          setDice(payload.dice);
+          if (payload.dice.length > 0) {
+            setVisualDice(payload.dice.slice(0, 2));
+          }
+        }
+      }
+      if (payload.turn) {
+        const newTurn = payload.turn === "human" ? "ai" : "human";
+        setTurn(newTurn);
+        if (newTurn === "human") {
+          if (!payload.dice || payload.dice.length === 0) {
+            setCanRoll(true);
+            setRolling(false);
+            log("It's your turn. Please Roll.");
+          } else {
+            setCanRoll(false);
+            setRolling(false);
+            log("It's your turn. Please Move.");
+          }
+        } else {
+          setCanRoll(false);
+        }
+      }
+      log("Game State Synchronized.");
+    } else if (type === "move") {
+      if (payload.board) {
+        setBoard(payload.board);
+        setBar(payload.bar);
+      }
+    } else if (type === "end_turn") {
+      log("Opponent finished turn.");
+      setTurn("human");
+      setDice([]);
+      setVisualDice([]);
+      setCanRoll(true);
+    } else if (type === "resign") {
+      setGameStatus("gameover");
+      setGameResult("win");
+      log("Opponent Resigned! You Win!");
+      playDiceSound();
+      updateStats("win");
+    } else if (type === "opponent_disconnected") {
+      setGameStatus("gameover");
+      setGameResult("win");
+      log("Opponent Disconnected! You Win!");
+      setOpponentDisconnected(false);
+    }
+  };
+  const emitGameEvent = (type, payload) => {
+    if (socket && roomId) {
+      socket.emit("game_event", { roomId, type, payload });
+    }
+  };
+  const [userProfile, setUserProfile] = reactExports.useState({ name: "", avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
+  const [isProfileModalOpen, setIsProfileModalOpen] = reactExports.useState(false);
+  const [turnTimer, setTurnTimer] = reactExports.useState(180);
+  reactExports.useEffect(() => {
+    let interval = null;
+    if (gameStatus === "playing" && turn === "human") {
+      interval = setInterval(() => {
+        setTurnTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            handleForfeit();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1e3);
+    } else {
+      setTurnTimer(180);
+      setIsBlocked(false);
+    }
+    return () => clearInterval(interval);
+  }, [turn, gameStatus]);
+  const handleForfeit = () => {
+    if (gameMode === "multi") {
+      emitGameEvent("resign", {});
+      setGameStatus("gameover");
+      setGameResult("loss");
+      log("You resigned.");
+      updateStats("loss");
+    } else {
+      setGameStatus("menu");
+      setGameMode("single");
+      log("You resigned from single player.");
+    }
+  };
+  reactExports.useEffect(() => {
+    if (wallet && !wallet.startsWith("Guest")) {
+      const saved = localStorage.getItem("bg_profile_" + wallet);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (!parsed.stats) parsed.stats = { wins: 0, losses: 0, xp: 0, level: 1 };
+          setUserProfile(parsed);
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        setUserProfile({ name: "", avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
+      }
+      const savedBalance = localStorage.getItem("escrow_balance_" + wallet);
+      if (savedBalance) {
+        setEscrowBalance(parseFloat(savedBalance));
+      } else {
+        setEscrowBalance(0);
+      }
+    } else if (wallet && wallet.startsWith("Guest")) {
+      setUserProfile({ name: "Guest", avatar: null, stats: { wins: 0, losses: 0, xp: 0, level: 1 } });
+      setEscrowBalance(0);
+    }
+  }, [wallet]);
+  reactExports.useEffect(() => {
+    if (wallet && !wallet.startsWith("Guest")) {
+      localStorage.setItem("escrow_balance_" + wallet, escrowBalance.toString());
+    }
+  }, [escrowBalance, wallet]);
+  const updateStats = (result) => {
+    if (!wallet || wallet.startsWith("Guest")) return;
+    setUserProfile((prev) => {
+      const newStats = { ...prev.stats };
+      if (result === "win") {
+        newStats.wins += 1;
+        newStats.xp += 20;
+      } else {
+        newStats.losses += 1;
+        newStats.xp += 5;
+      }
+      newStats.level = Math.floor(newStats.xp / 100) + 1;
+      const newProfile = { ...prev, stats: newStats };
+      localStorage.setItem("bg_profile_" + wallet, JSON.stringify(newProfile));
+      return newProfile;
+    });
+  };
+  const handleSaveProfile = (name, avatarBase64) => {
+    const updated = { ...userProfile, name, avatar: avatarBase64 };
+    setUserProfile(updated);
+    if (wallet && !wallet.startsWith("Guest")) {
+      try {
+        localStorage.setItem("bg_profile_" + wallet, JSON.stringify(updated));
+        if (socket) {
+          socket.emit("register_user", {
+            wallet,
+            name,
+            avatar: avatarBase64
+          });
+          setTimeout(() => fetchLeaderboard(), 500);
+        }
+      } catch (e) {
+        alert("Image too large/Error saving profile.");
+        console.error(e);
+      }
+    }
+    setIsProfileModalOpen(false);
+  };
+  const chatEndRef = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages]);
+  const [gameResult, setGameResult] = reactExports.useState(null);
+  const [depositTx, setDepositTx] = reactExports.useState(null);
+  const handleEscrowDeposit = async () => {
+    const amountStr = prompt("Enter annual amount to deposit (SOL):", "0.1");
+    if (!amountStr) return;
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0) return;
+    try {
+      if (!publicKey) return alert("Wallet Login first");
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey("6cgsK8ph5tNUCiKG5WXLMZFX1CoL4jzuVouTPBwPC8fk"),
+          // House Escrow
+          lamports: amount * 1e9
+        })
+      );
+      const signature = await sendTransaction(transaction, connection);
+      log("Escrow Deposit: " + amount + " SOL");
+      setEscrowBalance((prev) => parseFloat((prev + amount).toFixed(2)));
+    } catch (e) {
+      alert("Deposit Error: " + e.message);
+    }
+  };
+  const handleEscrowWithdraw = () => {
+    const amountStr = prompt("Enter amount to withdraw (SOL):", "0.1");
+    if (!amountStr) return;
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid amount.");
+      return;
+    }
+    if (escrowBalance < amount) {
+      alert(`Insufficient Escrow Balance (Current: ${escrowBalance} SOL)`);
+      return;
+    }
+    log(`Requesting Withdrawal of ${amount} SOL...`);
+    console.log("Emitting request_withdraw", { wallet, amount });
+    if (socket && socket.connected) {
+      socket.emit("request_withdraw", { wallet, amount });
+    } else {
+      alert("Not connected to server. Please try refreshing or checking connection.");
+      if (socket) socket.connect();
+    }
+  };
+  const [isSearching, setIsSearching] = reactExports.useState(false);
+  const [isConditionsOpen, setIsConditionsOpen] = reactExports.useState(false);
+  const [showGuestPopup, setShowGuestPopup] = reactExports.useState(false);
+  const [showResignModal, setShowResignModal] = reactExports.useState(false);
+  const handleSearchMatch = (stake) => {
+    var _a, _b, _c;
+    if (stake !== null && stake !== 0) {
+      if (!wallet || wallet.startsWith("Guest")) {
+        setShowGuestPopup(true);
+        return;
+      }
+    }
+    setSelectedStake(stake);
+    if (stake === null || stake === 0) {
+      setIsLobbyOpen(true);
+      if (socket) {
+        console.log("Requesting lobbies from server...");
+        socket.emit("get_lobbies");
+      }
+    } else {
+      setIsSearching(true);
+      if (socket) {
+        const profile = userProfile;
+        const walletStr = wallet;
+        const displayName = profile.name && profile.name.trim() !== "" ? profile.name : `${walletStr.slice(0, 4)}...${walletStr.slice(-4)}`;
+        socket.emit("find_match", {
+          name: displayName,
+          wallet: walletStr,
+          level: ((_a = profile.stats) == null ? void 0 : _a.level) || 1,
+          stats: {
+            wins: ((_b = profile.stats) == null ? void 0 : _b.wins) || 0,
+            losses: ((_c = profile.stats) == null ? void 0 : _c.losses) || 0
+          }
+        });
+      }
+    }
+  };
+  const handleHostGame = () => {
+    var _a;
+    if (!socket || !wallet) return;
+    const profile = userProfile;
+    const displayName = profile.name && profile.name.trim() !== "" ? profile.name : `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+    setIsHosting(true);
+    socket.emit("create_lobby", {
+      name: displayName,
+      wallet,
+      level: ((_a = profile.stats) == null ? void 0 : _a.level) || 1,
+      stats: profile.stats
+    });
+    log("Hosting Free Play Game...");
+  };
+  const handleJoinLobby = (lobby) => {
+    var _a;
+    if (!socket || !wallet) return;
+    const profile = userProfile;
+    const displayName = profile.name && profile.name.trim() !== "" ? profile.name : `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+    socket.emit("join_lobby", {
+      roomId: lobby.roomId,
+      userData: {
+        name: displayName,
+        wallet,
+        level: ((_a = profile.stats) == null ? void 0 : _a.level) || 1,
+        stats: profile.stats
+      }
+    });
+    setIsLobbyOpen(false);
+    log(`Joining ${lobby.hostData.name}'s table...`);
+  };
+  const handleLeaveLobby = () => {
+    if (socket) socket.emit("leave_lobby");
+    setIsHosting(false);
+    log("Lobby closed.");
+  };
+  const [invitingPlayerName, setInvitingPlayerName] = reactExports.useState(null);
+  const handleInvitePlayer = (targetWallet, targetName) => {
+    if (!socket || !wallet) return;
+    if (targetWallet === wallet) return alert("You cannot invite yourself!");
+    if (gameStatus !== "leaderboard") return;
+    setIsInviting(true);
+    setInvitingPlayerName(targetName);
+    socket.emit("invite_player", { targetWallet, stake: 0 });
+    log(`Inviting ${targetName}...`);
+  };
+  const handleRespondToInvite = (response) => {
+    if (!socket || !incomingInvite) return;
+    const fromUserData = {
+      wallet: incomingInvite.fromWallet,
+      name: incomingInvite.fromName,
+      level: 1,
+      // Placeholder
+      stats: { wins: 0, losses: 0, xp: 0 }
+    };
+    const myUserData = {
+      wallet,
+      name: userProfile.name,
+      level: userProfile.stats.level,
+      stats: userProfile.stats
+    };
+    socket.emit("invite_response", {
+      fromWallet: incomingInvite.fromWallet,
+      response,
+      myUserData,
+      fromUserData
+    });
+    setIncomingInvite(null);
+    if (response === "accept") {
+      log("Accepting invite...");
+    }
+  };
+  const [leaderboardData, setLeaderboardData] = reactExports.useState([]);
+  const [expandedLeaderboardIndex, setExpandedLeaderboardIndex] = reactExports.useState(null);
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await fetch(`${SERVER_URL}/leaderboard`);
+      const data = await res.json();
+      const formatted = data.map((u) => ({
+        wallet: u.wallet,
+        name: u.name || `${u.wallet.slice(0, 4)}...${u.wallet.slice(-4)}`,
+        avatar: u.avatar || null,
+        isOnline: u.isOnline,
+        stats: {
+          level: u.level || 1,
+          wins: u.wins || 0,
+          losses: u.losses || 0,
+          xp: u.xp || 0
+        }
+      }));
+      setLeaderboardData(formatted);
+    } catch (e) {
+      console.error("Failed to fetch leaderboard:", e);
+      setLeaderboardData([]);
+    }
+  };
+  reactExports.useEffect(() => {
+    fetchLeaderboard();
+    const interval = setInterval(fetchLeaderboard, 1e4);
+    return () => clearInterval(interval);
+  }, []);
+  const handleWalletConnection = async (pKeyStr) => {
+    log(`Handshake with ${pKeyStr.slice(0, 8)}...`);
+    setWalletValue(pKeyStr);
+    const existing = localStorage.getItem("bg_profile_" + pKeyStr);
+    let profileData;
+    if (existing) {
+      try {
+        profileData = JSON.parse(existing);
+      } catch (e) {
+        profileData = { name: "", avatar: null, stats: { level: 1, wins: 0, losses: 0, xp: 0 } };
+      }
+    } else {
+      profileData = { name: "", avatar: null, stats: { level: 1, wins: 0, losses: 0, xp: 0 } };
+    }
+    setUserProfile(profileData);
+    if (socket) {
+      socket.emit("register_user", pKeyStr);
+      fetchLeaderboard();
+      setTimeout(() => fetchLeaderboard(), 1e3);
+      if (gameStatus === "menu") {
+        socket.emit("check_active_game", pKeyStr);
+      }
+    }
+  };
+  const handleIdentitySignature = async () => {
+    var _a, _b;
+    if (!signMessage || !publicKey) return;
+    try {
+      setIsLoggingIn(true);
+      log("IDENTITY: Requesting proof of ownership...");
+      const message = new TextEncoder().encode("Login to Backgammon Solana");
+      const signed = await signMessage(message);
+      if (signed) {
+        setLoggedInValue(true);
+        log("IDENTITY: Success!");
+        handleWalletConnection(publicKey.toBase58());
+        return true;
+      }
+    } catch (err) {
+      log(`ID ERR: ${(_a = err.message) == null ? void 0 : _a.slice(0, 30)}`);
+      if (!((_b = err.message) == null ? void 0 : _b.includes("User rejected"))) {
+        log("IDENTITY: Message blocked, trying transaction proof...");
+        try {
+          const tx = new Transaction().add(SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: publicKey,
+            lamports: 0
+          }));
+          tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+          tx.feePayer = publicKey;
+          const sig = await sendTransaction(tx, connection);
+          if (sig) {
+            setLoggedInValue(true);
+            handleWalletConnection(publicKey.toBase58());
+            return true;
+          }
+        } catch (txErr) {
+          log("ID: Tx proof failed.");
+        }
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+    return false;
+  };
+  const connectWallet = async () => {
+    log(`TAP: Connect`);
+    if (isCapacitor) {
+      try {
+        const connectUrl = buildConnectUrl();
+        window.open(connectUrl, "_system");
+        return;
+      } catch (err) {
+        log(`Failed to build connect URL: ${err.message}`);
+      }
+    }
+    if (connected && publicKey && !isLoggedIn) {
+      await handleIdentitySignature();
+      return;
+    }
+    if (!connected) {
+      log("Connecting to Solflare...");
+      const solflareWallet = wallets.find((w) => w.adapter.name === "Solflare");
+      if (solflareWallet) {
+        select(solflareWallet.adapter.name);
+      } else {
+        log("Error: Solflare adapter not found.");
+      }
+    }
+  };
+  reactExports.useEffect(() => {
+    log(`State: Conn=${connected} PK=${!!publicKey} SignFn=${!!signMessage}`);
+  }, [connected, publicKey, !!signMessage]);
+  const handleGuestLogin = () => {
+    const guestId = Math.floor(Math.random() * 9e3) + 1e3;
+    setWalletValue(`Guest#${guestId}`);
+    setBalance("1000 PLAY");
+    log("Logged in as Guest.");
+  };
+  const log = (msg) => {
+    setLogs((prev) => [msg, ...prev.slice(0, 4)]);
+  };
+  const [openingRoll, setOpeningRoll] = reactExports.useState(null);
+  const startGame = (diff) => {
+    setDifficulty(diff || "advanced");
+    setGameMode("single");
+    setBoard(initialBoard);
+    setBar({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+    setOff({ [PLAYER_HUMAN]: 0, [PLAYER_AI]: 0 });
+    setDice([]);
+    setVisualDice([]);
+    setValidMoves([]);
+    setSelectedPoint(null);
+    setHistory([]);
+    setGameResult(null);
+    setOpeningRoll(null);
+    setPlayerColor(PLAYER_HUMAN);
+    setGameStatus("opening_roll");
+    log(`Game Started! Difficulty: ${diff}`);
+    log("Rolling for first turn...");
+  };
+  const handleOpeningRoll = () => {
+    playDiceSound();
+    setRolling(true);
+    if (gameMode === "multi") {
+      if (openingRoll && openingRoll.human) return;
+      setTimeout(() => {
+        const hDie = Math.ceil(Math.random() * 6);
+        setOpeningRoll((prev) => {
+          const newState = { ...prev || {}, human: hDie };
+          if (newState.ai) {
+            setVisualDice([hDie, newState.ai]);
+          } else {
+            setVisualDice([hDie]);
+          }
+          checkMultiOpeningWinner(newState);
+          return newState;
+        });
+        setRolling(false);
+        log(`You Rolled: ${hDie} (Opening)`);
+        emitGameEvent("roll", [hDie]);
+      }, 600);
+      return;
+    }
+    setTimeout(() => {
+      const hDie = Math.ceil(Math.random() * 6);
+      const aDie = Math.ceil(Math.random() * 6);
+      setOpeningRoll({ human: hDie, ai: aDie });
+      setRolling(false);
+      if (hDie > aDie) {
+        log(`You rolled ${hDie}, AI rolled ${aDie}. You start!`);
+        setTurn("human");
+        setDice([]);
+        setVisualDice([]);
+        setCanRoll(true);
+        setTimeout(() => setGameStatus("playing"), 1500);
+      } else if (aDie > hDie) {
+        log(`You rolled ${hDie}, AI rolled ${aDie}. AI starts!`);
+        setTurn("ai");
+        setDice([]);
+        setVisualDice([]);
+        setTimeout(() => {
+          setGameStatus("playing");
+        }, 1500);
+      } else {
+        log(`Tie (${hDie}-${aDie})! Rerolling...`);
+        setTimeout(handleOpeningRoll, 1e3);
+      }
+    }, 600);
+  };
+  const checkMultiOpeningWinner = (rolls) => {
+    if (rolls && rolls.human && rolls.ai) {
+      setTimeout(() => {
+        const h = rolls.human;
+        const a = rolls.ai;
+        if (h > a) {
+          log(`You won opening roll (${h} vs ${a})! You start.`);
+          setTurn("human");
+          setDice([]);
+          setVisualDice([]);
+          setCanRoll(true);
+          setGameStatus("playing");
+          setOpeningRoll(null);
+        } else if (a > h) {
+          log(`Opponent won opening roll (${a} vs ${h}). Opponent starts.`);
+          setTurn("opponent");
+          setDice([]);
+          setVisualDice([]);
+          setGameStatus("playing");
+          setOpeningRoll(null);
+        } else {
+          log(`Tie (${h}-${a})! Re-rolling...`);
+          setTimeout(() => {
+            setOpeningRoll(null);
+            log("Click Roll to try again.");
+          }, 1500);
+        }
+      }, 1e3);
+    }
+  };
+  const handleManualRoll = () => {
+    if (!canRoll || rolling || turn !== "human") return;
+    performRoll((d) => {
+      log(`You Rolled: ${d.join(", ")}`);
+      setCanRoll(false);
+      setHistory([]);
+      setIsBlocked(false);
+      if (gameMode === "multi") {
+        emitGameEvent("roll", d);
+      }
+    });
+  };
+  const handleUndo = () => {
+    if (history.length === 0 || finishingTurn) return;
+    const lastState = history[history.length - 1];
+    setBoard(lastState.board);
+    setBar(lastState.bar);
+    setDice(lastState.dice);
+    setTurn(lastState.turn);
+    setIsBlocked(false);
+    setHistory((prev) => prev.slice(0, -1));
+    setValidMoves([]);
+    setSelectedPoint(null);
+    log("Undo last move.");
+    if (gameMode === "multi") {
+      emitGameEvent("state_update", {
+        board: lastState.board,
+        bar: lastState.bar,
+        dice: lastState.dice
+      });
+    }
+  };
+  const Die = ({ value, isOpponent, style, className, children }) => {
+    const dots = value ? Array.from({ length: value }) : [];
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `die-3d ${value ? `die-face-${value}` : ""} ${isOpponent ? "opponent" : ""} ${className || ""}`, style, children: value ? dots.map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }, i)) : children });
+  };
+  const playMoveSound = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(500, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {
+    }
+  };
+  const playDiceSound = () => {
+    try {
+      const audio = new Audio("/dice-roll.mp3");
+      audio.play().catch(() => {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const t = ctx.currentTime;
+        [0, 0.1].forEach((offset) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(150 + Math.random() * 50, t + offset);
+          osc.frequency.exponentialRampToValueAtTime(40, t + offset + 0.1);
+          gain.gain.setValueAtTime(0.5, t + offset);
+          gain.gain.exponentialRampToValueAtTime(0.01, t + offset + 0.1);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t + offset);
+          osc.stop(t + offset + 0.1);
+        });
+      });
+    } catch (e) {
+      console.error("Sound Synth Error", e);
+    }
+  };
+  const performRoll = (cb) => {
+    playDiceSound();
+    setRolling(true);
+    setDice([]);
+    setVisualDice([]);
+    setTimeout(() => {
+      let roll = [Math.ceil(Math.random() * 6), Math.ceil(Math.random() * 6)];
+      setVisualDice(roll);
+      let functionalDice = [...roll];
+      if (roll[0] === roll[1]) {
+        log(`Doubles! ${roll[0]}-${roll[0]} (4 Moves)`);
+        functionalDice = [roll[0], roll[0], roll[0], roll[0]];
+      }
+      setDice(functionalDice);
+      setRolling(false);
+      if (cb) cb(functionalDice);
+    }, 800);
+  };
+  const handlePassTurn = () => {
+    setDice([]);
+    setIsBlocked(false);
+    setFinishingTurn(true);
+    setTimeout(() => {
+      setFinishingTurn(false);
+      if (gameMode === "multi") {
+        log("Turn Finished. Waiting for opponent...");
+        setTurn("opponent");
+        emitGameEvent("end_turn", {});
+      } else {
+        log("Turn Finished. AI Moving...");
+        setTurn("ai");
+      }
+    }, 2e3);
+  };
+  const checkHumanCanMove = (currentBoard, currentBar, currentDice) => {
+    if (currentDice.length === 0) return true;
+    const uniqueDice = [...new Set(currentDice)];
+    const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
+    const direction = playerColor === PLAYER_HUMAN ? -1 : 1;
+    if (currentBar[playerColor] > 0) {
+      return uniqueDice.some((d) => {
+        const target = playerColor === PLAYER_HUMAN ? 24 - d : d - 1;
+        if (target >= 0 && target <= 23) {
+          const dest = currentBoard[target];
+          return !(dest.player === opponent && dest.count > 1);
+        }
+        return false;
+      });
+    }
+    let canBearOff = true;
+    if (currentBar[playerColor] > 0) canBearOff = false;
+    else {
+      const start = playerColor === PLAYER_HUMAN ? 6 : 0;
+      const end = playerColor === PLAYER_HUMAN ? 23 : 17;
+      for (let i = start; i <= end; i++) {
+        if (currentBoard[i].player === playerColor && currentBoard[i].count > 0) {
+          canBearOff = false;
+          break;
+        }
+      }
+    }
+    for (let i = 0; i < 24; i++) {
+      if (currentBoard[i].player === playerColor && currentBoard[i].count > 0) {
+        for (let d of uniqueDice) {
+          const target = i + d * direction;
+          if (target >= 0 && target <= 23) {
+            const dest = currentBoard[target];
+            if (!(dest.player === opponent && dest.count > 1)) return true;
+          } else if (canBearOff) {
+            if (playerColor === PLAYER_HUMAN) {
+              if (target === -1) return true;
+              let higherPieces = false;
+              for (let h = i + 1; h <= 5; h++) {
+                if (currentBoard[h].player === playerColor && currentBoard[h].count > 0) higherPieces = true;
+              }
+              if (!higherPieces) return true;
+            } else {
+              if (target === 24) return true;
+              let higherPieces = false;
+              for (let h = 18; h < i; h++) {
+                if (currentBoard[h].player === playerColor && currentBoard[h].count > 0) higherPieces = true;
+              }
+              if (!higherPieces) return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
+  };
+  reactExports.useEffect(() => {
+    if (turn === "human" && !rolling && dice.length > 0) {
+      const canMove = checkHumanCanMove(board, bar, dice);
+      if (!canMove) {
+        log("No valid moves possible. Undo to retry, or Pass.");
+        setIsBlocked(true);
+      } else {
+        setIsBlocked(false);
+      }
+    }
+  }, [dice, turn, rolling, board, bar, playerColor]);
+  reactExports.useEffect(() => {
+    if (gameStatus === "playing" && turn === "ai" && gameMode === "single") {
+      const timer = setTimeout(() => {
+        playAITurn();
+      }, 3e3);
+      return () => clearTimeout(timer);
+    }
+  }, [turn, gameStatus, gameMode]);
+  const playAITurn = () => {
+    try {
+      log("AI Rolling...");
+      performRoll((aiDice) => {
+        log(`AI Rolled: ${aiDice.join(", ")}`);
+        const getBestSequence = (startBoard, startBar, dicePool) => {
+          let bestSeq = [];
+          let maxScore = -Infinity;
+          let maxDiceUsed = -1;
+          let maxDiceValSum = -1;
+          const evaluateBoard = (bd, br) => {
+            let score = 0;
+            let allHome = true;
+            if (br[PLAYER_AI] > 0) allHome = false;
+            else {
+              for (let i = 0; i <= 17; i++) {
+                if (bd[i].player === PLAYER_AI && bd[i].count > 0) {
+                  allHome = false;
+                  break;
+                }
+              }
+            }
+            let opponentInHouse = false;
+            for (let i = 18; i < 24; i++) {
+              if (bd[i].player === PLAYER_HUMAN && bd[i].count > 0) {
+                opponentInHouse = true;
+                break;
+              }
+            }
+            if (allHome) {
+              let piecesOnBoard = 0;
+              for (let i = 18; i < 24; i++) {
+                if (bd[i].player === PLAYER_AI) piecesOnBoard += bd[i].count;
+              }
+              score += (15 - piecesOnBoard) * 1e5;
+              if (opponentInHouse) {
+                for (let i = 18; i < 24; i++) {
+                  if (bd[i].player === PLAYER_AI && bd[i].count === 1) {
+                    score -= 2e5;
+                  }
+                }
+              } else {
+              }
+              return score;
+            }
+            score += br[PLAYER_HUMAN] * 12e3;
+            for (let i = 0; i < 24; i++) {
+              const p = bd[i];
+              if (p.player === PLAYER_AI) {
+                if (p.count === 1) {
+                  score -= 4e3;
+                } else if (p.count > 1) {
+                  score += 2e3;
+                  if (i >= 18) score += 3e3;
+                  if (i >= 12 && i < 18) score += 1e3;
+                }
+              }
+            }
+            let totalDistance = 0;
+            for (let i = 0; i < 24; i++) {
+              if (bd[i].player === PLAYER_AI) {
+                totalDistance += i * bd[i].count;
+              }
+            }
+            score += totalDistance * 10;
+            return score;
+          };
+          const search = (currentBoard, currentBar, currentDice, moveSeq) => {
+            const diceUsed = moveSeq.length;
+            let validMovesFound = false;
+            const uniqueDice = [...new Set(currentDice)];
+            for (let die of uniqueDice) {
+              if (currentBar[PLAYER_AI] > 0) {
+                const target = die - 1;
+                if (target >= 0 && target <= 23) {
+                  const dest = currentBoard[target];
+                  if (!(dest.player === PLAYER_HUMAN && dest.count > 1)) {
+                    validMovesFound = true;
+                    const nextBoard = JSON.parse(JSON.stringify(currentBoard));
+                    const nextBar = { ...currentBar };
+                    nextBar[PLAYER_AI]--;
+                    let action = "move";
+                    if (nextBoard[target].player === PLAYER_HUMAN) {
+                      nextBar[PLAYER_HUMAN]++;
+                      nextBoard[target] = { player: PLAYER_AI, count: 1 };
+                      action = "hit";
+                    } else {
+                      nextBoard[target].player = PLAYER_AI;
+                      nextBoard[target].count++;
+                    }
+                    const nextDice = [...currentDice];
+                    nextDice.splice(nextDice.indexOf(die), 1);
+                    search(nextBoard, nextBar, nextDice, [...moveSeq, {
+                      from: "bar",
+                      to: target,
+                      dieVal: die,
+                      action
+                    }]);
+                  }
+                }
+              } else {
+                for (let i = 0; i < 24; i++) {
+                  if (currentBoard[i].player === PLAYER_AI) {
+                    const target = i + die;
+                    if (target <= 23) {
+                      const dest = currentBoard[target];
+                      if (!(dest.player === PLAYER_HUMAN && dest.count > 1)) {
+                        validMovesFound = true;
+                        const nextBoard = JSON.parse(JSON.stringify(currentBoard));
+                        const nextBar = { ...currentBar };
+                        nextBoard[i].count--;
+                        if (nextBoard[i].count === 0) nextBoard[i].player = 0;
+                        if (nextBoard[target].player === PLAYER_HUMAN) {
+                          nextBar[PLAYER_HUMAN]++;
+                          nextBoard[target] = { player: PLAYER_AI, count: 1 };
+                        } else {
+                          nextBoard[target].player = PLAYER_AI;
+                          nextBoard[target].count++;
+                        }
+                        const nextDice = [...currentDice];
+                        nextDice.splice(nextDice.indexOf(die), 1);
+                        search(nextBoard, nextBar, nextDice, [...moveSeq, {
+                          from: i,
+                          to: target,
+                          dieVal: die
+                        }]);
+                      }
+                    } else {
+                      let aiCanBearOff = true;
+                      if (currentBar[PLAYER_AI] > 0) aiCanBearOff = false;
+                      else {
+                        for (let z = 0; z < 18; z++) {
+                          if (currentBoard[z].player === PLAYER_AI && currentBoard[z].count > 0) {
+                            aiCanBearOff = false;
+                            break;
+                          }
+                        }
+                      }
+                      if (aiCanBearOff) {
+                        let validBearOff = false;
+                        if (target === 24) validBearOff = true;
+                        else {
+                          let lowerPieces = false;
+                          for (let b = 18; b < i; b++) {
+                            if (currentBoard[b].player === PLAYER_AI && currentBoard[b].count > 0) lowerPieces = true;
+                          }
+                          if (!lowerPieces) validBearOff = true;
+                        }
+                        if (validBearOff) {
+                          validMovesFound = true;
+                          const nextBoard = JSON.parse(JSON.stringify(currentBoard));
+                          const nextBar = { ...currentBar };
+                          nextBoard[i].count--;
+                          if (nextBoard[i].count === 0) nextBoard[i].player = 0;
+                          const nextDice = [...currentDice];
+                          nextDice.splice(nextDice.indexOf(die), 1);
+                          search(nextBoard, nextBar, nextDice, [...moveSeq, {
+                            from: i,
+                            to: -1,
+                            dieVal: die,
+                            action: "bearoff"
+                          }]);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            if (!validMovesFound) {
+              const diceUsed2 = moveSeq.length;
+              const valSum = moveSeq.reduce((a, b) => a + b.dieVal, 0);
+              if (diceUsed2 > maxDiceUsed) {
+                maxDiceUsed = diceUsed2;
+                maxDiceValSum = valSum;
+                maxScore = evaluateBoard(currentBoard, currentBar);
+                bestSeq = moveSeq;
+              } else if (diceUsed2 === maxDiceUsed) {
+                if (valSum > maxDiceValSum) {
+                  maxDiceValSum = valSum;
+                  maxScore = evaluateBoard(currentBoard, currentBar);
+                  bestSeq = moveSeq;
+                } else if (valSum === maxDiceValSum) {
+                  const score = evaluateBoard(currentBoard, currentBar);
+                  if (score > maxScore) {
+                    maxScore = score;
+                    bestSeq = moveSeq;
+                  }
+                }
+              }
+            }
+          };
+          search(startBoard, startBar, dicePool, []);
+          return bestSeq;
+        };
+        let sequence = [];
+        if (difficulty === "beginner") {
+          sequence = getBestSequence(board, bar, aiDice);
+        } else {
+          sequence = getBestSequence(board, bar, aiDice);
+        }
+        if (sequence.length === 0) {
+          log("AI has no moves.");
+          setTurn("human");
+          setCanRoll(true);
+          setDice([]);
+          setVisualDice([]);
+          setHistory([]);
+          return;
+        }
+        log(`AI found BEST path: ${sequence.length} moves.`);
+        const runSequence = (seq, idx, currBoard, currBar) => {
+          if (idx >= seq.length) {
+            setTimeout(() => {
+              log("AI Turn Ends.");
+              setTurn("human");
+              setCanRoll(true);
+              setDice([]);
+              setVisualDice([]);
+              setHistory([]);
+            }, 800);
+            return;
+          }
+          const move = seq[idx];
+          setTimeout(() => {
+            setBoard((prev) => {
+              const nb = [...prev];
+              if (move.from === "bar") {
+                setBar((b) => {
+                  const newBarState = { ...b };
+                  newBarState[PLAYER_AI]--;
+                  if (move.action === "hit") {
+                    newBarState[PLAYER_HUMAN]++;
+                    log("AI Hits!");
+                  }
+                  return newBarState;
+                });
+              } else {
+                const src = { ...nb[move.from] };
+                src.count--;
+                if (src.count === 0) src.player = 0;
+                nb[move.from] = src;
+              }
+              playMoveSound();
+              if (move.to === -1) {
+                log("AI Bears Off.");
+                setOff((prev2) => ({ ...prev2, [PLAYER_AI]: prev2[PLAYER_AI] + 1 }));
+              } else {
+                const dst = { ...nb[move.to] };
+                if (dst.player === PLAYER_HUMAN) {
+                  setBar((b) => ({ ...b, [PLAYER_HUMAN]: b[PLAYER_HUMAN] + 1 }));
+                  dst.count = 1;
+                  dst.player = PLAYER_AI;
+                  log("AI Hits!");
+                } else {
+                  dst.player = PLAYER_AI;
+                  dst.count++;
+                }
+                nb[move.to] = dst;
+              }
+              return nb;
+            });
+            setDice((prev) => {
+              const newD = [...prev];
+              const dIdx = newD.indexOf(move.dieVal);
+              if (dIdx > -1) newD.splice(dIdx, 1);
+              return newD;
+            });
+            runSequence(seq, idx + 1, null, null);
+          }, 1e3);
+        };
+        runSequence(sequence, 0, board, bar);
+      });
+    } catch (e) {
+      console.error("AI Error:", e);
+      log("AI Error: " + e.message);
+    }
+  };
+  const handlePointClick = (index) => {
+    if (turn !== "human" || rolling) return;
+    const isOwnedPiece = index >= 0 && index <= 23 && board[index].player === playerColor && board[index].count > 0;
+    const isMoveTarget = validMoves.includes(index);
+    const isReSelection = selectedPoint !== null && isOwnedPiece && !isMoveTarget && index !== selectedPoint;
+    if (selectedPoint === null || isReSelection) {
+      if (bar[playerColor] > 0) return log("Must enter from bar!");
+      if (isOwnedPiece) {
+        setSelectedPoint(index);
+        const possibleMoves = [];
+        let canBearOff = true;
+        if (bar[playerColor] > 0) canBearOff = false;
+        else {
+          if (playerColor === PLAYER_HUMAN) {
+            for (let i = 6; i < 24; i++) {
+              if (board[i].player === PLAYER_HUMAN && board[i].count > 0) {
+                canBearOff = false;
+                break;
+              }
+            }
+          } else {
+            for (let i = 0; i < 18; i++) {
+              if (board[i].player === PLAYER_AI && board[i].count > 0) {
+                canBearOff = false;
+                break;
+              }
+            }
+          }
+        }
+        [...new Set(dice)].forEach((d) => {
+          const target = playerColor === PLAYER_HUMAN ? index - d : index + d;
+          const inBounds = target >= 0 && target <= 23;
+          if (inBounds) {
+            const dest = board[target];
+            const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
+            const blocked = dest.player === opponent && dest.count > 1;
+            if (!blocked) possibleMoves.push(target);
+          } else if (canBearOff) {
+            const isBearOffMove = playerColor === PLAYER_HUMAN ? target < 0 : target > 23;
+            if (isBearOffMove) {
+              const exact = playerColor === PLAYER_HUMAN ? index - d === -1 : index + d === 24;
+              if (exact) {
+                possibleMoves.push(-1);
+              } else {
+                let hasHigher = false;
+                if (playerColor === PLAYER_HUMAN) {
+                  for (let k = index + 1; k <= 5; k++) {
+                    if (board[k].player === playerColor && board[k].count > 0) hasHigher = true;
+                  }
+                } else {
+                  for (let k = index - 1; k >= 18; k--) {
+                    if (board[k].player === playerColor && board[k].count > 0) hasHigher = true;
+                  }
+                }
+                if (!hasHigher) possibleMoves.push(-1);
+              }
+            }
+          }
+        });
+        setValidMoves(possibleMoves);
+      }
+    } else {
+      const targetIndex = index === selectedPoint && validMoves.includes(-1) ? -1 : index;
+      if (!validMoves.includes(targetIndex)) {
+        if (index === selectedPoint) {
+          setSelectedPoint(null);
+          setValidMoves([]);
+        } else {
+          log("Invalid move!");
+        }
+        return;
+      }
+      playMoveSound();
+      const snapshot = {
+        board: JSON.parse(JSON.stringify(board)),
+        bar: { ...bar },
+        dice: [...dice],
+        turn
+      };
+      setHistory((prev) => [...prev, snapshot]);
+      let dieUsed;
+      if (selectedPoint === "bar") {
+        if (playerColor === PLAYER_HUMAN) dieUsed = 24 - targetIndex;
+        else dieUsed = targetIndex + 1;
+      } else {
+        if (targetIndex === -1) {
+          if (playerColor === PLAYER_HUMAN) {
+            const exactDie = selectedPoint + 1;
+            dieUsed = dice.includes(exactDie) ? exactDie : dice.find((d) => selectedPoint - d < -1) || exactDie;
+          } else {
+            const exactDie = 24 - selectedPoint;
+            dieUsed = dice.includes(exactDie) ? exactDie : dice.find((d) => selectedPoint + d > 23) || exactDie;
+          }
+        } else {
+          dieUsed = Math.abs(selectedPoint - targetIndex);
+        }
+      }
+      const dieIdx = dice.indexOf(dieUsed);
+      const nextBoard = [...board];
+      const nextBar = { ...bar };
+      const nextOff = { ...off };
+      if (selectedPoint === "bar") {
+        nextBar[playerColor]--;
+      } else {
+        const source = { ...nextBoard[selectedPoint] };
+        source.count--;
+        if (source.count === 0) source.player = 0;
+        nextBoard[selectedPoint] = source;
+      }
+      if (targetIndex === -1) {
+        log("Bearing Off!");
+        nextOff[playerColor]++;
+      } else {
+        const dest = { ...nextBoard[targetIndex] };
+        const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
+        if (dest.player === opponent) {
+          log("Checkers Hit!");
+          nextBar[opponent] = nextBar[opponent] + 1;
+          dest.player = playerColor;
+          dest.count = 1;
+        } else {
+          dest.player = playerColor;
+          dest.count += 1;
+        }
+        nextBoard[targetIndex] = dest;
+      }
+      setBoard(nextBoard);
+      setBar(nextBar);
+      setOff(nextOff);
+      const newDice = [...dice];
+      newDice.splice(dieIdx, 1);
+      setDice(newDice);
+      if (gameMode === "multi") {
+        emitGameEvent("state_update", { board: nextBoard, bar: nextBar, off: nextOff, dice: newDice });
+      }
+      setSelectedPoint(null);
+      setValidMoves([]);
+      if (newDice.length > 0 && !checkHumanCanMove(nextBoard, nextBar, newDice)) {
+        log("No valid moves left. Undo to retry, or Pass.");
+        setIsBlocked(true);
+      }
+      if (newDice.length === 0) {
+        handlePassTurn();
+      }
+    }
+  };
+  const handleBarClick = () => {
+    if (turn !== "human") return;
+    const myBarCount = bar[playerColor];
+    if (myBarCount > 0) {
+      setSelectedPoint("bar");
+      const possibleMoves = [];
+      [...new Set(dice)].forEach((d) => {
+        let target;
+        if (playerColor === PLAYER_AI) {
+          target = d - 1;
+        } else {
+          target = 24 - d;
+        }
+        if (target >= 0 && target <= 23) {
+          const dest = board[target];
+          const opponent = playerColor === PLAYER_HUMAN ? PLAYER_AI : PLAYER_HUMAN;
+          const blocked = dest.player === opponent && dest.count > 1;
+          if (!blocked) possibleMoves.push(target);
+        }
+      });
+      setValidMoves(possibleMoves);
+      log("Select a valid point to enter.");
+    }
+  };
+  reactExports.useEffect(() => {
+    if (gameStatus !== "playing") return;
+    const countHuman = board.reduce((acc, p) => p.player === PLAYER_HUMAN ? acc + p.count : acc, 0) + bar[PLAYER_HUMAN];
+    const countAI = board.reduce((acc, p) => p.player === PLAYER_AI ? acc + p.count : acc, 0) + bar[PLAYER_AI];
+    const myPieces = playerColor === PLAYER_HUMAN ? countHuman : countAI;
+    const oppPieces = playerColor === PLAYER_HUMAN ? countAI : countHuman;
+    if (myPieces === 0) {
+      setGameStatus("gameover");
+      setGameResult("win");
+      playDiceSound();
+      updateStats("win");
+      if (gameMode === "multi" && socket) {
+        socket.emit("finish_game", { roomId, result: "win" });
+      } else if (gameMode === "single" && socket && wallet && !wallet.startsWith("Guest")) {
+        socket.emit("update_single_player_stats", { wallet, result: "win" });
+      }
+      const stake = selectedStakeRef.current;
+      if (stake > 0) {
+        const confirmWin = stake * 2;
+        const fee = confirmWin * 0.02;
+        const payout = confirmWin - fee;
+        setEscrowBalance((prev) => parseFloat((prev + payout).toFixed(2)));
+        log(`Won ${payout.toFixed(3)} SOL! Added to Escrow.`);
+      }
+    } else if (oppPieces === 0) {
+      setGameStatus("gameover");
+      setGameResult("loss");
+      updateStats("loss");
+    }
+  }, [board, bar, gameStatus, playerColor]);
+  if (gameStatus === "menu") {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-page", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-visual", style: { transform: "scale(0.9)" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-die die-1 face-6", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-die die-2 face-5", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dot" })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-title", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#d32f2f", WebkitTextFillColor: "initial", background: "none" }, children: "Play" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff", WebkitTextFillColor: "initial", background: "none" }, children: "24" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#e8e0d5", WebkitTextFillColor: "initial", background: "none" }, children: " Backgammon" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "landing-subtitle", children: "Powered by Solana" }),
+      wallet && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        opponentDisconnected && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          width: "100%",
+          height: "60px",
+          background: "red",
+          color: "white",
+          zIndex: 999999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: "bold",
+          fontSize: "1.5rem"
+        }, children: "⚠️ OPPONENT DISCONNECTED - AUTO WIN IN 15s ⚠️" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "wallet-badge-container", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "wallet-badge", style: { cursor: "pointer", display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start", padding: "12px" }, onClick: () => setIsProfileModalOpen(true), children: wallet.startsWith("Guest") ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold" }, children: "Guest Mode" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center" }, children: [
+            userProfile.avatar && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: userProfile.avatar, style: { width: "20px", height: "20px", borderRadius: "50%", marginRight: "5px" } }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: "bold" }, children: userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}` }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "0.8rem", marginLeft: "5px", opacity: 0.7 }, children: "✏️" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", width: "100%", fontSize: "0.8rem", opacity: 0.9, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "6px", gap: "8px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#66bb6a" }, children: [
+              userProfile.stats.wins,
+              "W"
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { opacity: 0.5 }, children: "-" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#ef5350" }, children: [
+              userProfile.stats.losses,
+              "L"
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { opacity: 0.5 }, children: "|" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#ffd700" }, children: [
+              "Lvl ",
+              userProfile.stats.level
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { opacity: 0.5 }, children: "|" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#00e676" }, children: [
+              userProfile.stats.xp,
+              " XP"
+            ] })
+          ] })
+        ] }) }) })
+      ] }),
+      isProfileModalOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Edit Profile" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "form-group", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("label", { children: "Display Name" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "text",
+              id: "input-name",
+              defaultValue: userProfile.name,
+              placeholder: "Enter your name",
+              className: "modal-input"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "form-group", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("label", { children: "Avatar" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "file",
+              id: "input-file",
+              accept: "image/*",
+              className: "modal-input"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-actions", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", onClick: () => setIsProfileModalOpen(false), children: "Cancel" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", onClick: () => {
+            const name = document.getElementById("input-name").value;
+            const fileInput = document.getElementById("input-file");
+            if (fileInput.files && fileInput.files[0]) {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                handleSaveProfile(name, e.target.result);
+              };
+              reader.readAsDataURL(fileInput.files[0]);
+            } else {
+              handleSaveProfile(name, userProfile.avatar);
+            }
+          }, children: "Save" })
+        ] })
+      ] }) }),
+      showGuestPopup && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "400px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🔒" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Wallet Required" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#bdbdbd", marginBottom: "25px" }, children: "You must connect a real wallet to play Multiplayer!" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: "10px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-primary", style: {
+            fontSize: "1.1rem",
+            padding: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            background: "#4caf50",
+            border: "none"
+          }, onClick: () => {
+            setShowGuestPopup(false);
+            connectWallet();
+          }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "🔗" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Wallet Login" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", onClick: () => setShowGuestPopup(false), children: "Cancel" })
+        ] })
+      ] }) }),
+      !wallet || !wallet.startsWith("Guest") && !isLoggedIn ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: "15px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-primary", style: {
+          fontSize: "1.2rem",
+          padding: "15px 30px",
+          display: "flex",
+          alignItems: "center",
+          gap: "15px",
+          justifyContent: "center",
+          minWidth: "250px",
+          background: "#4caf50",
+          border: "none"
+        }, onClick: handleGuestLogin, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "1.4rem" }, children: "👤" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Guest Mode" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            className: "btn-primary",
+            style: {
+              fontSize: "1.2rem",
+              padding: "15px 30px",
+              background: "#4caf50",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "15px",
+              justifyContent: "center",
+              minWidth: "250px"
+            },
+            onClick: connectWallet,
+            disabled: isLoggingIn,
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "1.4rem" }, children: connected && !isLoggedIn ? "✅" : "🔗" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: isLoggingIn ? "Verifying..." : connected && !isLoggedIn ? "Verify & Login" : "Wallet Login" })
+            ]
+          }
+        )
+      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-menu", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dropdown-container", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dropdown-header", onClick: () => setIsDropdownOpen(!isDropdownOpen), children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "icon", children: "👤" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Single Player" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: isDropdownOpen ? "▲" : "▼" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `dropdown-options ${isDropdownOpen ? "open" : ""}`, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dropdown-item", onClick: () => startGame("beginner"), children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Easy (Beginner)" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "👶" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "dropdown-item", onClick: () => startGame("advanced"), children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Hard (Advanced)" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "🤖" })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", onClick: () => {
+          if (wallet && wallet.startsWith("Guest")) {
+            setShowGuestPopup(true);
+          } else {
+            setGameStatus("multiplayer_menu");
+          }
+        }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "icon", children: "👥" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Multiplayer" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "6px", opacity: 0.8 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "6px", height: "6px", background: "#4caf50", borderRadius: "50%" } }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: "0.8rem", color: "#81c784" }, children: onlineCount })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", onClick: () => {
+          setGameStatus("leaderboard");
+          fetchLeaderboard();
+        }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "icon", children: "📊" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Stats / Leaderboard" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", {})
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-mode", style: { borderColor: "#d32f2f", background: "rgba(211, 47, 47, 0.1)" }, onClick: () => {
+          disconnect().catch(() => {
+          });
+          setWalletValue(null);
+          setLoggedInValue(false);
+          setGameStatus("menu");
+        }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "icon", children: "🚪" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#ffcdd2" }, children: wallet.startsWith("Guest") ? "Exit Guest" : "Disconnect" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", {})
+        ] })
+      ] }),
+      incomingInvite && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { zIndex: 3e3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "350px", border: "2px solid #4caf50" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🎲" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Game Invite!" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { color: "#bdbdbd", marginBottom: "20px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff", fontWeight: "bold" }, children: incomingInvite.fromName }),
+          " wants to play a match with you!"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "10px", justifyContent: "center" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#4caf50", border: "none", flex: 1 }, onClick: () => handleRespondToInvite("accept"), children: "Accept" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1 }, onClick: () => handleRespondToInvite("decline"), children: "Decline" })
+        ] })
+      ] }) })
+    ] });
+  }
+  if (gameStatus === "multiplayer_menu") {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-page", children: [
+      wallet && /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "wallet-badge-container", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "wallet-badge", style: { cursor: "pointer", display: "flex", flexDirection: "column", gap: "8px", padding: "12px", alignItems: "flex-start" }, onClick: () => setIsProfileModalOpen(true), children: wallet.startsWith("Guest") ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold" }, children: "Guest Mode" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center" }, children: [
+          userProfile.avatar && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: userProfile.avatar, style: { width: "20px", height: "20px", borderRadius: "50%", marginRight: "5px" } }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: "bold" }, children: userProfile.name || `${wallet.slice(0, 4)}...` })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", width: "100%", fontSize: "0.8rem", opacity: 0.9, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "6px", gap: "8px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#66bb6a" }, children: [
+            userProfile.stats.wins,
+            "W"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { opacity: 0.5 }, children: "-" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#ef5350" }, children: [
+            userProfile.stats.losses,
+            "L"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { opacity: 0.5 }, children: "|" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#ffd700" }, children: [
+            "Lvl ",
+            userProfile.stats.level
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { opacity: 0.5 }, children: "|" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#00e676" }, children: [
+            userProfile.stats.xp,
+            " XP"
+          ] })
+        ] })
+      ] }) }) }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        background: "rgba(0,0,0,0.4)",
+        padding: "6px 12px",
+        borderRadius: "20px",
+        fontSize: "0.8rem",
+        color: "#81c784",
+        border: "1px solid rgba(129, 199, 132, 0.2)",
+        marginBottom: "10px"
+      }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pulse-dot", style: { width: "8px", height: "8px", background: "#4caf50", borderRadius: "50%" } }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontWeight: "bold" }, children: [
+          onlineCount,
+          " Users Online"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "landing-title", children: "Select Mode" }),
+      isSearching ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: { padding: "40px", textAlign: "center", border: "2px solid #4caf50", background: "rgba(0,0,0,0.8)" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "20px" }, children: "🔍" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Searching for opponent..." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { color: "#aaa" }, children: [
+          "Stake: ",
+          selectedStake ? selectedStake + " SOL" : "Free Play"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { marginTop: "20px" }, onClick: () => setIsSearching(false), children: "Cancel" })
+      ] }) : isLobbyOpen ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: {
+        width: "95%",
+        maxWidth: "500px",
+        background: "rgba(30, 15, 10, 0.98)",
+        border: "2px solid #8d6e63",
+        padding: "20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "20px",
+        minHeight: "400px"
+      }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #4e342e", paddingBottom: "10px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { margin: 0, color: "#d7ccc8" }, children: "Free Play Tables" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { padding: "2px 8px", fontSize: "0.7rem" }, onClick: () => socket == null ? void 0 : socket.emit("get_lobbies"), children: "🔄 Refresh" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { padding: "5px 10px", fontSize: "0.8rem" }, onClick: () => setIsLobbyOpen(false), children: "Close" })
+        ] }),
+        isHosting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center", padding: "40px 20px", background: "rgba(0,0,0,0.3)", borderRadius: "10px", border: "1px dashed #8d6e63" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "loading-spinner", style: { marginBottom: "20px" }, children: "🎲" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { children: "Your Table is Live!" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#aaa", fontSize: "0.9rem" }, children: "Waiting for someone to join..." }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { marginTop: "20px", background: "#c62828" }, onClick: handleLeaveLobby, children: "Stop Hosting" })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { padding: "15px", background: "#4caf50", border: "1px solid #388e3c" }, onClick: handleHostGame, children: "➕ Create New Table" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, overflowY: "auto", maxHeight: "300px", display: "flex", flexDirection: "column", gap: "10px" }, children: activeLobbies.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center", color: "#6d4c41", padding: "40px 0" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "2rem", marginBottom: "10px" }, children: "🕳️" }),
+            "No tables open. Host one!"
+          ] }) : activeLobbies.map((lobby) => {
+            var _a, _b;
+            return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+              background: "rgba(255,255,255,0.05)",
+              padding: "12px",
+              borderRadius: "8px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              border: "1px solid #4e342e"
+            }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", gap: "12px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "12px" }, children: [
+                lobby.hostData.avatar ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: lobby.hostData.avatar, style: { width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "40px", height: "40px", background: "#3e2723", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }, children: "👤" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold", fontSize: "1.2rem", color: "#fff" }, children: lobby.hostData.name }),
+                  lobby.hostData.isOnline && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                    position: "absolute",
+                    top: "-2px",
+                    right: "-12px",
+                    width: "10px",
+                    height: "10px",
+                    background: "#4caf50",
+                    borderRadius: "50%",
+                    border: "2px solid #231b15",
+                    boxShadow: "0 0 5px #4caf50"
+                  } }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.8rem", color: "#aaa" }, children: [
+                    "Lvl ",
+                    lobby.hostData.level,
+                    " | ",
+                    (_a = lobby.hostData.stats) == null ? void 0 : _a.wins,
+                    "W - ",
+                    (_b = lobby.hostData.stats) == null ? void 0 : _b.losses,
+                    "L"
+                  ] })
+                ] })
+              ] }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { padding: "8px 20px", fontSize: "0.9rem" }, onClick: () => handleJoinLobby(lobby), children: "Join" })
+            ] }, lobby.roomId);
+          }) })
+        ] })
+      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "20px", width: "100%", maxWidth: "100%" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: {
+          textAlign: "center",
+          width: "90%",
+          maxWidth: "400px",
+          cursor: "pointer",
+          border: "2px solid #8d6e63",
+          padding: "20px",
+          boxSizing: "border-box",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "rgba(62, 39, 35, 0.95)"
+        }, onClick: () => handleSearchMatch(null), children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "15px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "2rem" }, children: "🎮" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "left" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { margin: 0, fontSize: "1.2rem" }, children: "Free Play" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { margin: 0, color: "#aaa", fontSize: "0.8rem" }, children: "Practice vs Random" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { fontSize: "0.9rem", padding: "8px 15px", minWidth: "80px", background: "#4caf50", border: "1px solid #388e3c" }, children: "Play" })
+        ] }),
+        userProfile.stats.level < 5 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: {
+          textAlign: "center",
+          width: "90%",
+          maxWidth: "400px",
+          border: "2px solid #555",
+          background: "rgba(30, 30, 30, 0.95)",
+          padding: "40px 20px",
+          boxSizing: "border-box",
+          position: "relative",
+          opacity: 0.8,
+          cursor: "not-allowed",
+          minHeight: "260px"
+        }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { filter: "blur(3px)", pointerEvents: "none", userSelect: "none" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "15px" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "2rem", filter: "grayscale(100%)" }, children: "💰" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { margin: 0, color: "#aaa" }, children: "Ranked / Stake" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }, children: [0.01, 0.02].map((amt) => /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-secondary", disabled: true, style: { background: "#333", border: "1px solid #555", color: "#777" }, children: [
+              amt,
+              " SOL"
+            ] }, amt)) })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "100%",
+            textAlign: "center",
+            color: "#fff",
+            textShadow: "0 2px 4px #000",
+            padding: "10px",
+            background: "rgba(0,0,0,0.6)",
+            borderRadius: "10px"
+          }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "2rem", marginBottom: "5px" }, children: "🔒" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold", fontSize: "1rem", color: "#ff5252", padding: "0 10px 10px" }, children: "Reach Level 5 to Unlock Play with Stake!" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.8rem", color: "#aaa", marginTop: "5px" }, children: [
+              "Current: Lvl ",
+              userProfile.stats.level
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                className: "btn-secondary",
+                style: { marginTop: "10px", fontSize: "0.8rem", padding: "5px 10px", pointerEvents: "auto", cursor: "pointer", background: "rgba(255,255,255,0.1)", border: "1px solid #777" },
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setIsConditionsOpen(true);
+                },
+                children: "ℹ️ View Conditions"
+              }
+            )
+          ] })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: {
+          textAlign: "center",
+          width: "90%",
+          maxWidth: "400px",
+          border: "2px solid gold",
+          background: "rgba(62, 39, 35, 0.95)",
+          padding: "20px",
+          boxSizing: "border-box"
+        }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "15px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "2rem" }, children: "💰" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { margin: 0 }, children: "Ranked / Stake" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }, children: [0.01, 0.02, 0.03, 0.04].map((amt) => /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-secondary", style: { background: "#3e2723", border: "1px solid gold", padding: "10px" }, onClick: () => handleSearchMatch(amt), children: [
+            amt,
+            " SOL"
+          ] }, amt)) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: "15px", paddingTop: "10px", borderTop: "1px solid #4e342e" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#aaa", fontSize: "0.9rem", marginBottom: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+              "Escrow: ",
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "#fff", fontWeight: "bold" }, children: [
+                escrowBalance,
+                " SOL"
+              ] })
+            ] }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "10px", justifyContent: "center" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1, fontSize: "0.8rem", padding: "8px", background: "#2e7d32" }, onClick: handleEscrowDeposit, children: "+ Deposit" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1, fontSize: "0.8rem", padding: "8px", background: "#c62828" }, onClick: handleEscrowWithdraw, children: "- Withdraw" })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { marginTop: "5px", background: "#3e2723", width: "90%", maxWidth: "400px", padding: "15px" }, onClick: () => {
+          setGameStatus("menu");
+          setGameMode("single");
+        }, children: "Back to Main Menu" })
+      ] }),
+      isConditionsOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { maxWidth: "400px", textAlign: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "10px" }, children: "🏆" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { margin: "0 0 15px" }, children: "Level 5 Requirements" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "rgba(255,255,255,0.05)", borderRadius: "10px", padding: "15px", marginBottom: "20px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "10px", fontSize: "1.1rem" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Target XP:" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#ffd700", fontWeight: "bold" }, children: "400 XP" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("hr", { style: { border: "none", borderTop: "1px solid rgba(255,255,255,0.1)", margin: "10px 0" } }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "5px" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Reward per Win:" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#66bb6a", fontWeight: "bold" }, children: "+20 XP" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Reward per Loss:" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#ef5350", fontWeight: "bold" }, children: "+5 XP" })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#aaa", fontSize: "0.9rem", marginBottom: "20px" }, children: 'Keep playing "Free Play" matches to earn XP. Even losses help you progress!' }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", onClick: () => setIsConditionsOpen(false), children: "Got it!" })
+      ] }) }),
+      showGuestPopup && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "400px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🔒" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Wallet Required" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#bdbdbd", marginBottom: "25px" }, children: "You must connect a real wallet to play Multiplayer!" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: "10px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn-primary", style: {
+            fontSize: "1.1rem",
+            padding: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            background: "#4caf50",
+            border: "none"
+          }, onClick: () => {
+            setShowGuestPopup(false);
+            connectWallet();
+          }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "🔗" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Wallet Login" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", onClick: () => setShowGuestPopup(false), children: "Cancel" })
+        ] })
+      ] }) })
+    ] });
+  }
+  if (gameStatus === "leaderboard") {
+    const leaderboard = leaderboardData;
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "landing-page", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "landing-title", style: { fontSize: "1.8rem", marginBottom: "15px" }, children: "Leaderboard" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+        background: "rgba(44, 36, 27, 0.98)",
+        padding: "10px 5px",
+        borderRadius: "10px",
+        width: "95%",
+        maxWidth: "500px",
+        maxHeight: "70vh",
+        overflowY: "auto",
+        marginBottom: "15px",
+        border: "1px solid #5d4037"
+      }, children: [
+        leaderboard.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "#fff", textAlign: "center", padding: "20px" }, children: [
+          "No players found yet. Be the first! ",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+          "(Connect your wallet to appear)"
+        ] }),
+        leaderboardData.map((p, i) => {
+          var _a, _b, _c;
+          const isMe = p.wallet === wallet;
+          return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                padding: "10px 12px",
+                borderBottom: "1px solid rgba(141, 110, 99, 0.15)",
+                background: i === 0 ? "rgba(255, 215, 0, 0.05)" : "transparent",
+                gap: "10px",
+                minHeight: "60px"
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                  fontSize: "0.9rem",
+                  fontWeight: "800",
+                  width: "28px",
+                  color: i === 0 ? "#ffd700" : i === 1 ? "#e0e0e0" : i === 2 ? "#cd7f32" : "#6d4c41",
+                  textAlign: "center"
+                }, children: i + 1 }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                  width: "8px",
+                  height: "8px",
+                  background: p.isOnline ? "#4caf50" : "#444",
+                  borderRadius: "50%",
+                  boxShadow: p.isOnline ? "0 0 8px rgba(76, 175, 80, 0.8)" : "none",
+                  flexShrink: 0
+                }, title: p.isOnline ? "Online" : "Offline" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flexShrink: 0 }, children: p.avatar ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: p.avatar, style: { width: "36px", height: "36px", borderRadius: "50%", border: "1px solid #5d4037", objectFit: "cover" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "36px", height: "36px", background: "#3e2723", borderRadius: "50%", border: "1px solid #5d4037", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }, children: "👤" }) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0, overflow: "hidden" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                    fontWeight: "bold",
+                    color: isMe ? "#4caf50" : "#e8e0d5",
+                    fontSize: "0.95rem",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis"
+                  }, children: p.name || "Anonymous" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.75rem", color: "#8d6e63", display: "flex", gap: "8px" }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                      "Lvl ",
+                      ((_a = p.stats) == null ? void 0 : _a.level) || 1
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "rgba(255,255,255,0.3)" }, children: "|" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                      ((_b = p.stats) == null ? void 0 : _b.wins) || 0,
+                      "W"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                      (_c = p.stats) == null ? void 0 : _c.xp,
+                      " XP"
+                    ] })
+                  ] })
+                ] }),
+                !isMe && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    style: {
+                      background: p.isOnline ? "#2e7d32" : "transparent",
+                      border: p.isOnline ? "none" : "1px solid #5d4037",
+                      color: p.isOnline ? "#fff" : "#5d4037",
+                      padding: "6px 10px",
+                      borderRadius: "6px",
+                      fontSize: "0.75rem",
+                      fontWeight: "bold",
+                      cursor: p.isOnline ? "pointer" : "default",
+                      opacity: p.isOnline ? 1 : 0.5,
+                      transition: "all 0.2s",
+                      whiteSpace: "nowrap"
+                    },
+                    onClick: () => p.isOnline ? handleInvitePlayer(p.wallet, p.name) : null,
+                    disabled: isInviting || !p.isOnline,
+                    children: p.isOnline ? "Invite" : "Offline"
+                  }
+                )
+              ]
+            },
+            i
+          );
+        })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#3e2723", padding: "10px 40px" }, onClick: () => setGameStatus("menu"), children: "Back to Menu" })
+    ] });
+  }
+  const isFlipped = playerColor === PLAYER_AI;
+  const getLogIdx = (i) => isFlipped ? 23 - i : i;
+  const topTrayPlayer = isFlipped ? PLAYER_HUMAN : PLAYER_AI;
+  const bottomTrayPlayer = isFlipped ? PLAYER_AI : PLAYER_HUMAN;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "app-container", children: [
+    opponentDisconnected && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+      position: "fixed",
+      top: "10%",
+      left: "50%",
+      transform: "translate(-50%, 0)",
+      width: "55%",
+      padding: "15px",
+      background: "#d32f2f",
+      color: "#fff",
+      zIndex: 2147483647,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: "bold",
+      fontSize: "1rem",
+      border: "3px solid #fff",
+      borderRadius: "12px",
+      boxShadow: "0 0 30px rgba(0,0,0,0.6)",
+      textAlign: "center"
+    }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginBottom: "5px", fontSize: "1.2rem" }, children: "⚠️ Connection Lost" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { children: "Waiting for opponent to reconnect... (60s)" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "board-wrapper", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `unified-header ${turn === "ai" || turn === "opponent" ? "active-turn" : ""}`, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "header-left", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "logo-mini", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#d32f2f" }, children: "P" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff" }, children: "24" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "opponent-info-compact", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "opponent-avatar-mini", style: {
+              width: "24px",
+              height: "24px",
+              background: playerColor === PLAYER_HUMAN ? "radial-gradient(circle at 30% 30%, #4a4a4a, #000000)" : "radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)",
+              borderColor: playerColor === PLAYER_HUMAN ? "#000" : "#b0b0b0"
+            } }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "opp-name-text", children: gameMode === "multi" ? opponentName : `AI` })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "header-center", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "turn-status-compact", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "turn-label", children: turn === "human" ? "YOUR TURN" : "OPPONENT TURN" }),
+          turn === "human" && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "turn-timer-compact", children: [
+            Math.floor(turnTimer / 60),
+            ":",
+            (turnTimer % 60).toString().padStart(2, "0")
+          ] })
+        ] }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "header-right", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            className: "btn-header-action",
+            onClick: () => {
+              if (gameStatus === "playing" || gameStatus === "opening_roll") {
+                if (gameMode === "single") {
+                  setShowResignModal(true);
+                } else {
+                  if (window.confirm("Are you sure you want to resign? You will lose the match.")) {
+                    handleForfeit();
+                  }
+                }
+              } else {
+                setGameStatus("menu");
+                setBoard(initialBoard);
+                setGameResult(null);
+                setVisualDice([]);
+                setDice([]);
+                setOpponentDisconnected(false);
+              }
+            },
+            children: gameStatus === "playing" || gameStatus === "opening_roll" ? "🏳️" : "🏠"
+          }
+        ) })
+      ] }),
+      gameStatus === "gameover" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "game-over-overlay", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `game-over-title ${gameResult}`, children: gameResult === "win" ? "YOU WIN!" : "YOU LOST!" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "game-over-subtitle", children: gameResult === "win" ? "Great moves! You dominated the board." : "Better luck next time!" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "20px", justifyContent: "center" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", onClick: () => {
+            setGameStatus("menu");
+            setBoard(initialBoard);
+            setGameResult(null);
+            setOpponentDisconnected(false);
+          }, children: "Back to Menu" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#4caf50", border: "1px solid #81c784" }, onClick: () => {
+            setBoard(initialBoard);
+            setBar({ 0: 0, 1: 0 });
+            setGameResult(null);
+            setOpponentDisconnected(false);
+            if (gameMode === "multi") {
+              setGameStatus("multiplayer_menu");
+              handleSearchMatch(selectedStake);
+            } else {
+              startGame(difficulty);
+            }
+          }, children: "Play Again" })
+        ] })
+      ] }),
+      gameStatus === "opening_roll" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "game-over-overlay", style: { background: "rgba(0,0,0,0.92)", zIndex: 900 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "game-over-title", style: { fontSize: "2rem", marginBottom: "10px", color: "#fff" }, children: "Opening Roll" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "game-over-subtitle", style: { marginBottom: "20px" }, children: "Roll to decide who moves first!" }),
+        openingRoll || rolling ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", gap: "60px", margin: "30px 0" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#fff", marginBottom: "10px", fontWeight: "bold", fontSize: "1.2rem" }, children: "YOU" }),
+            openingRoll && openingRoll.human ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { value: openingRoll.human, style: { width: "70px", height: "70px" } }) : rolling ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { style: { width: "70px", height: "70px", animation: "spin 1s infinite linear" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { style: { width: "70px", height: "70px", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #666", background: "transparent", color: "#666", fontSize: "2rem" }, children: "?" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "1.5rem", color: "#aaa", paddingTop: "20px" }, children: "vs" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#d32f2f", marginBottom: "10px", fontWeight: "bold", fontSize: "1.2rem" }, children: gameMode === "multi" ? opponentName : "AI" }),
+            openingRoll && openingRoll.ai ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { value: openingRoll.ai, isOpponent: true, style: { width: "70px", height: "70px" } }) : rolling ? /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { isOpponent: true, style: { width: "70px", height: "70px", animation: "spin 1s infinite linear" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { isOpponent: true, style: { width: "70px", height: "70px", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #d32f2f", background: "transparent", color: "#d32f2f", fontSize: "2rem" }, children: gameMode === "multi" ? "..." : "?" })
+          ] })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: "80px", display: "flex", alignItems: "center", justifyContent: "center", margin: "30px 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "4rem" }, children: "🎲" }) }),
+        (!openingRoll || !openingRoll.human) && !rolling && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { fontSize: "1.3rem", padding: "15px 50px", background: "#4caf50", border: "1px solid #388e3c" }, onClick: handleOpeningRoll, children: "ROLL FOR FIRST TURN" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `dice-table-overlay ${rolling ? "rolling" : ""}`, children: [
+        turn === "human" && (canRoll || dice.length > 0) && !rolling && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "turn-message", children: "YOUR TURN!" }),
+        (visualDice.length > 0 || rolling) && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "dice-pair", children: rolling ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "die-3d rolling-anim" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "die-3d rolling-anim" })
+        ] }) : visualDice.map((d, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(Die, { value: d, isOpponent: turn === "opponent" || turn === PLAYER_AI }, i)) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        OffTray,
+        {
+          player: topTrayPlayer,
+          count: off[topTrayPlayer],
+          position: "top",
+          valid: topTrayPlayer === playerColor && validMoves.includes(-1),
+          onClick: topTrayPlayer === playerColor ? () => handlePointClick(-1) : void 0
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "board-row top", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "quadrant", children: [12, 13, 14, 15, 16, 17].map((i) => {
+          const logical = getLogIdx(i);
+          return /* @__PURE__ */ jsxRuntimeExports.jsx(Point, { index: i, data: board[logical], isTop: true, selected: selectedPoint === logical, isValid: validMoves.includes(logical), onClick: () => handlePointClick(logical), playerColor }, i);
+        }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bar-center", children: bar[PLAYER_AI] > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "checker red",
+            onClick: playerColor === PLAYER_AI ? handleBarClick : void 0,
+            style: { display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", cursor: playerColor === PLAYER_AI ? "pointer" : "default", color: "#fff", fontSize: "1.2rem", position: "relative", zIndex: 5 },
+            children: bar[PLAYER_AI]
+          }
+        ) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "quadrant", children: [18, 19, 20, 21, 22, 23].map((i) => {
+          const logical = getLogIdx(i);
+          return /* @__PURE__ */ jsxRuntimeExports.jsx(Point, { index: i, data: board[logical], isTop: true, selected: selectedPoint === logical, isValid: validMoves.includes(logical), onClick: () => handlePointClick(logical), playerColor }, i);
+        }) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "board-row bottom", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "quadrant", children: [11, 10, 9, 8, 7, 6].map((i) => {
+          const logical = getLogIdx(i);
+          return /* @__PURE__ */ jsxRuntimeExports.jsx(Point, { index: i, data: board[logical], isTop: false, selected: selectedPoint === logical, isValid: validMoves.includes(logical), onClick: () => handlePointClick(logical), playerColor }, i);
+        }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bar-center", children: bar[PLAYER_HUMAN] > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "checker white",
+            onClick: playerColor === PLAYER_HUMAN ? handleBarClick : void 0,
+            style: { display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", cursor: playerColor === PLAYER_HUMAN ? "pointer" : "default", color: "#000", fontSize: "1.2rem", position: "relative", zIndex: 5 },
+            children: bar[PLAYER_HUMAN]
+          }
+        ) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "quadrant", children: [5, 4, 3, 2, 1, 0].map((i) => {
+          const logical = getLogIdx(i);
+          return /* @__PURE__ */ jsxRuntimeExports.jsx(Point, { index: i, data: board[logical], isTop: false, selected: selectedPoint === logical, isValid: validMoves.includes(logical), onClick: () => handlePointClick(logical), playerColor }, i);
+        }) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        OffTray,
+        {
+          player: bottomTrayPlayer,
+          count: off[bottomTrayPlayer],
+          position: "bottom",
+          valid: bottomTrayPlayer === playerColor && validMoves.includes(-1),
+          onClick: bottomTrayPlayer === playerColor ? () => handlePointClick(-1) : void 0
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `player-controls-bar ${turn === "human" && (canRoll || dice.length > 0) ? "active-turn" : ""}`, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "player-info", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "player-avatar", style: {
+            background: playerColor === PLAYER_AI ? "radial-gradient(circle at 30% 30%, #4a4a4a, #000000)" : "radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc)",
+            // I am White
+            borderColor: playerColor === PLAYER_AI ? "#000" : "#b0b0b0"
+          }, children: userProfile.avatar && /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: userProfile.avatar, style: { width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" } }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "player-name", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: "bold" }, children: wallet ? wallet.startsWith("Guest") ? "Guest" : userProfile.name || `${wallet.slice(0, 4)}...${wallet.slice(-4)}` : "Player 1" }),
+            wallet && !wallet.startsWith("Guest") && userProfile.stats && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: "0.8rem", color: "#aaa", marginTop: "2px", display: "flex", alignItems: "center", gap: "6px" }, children: [
+              userProfile.name && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontFamily: "monospace", color: "#8d6e63" }, children: [
+                  wallet.slice(0, 4),
+                  "...",
+                  wallet.slice(-4)
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "•" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                "Lvl ",
+                userProfile.stats.level
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "•" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                userProfile.stats.wins,
+                "W / ",
+                userProfile.stats.losses,
+                "L"
+              ] })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "controls-actions", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              className: "btn-action",
+              onClick: handleUndo,
+              disabled: turn !== "human" || history.length === 0 || finishingTurn || dice.length === 0,
+              children: "Undo"
+            }
+          ),
+          validMoves.includes(-1) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              className: "btn-action",
+              style: { backgroundColor: "#ffca28", color: "#000", fontWeight: "bold" },
+              onClick: () => handlePointClick(-1),
+              children: "BEAR OFF"
+            }
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              className: "btn-action",
+              onClick: () => isBlocked ? handlePassTurn() : handleManualRoll(),
+              disabled: !canRoll && !isBlocked || turn !== "human",
+              style: dice.length > 0 && turn === "human" ? { background: isBlocked ? "#d32f2f" : "#2e7d32", color: "#fff", border: isBlocked ? "1px solid #b71c1c" : "1px solid #66bb6a", cursor: "pointer" } : {},
+              children: isBlocked ? "Pass Turn (Blocked)" : dice.length > 0 && turn === "human" ? "MOVE" : "Roll Dice"
+            }
+          )
+        ] })
+      ] })
+    ] }),
+    gameStatus === "gameover" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", border: gameResult === "win" ? "2px solid gold" : "2px solid #d32f2f" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "4rem", marginBottom: "20px" }, children: gameResult === "win" ? "🏆" : "💀" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { style: { fontSize: "2.5rem", marginBottom: "10px", color: gameResult === "win" ? "gold" : "#ef9a9a" }, children: gameResult === "win" ? "YOU WON!" : "YOU LOST" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#aaa", marginBottom: "30px" }, children: gameResult === "win" ? "Congratulations! Great game." : "Better luck next time." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", onClick: () => {
+        setGameStatus("menu");
+        setGameResult(null);
+        setDice([]);
+        setVisualDice([]);
+      }, children: "Back to Menu" })
+    ] }) }),
+    opponentDisconnected && gameStatus !== "gameover" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { background: "rgba(0,0,0,0.5)", zIndex: 2e3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card", style: {
+      position: "absolute",
+      top: "25%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      border: "2px solid #ff9800",
+      background: "#3e2723",
+      padding: "30px",
+      textAlign: "center",
+      boxShadow: "0 0 50px rgba(255, 152, 0, 0.4)",
+      minWidth: "300px"
+    }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "⚠️" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { style: { color: "#ffcc80" }, children: "Opponent Disconnected" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#fff", margin: "15px 0", fontSize: "1.2rem" }, children: "Waiting for opponent to reconnect..." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "loader", style: { margin: "20px auto", borderColor: "#ffcc80", borderTopColor: "transparent" } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { fontSize: "0.9rem", color: "#ffecb3", marginTop: "15px", fontWeight: "bold" }, children: "Auto-win in 15 seconds." })
+    ] }) }),
+    showResignModal && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { zIndex: 3e3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", border: "1px solid #8d6e63" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🏳️" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Resign Game?" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "#bdbdbd", marginBottom: "20px", fontSize: "1rem" }, children: "Are you sure you want to return to the menu?" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "rgba(255,255,255,0.05)", padding: "15px", borderRadius: "8px", marginBottom: "20px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "5px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#aaa" }, children: "•" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "No Loss Recorded" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "10px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#aaa" }, children: "•" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "No XP Changed" })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "15px", justifyContent: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", onClick: () => setShowResignModal(false), style: { flex: 1 }, children: "Cancel" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#d32f2f", border: "1px solid #b71c1c", flex: 1 }, onClick: () => {
+          setShowResignModal(false);
+          handleForfeit();
+        }, children: "Confirm" })
+      ] })
+    ] }) }),
+    incomingInvite && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { zIndex: 4e3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "350px", border: "2px solid #4caf50" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: "3rem", marginBottom: "15px" }, children: "🎲" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px" }, children: "Game Invite!" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { color: "#bdbdbd", marginBottom: "20px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#fff", fontWeight: "bold" }, children: incomingInvite.fromName }),
+        " wants to play a match with you!"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "10px", justifyContent: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-primary", style: { background: "#4caf50", border: "none", flex: 1 }, onClick: () => handleRespondToInvite("accept"), children: "Accept" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { flex: 1 }, onClick: () => handleRespondToInvite("decline"), children: "Decline" })
+      ] })
+    ] }) }),
+    invitingPlayerName && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "modal-overlay", style: { zIndex: 4e3, background: "rgba(0,0,0,0.85)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "modal-content", style: { textAlign: "center", maxWidth: "350px", border: "1px solid #8d6e63", background: "#2c241b" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "loader", style: { margin: "10px auto 20px auto", width: "40px", height: "40px", border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#ffca28" } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { style: { marginBottom: "10px", color: "#fff" }, children: "Invite Sent!" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { color: "#bdbdbd", marginBottom: "20px" }, children: [
+        "Waiting for ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#ffca28", fontWeight: "bold" }, children: invitingPlayerName }),
+        " to accept your challenge..."
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "btn-secondary", style: { width: "100%" }, onClick: () => {
+        setInvitingPlayerName(null);
+        setIsInviting(false);
+      }, children: "Cancel" })
+    ] }) })
+  ] });
+}
+function Point({ index, data, isTop, selected, isValid, onClick, playerColor }) {
+  const checkers = [];
+  for (let i = 0; i < data.count; i++) {
+    checkers.push(/* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `checker ${data.player === 1 ? "white" : "red"}` }, i));
+  }
+  const isDark = index % 2 !== 0;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: `point ${isTop ? "down" : "up"} ${isDark ? "dark" : "light"} ${selected ? "selected" : ""} ${isValid ? "valid" : ""}`,
+      onClick,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "point-triangle" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "checker-stack", children: checkers })
+      ]
+    }
+  );
+}
+function OffTray({ player, count, position, valid, onClick }) {
+  const isHuman = player === PLAYER_HUMAN;
+  const pieces = Array.from({ length: count });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: `off-tray ${position} ${valid ? "valid" : ""}`,
+      onClick: valid ? onClick : void 0,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "off-tray-label", children: "OFF" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "off-pieces-row", children: pieces.map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `off-piece ${isHuman ? "white" : "red"}`, style: { zIndex: i } }, i)) }),
+        count > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "off-counter-text", children: count })
+      ]
+    }
+  );
+}
+const WalletProvider = ({ children }) => {
+  const network = WalletAdapterNetwork.Devnet;
+  const endpoint = reactExports.useMemo(() => "https://api.devnet.solana.com", []);
+  const wallets = reactExports.useMemo(
+    () => [new SolflareWalletAdapter()],
+    [network]
+  );
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(ConnectionProvider, { endpoint, children: /* @__PURE__ */ jsxRuntimeExports.jsx(WalletProvider$1, { wallets, autoConnect: false, children: /* @__PURE__ */ jsxRuntimeExports.jsx(WalletModalProvider, { children }) }) });
+};
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error("Global Error:", message);
+  const root = document.getElementById("root");
+  if (root) {
+    root.innerHTML = `<div style="color:red; padding:20px;">
             <h2>Application Error</h2>
-            <p>${v}</p>
-            <pre>${(i==null?void 0:i.stack)||""}</pre>
-        </div>`)};try{Zn.createRoot(document.getElementById("root")).render(e.jsx(Qn.StrictMode,{children:e.jsx(is,{children:e.jsx(ls,{})})}))}catch(v){console.error("Render failed:",v),document.getElementById("root").innerHTML="<h1>Render Failed: "+v.message+"</h1>"}
+            <p>${message}</p>
+            <pre>${(error == null ? void 0 : error.stack) || ""}</pre>
+        </div>`;
+  }
+};
+try {
+  client.createRoot(document.getElementById("root")).render(
+    /* @__PURE__ */ jsxRuntimeExports.jsx(React.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(WalletProvider, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) }) })
+  );
+} catch (e) {
+  console.error("Render failed:", e);
+  document.getElementById("root").innerHTML = "<h1>Render Failed: " + e.message + "</h1>";
+}
