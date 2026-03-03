@@ -287,6 +287,8 @@ function App() {
             setIsSearching(false);
             setIsInviting(false);
             setInvitingPlayerName(null);
+            setIsLobbyOpen(false);
+            setIsHosting(false);
             // Identify Opponent Name
             const pIds = Object.keys(data.players);
             const oppId = pIds.find(id => id !== newSocket.id);

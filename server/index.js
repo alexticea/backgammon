@@ -200,9 +200,21 @@ const io = new Server(server, {
 
 // --- STATE MANAGEMENT ---
 let waitingPlayer = null;
-const activeLobbies = {}; // { roomId: { hostData, socketId } }
+const activeLobbies = {};
 const games = {};
 const disconnectTimers = {};
+
+// Helper to clear lobby for a specific socket
+const clearLobby = (socketId) => {
+    const lobbyRoomId = `lobby_${socketId}`;
+    if (activeLobbies[lobbyRoomId]) {
+        delete activeLobbies[lobbyRoomId];
+        io.emit('lobby_list_update', Object.values(activeLobbies));
+        console.log(`[SERVER] Auto-cleared lobby for ${socketId}`);
+        return true;
+    }
+    return false;
+};
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -344,6 +356,10 @@ io.on('connection', (socket) => {
                 yourColor: 'red'
             });
 
+            // Cleanup any active lobbies for both players
+            clearLobby(opponent.socketId);
+            clearLobby(socket.id);
+
             setTimeout(() => {
                 io.to(opponent.socketId).emit('assign_color', 'white');
                 io.to(socket.id).emit('assign_color', 'red');
@@ -393,6 +409,8 @@ io.on('connection', (socket) => {
             const hostData = lobby.hostData;
 
             delete activeLobbies[roomId];
+            // Also clear joining player's own lobby if they were hosting
+            clearLobby(socket.id);
             io.emit('lobby_list_update', Object.values(activeLobbies));
 
             const gameRoomId = `game_${hostSocketId}_${socket.id}`;
@@ -600,6 +618,8 @@ io.on('connection', (socket) => {
                 stake: stake || 0
             });
         }
+        // Also clear any lobby the requester might have open while they invite someone
+        clearLobby(socket.id);
     });
 
     socket.on('invite_response', async ({ fromWallet, response, myUserData, fromUserData }) => {
@@ -640,6 +660,10 @@ io.on('connection', (socket) => {
                     }
                 }
             };
+
+            // Cleanup lobbies for both
+            clearLobby(requesterSocketId);
+            clearLobby(socket.id);
 
             io.to(requesterSocketId).emit('match_found', {
                 roomId: gameRoomId,
