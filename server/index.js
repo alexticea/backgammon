@@ -204,16 +204,32 @@ const activeLobbies = {};
 const games = {};
 const disconnectTimers = {};
 
-// Helper to clear lobby for a specific socket
-const clearLobby = (socketId) => {
+// Helper to clear lobby for a specific socket OR wallet
+const clearLobby = (socketId, wallet = null) => {
+    let cleared = false;
+
+    // 1. Precise check by Room ID
     const lobbyRoomId = `lobby_${socketId}`;
     if (activeLobbies[lobbyRoomId]) {
         delete activeLobbies[lobbyRoomId];
-        io.emit('lobby_list_update', Object.values(activeLobbies));
-        console.log(`[SERVER] Auto-cleared lobby for ${socketId}`);
-        return true;
+        cleared = true;
     }
-    return false;
+
+    // 2. Thorough search by Wallet (Handle stalls/reconnects)
+    if (wallet) {
+        for (const rid in activeLobbies) {
+            if (activeLobbies[rid].hostData?.wallet === wallet) {
+                delete activeLobbies[rid];
+                cleared = true;
+            }
+        }
+    }
+
+    if (cleared) {
+        io.emit('lobby_list_update', Object.values(activeLobbies));
+        console.log(`[SERVER] Lobbies cleared for wallet: ${wallet} / socket: ${socketId}`);
+    }
+    return cleared;
 };
 
 io.on('connection', (socket) => {
@@ -356,9 +372,9 @@ io.on('connection', (socket) => {
                 yourColor: 'red'
             });
 
-            // Cleanup any active lobbies for both players
-            clearLobby(opponent.socketId);
-            clearLobby(socket.id);
+            // Cleanup any active lobbies for both players (using wallet for reliability)
+            clearLobby(opponent.socketId, opponent.userData?.wallet);
+            clearLobby(socket.id, userData.wallet);
 
             setTimeout(() => {
                 io.to(opponent.socketId).emit('assign_color', 'white');
@@ -409,8 +425,8 @@ io.on('connection', (socket) => {
             const hostData = lobby.hostData;
 
             delete activeLobbies[roomId];
-            // Also clear joining player's own lobby if they were hosting
-            clearLobby(socket.id);
+            // Also clear joining player's own lobby (using wallet for reliability)
+            clearLobby(socket.id, userData?.wallet);
             io.emit('lobby_list_update', Object.values(activeLobbies));
 
             const gameRoomId = `game_${hostSocketId}_${socket.id}`;
@@ -569,6 +585,10 @@ io.on('connection', (socket) => {
                     if (avatar !== undefined) user.avatar = avatar;
                 }
 
+                // AGGRESSIVE: Clear any existing lobbies for this wallet (e.g. from a past stale connection)
+                clearLobby(socket.id, wallet);
+
+                // Emit back authoritative stats from DB
                 socket.emit('user_profile_update', {
                     name: user.name,
                     avatar: user.avatar,
@@ -616,7 +636,7 @@ io.on('connection', (socket) => {
             socket.emit('invite_result', { response: 'error', message: 'Player is currently offline.' });
         }
         // Also clear any lobby the requester might have open while they invite someone
-        clearLobby(socket.id);
+        clearLobby(socket.id, socket.wallet);
     });
 
     socket.on('invite_response', async ({ fromWallet, response, myUserData, fromUserData }) => {
@@ -659,8 +679,8 @@ io.on('connection', (socket) => {
             };
 
             // Cleanup lobbies for both
-            clearLobby(requesterSocketId);
-            clearLobby(socket.id);
+            clearLobby(requesterSocketId, fromWallet);
+            clearLobby(socket.id, socket.wallet);
 
             io.to(requesterSocketId).emit('match_found', {
                 roomId: gameRoomId,
@@ -723,11 +743,7 @@ io.on('connection', (socket) => {
             waitingPlayer = null;
         }
 
-        const lobbyRoomId = `lobby_${socket.id}`;
-        if (activeLobbies[lobbyRoomId]) {
-            delete activeLobbies[lobbyRoomId];
-            io.emit('lobby_list_update', Object.values(activeLobbies));
-        }
+        clearLobby(socket.id, socket.wallet);
 
         for (const [roomId, game] of Object.entries(games)) {
             if (game.players.includes(socket.id)) {

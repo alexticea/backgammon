@@ -110,6 +110,17 @@ function App() {
         }
     }, [isCapacitor]);
 
+    const inviteTimerRef = useRef(null);
+    useEffect(() => {
+        if (gameStatus === 'menu' || gameStatus === 'multiplayer_menu' || gameStatus === 'leaderboard') {
+            setIsHosting(false);
+            setIsSearching(false);
+            setInvitingPlayerName(null);
+            setIsInviting(false);
+            if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
+        }
+    }, [gameStatus]);
+
     // 0.1 Hide StatusBar for Fullscreen
     useEffect(() => {
         if (isCapacitor) {
@@ -1074,7 +1085,6 @@ function App() {
     };
 
     const [invitingPlayerName, setInvitingPlayerName] = useState(null);
-    const inviteTimerRef = useRef(null);
 
     const handleInvitePlayer = (targetWallet, targetName) => {
         if (!socket || !wallet) return;
@@ -3084,7 +3094,11 @@ function App() {
                         );
                     })}
                 </div>
-                <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => setGameStatus('menu')}>Back to Menu</button>
+                <button className="btn-primary" style={{ background: '#3e2723', padding: '10px 40px' }} onClick={() => {
+                    setIsHosting(false);
+                    setIsSearching(false);
+                    setGameStatus('menu');
+                }}>Back to Menu</button>
             </div>
         );
     }
