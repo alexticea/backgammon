@@ -117,21 +117,30 @@ function App() {
         }
     }, [isCapacitor]);
 
-    // 1. Sync Wallet State & Auto-Login
+    const hasInitialized = useRef(false);
+    useEffect(() => {
+        if (!hasInitialized.current) {
+            // Force logout on every fresh mount (re-opening app)
+            setWalletValue(null);
+            setIsLoggedIn(false);
+            localStorage.removeItem('bg_is_logged_in');
+            hasInitialized.current = true;
+        }
+    }, []);
+
+    // 1. Sync Wallet State & Auto-Login flow
     useEffect(() => {
         if (connected && publicKey) {
             const pKeyStr = publicKey.toBase58();
+            // If we have a public key, we set it to the state so the "Verify & Login" button can show the address,
+            // but we DON'T set isLoggedIn to true yet.
             if (wallet !== pKeyStr) {
-                setWalletValue(pKeyStr);
+                setWallet(pKeyStr); // Direct set to avoid storage pollution until verified
                 handleWalletConnection(pKeyStr);
                 log(`Connected: ${pKeyStr.slice(0, 4)}...${pKeyStr.slice(-4)}`);
             }
-        } else if (!isCapacitor && !connected && wallet && !wallet.startsWith('Guest') && !wallet.startsWith('Mock')) {
-            // ONLY clear if it's not a Guest or Mock wallet (and not Capacitor deep handling)
-            setWalletValue(null);
-            setLoggedInValue(false);
         }
-    }, [connected, publicKey, wallet]);
+    }, [connected, publicKey]);
 
     // 2. Desktop/Mobile Bridge: Trigger connect() when a wallet is selected from the list
     useEffect(() => {
@@ -414,6 +423,7 @@ function App() {
 
         newSocket.on('invite_result', ({ fromWallet, response }) => {
             console.log("INVITE RESULT:", fromWallet, response);
+            if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
             setIsInviting(false);
             setInvitingPlayerName(null);
             if (response === 'decline') {
@@ -1060,16 +1070,27 @@ function App() {
     };
 
     const [invitingPlayerName, setInvitingPlayerName] = useState(null);
+    const inviteTimerRef = useRef(null);
 
     const handleInvitePlayer = (targetWallet, targetName) => {
         if (!socket || !wallet) return;
         if (targetWallet === wallet) return alert("You cannot invite yourself!");
-        if (gameStatus !== 'leaderboard') return; // Only from leaderboard for now
+        if (gameStatus !== 'leaderboard') return;
 
         setIsInviting(true);
         setInvitingPlayerName(targetName);
         socket.emit('invite_player', { targetWallet, stake: 0 });
         log(`Inviting ${targetName}...`);
+
+        // 10 Second Timeout
+        if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
+        inviteTimerRef.current = setTimeout(() => {
+            if (gameStatusRef.current === 'leaderboard') { // ensure we haven't already started
+                setIsInviting(false);
+                setInvitingPlayerName(null);
+                log("Invitation timed out.");
+            }
+        }, 10000);
     };
 
     const handleRespondToInvite = (response) => {
@@ -3481,7 +3502,28 @@ function App() {
                 </div>
             )}
 
-            {/* RIGHT SIDEBAR REMOVED */}
+            {/* OUTGOING INVITE MODAL */}
+            {isInviting && (
+                <div className="modal-overlay" style={{ zIndex: 4000 }}>
+                    <div className="modal-content" style={{ textAlign: 'center', maxWidth: '300px', border: '1px solid gold' }}>
+                        <div className="loading-spinner" style={{ marginBottom: '15px' }}>⏳</div>
+                        <h3 style={{ marginBottom: '10px' }}>Sending Invite...</h3>
+                        <p style={{ color: '#aaa', fontSize: '0.9rem' }}>
+                            Waiting for <span style={{ color: '#fff' }}>{invitingPlayerName}</span> to accept.
+                        </p>
+                        <p style={{ color: '#6d4c41', fontSize: '0.75rem', marginTop: '10px' }}>
+                            Expires in 10s
+                        </p>
+                        <button className="btn-secondary" style={{ marginTop: '15px', padding: '5px 15px' }} onClick={() => {
+                            setIsInviting(false);
+                            if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
+                        }}>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* INCOMING INVITE MODAL */}
             {incomingInvite && (
                 <div className="modal-overlay" style={{ zIndex: 4000 }}>
