@@ -1,6 +1,6 @@
 {
   "name": "backgammon-solana",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "Backgammon on Solana",
   "scripts": {
     "dev": "vite",
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
+    "terser": "^5.46.0",
     "vite": "^5.2.0"
   }
 }
