@@ -575,18 +575,24 @@ io.on('connection', (socket) => {
 
     // 7.5 INVITE LOGIC
     socket.on('invite_player', ({ targetWallet, stake }) => {
+        if (!socket.wallet) {
+            console.error(`[INVITE] Blocked: Socket ${socket.id} tried to invite without a registered wallet.`);
+            return;
+        }
+
         const targetSocketId = onlineWallets.get(targetWallet);
         if (targetSocketId) {
             console.log(`[INVITE] ${socket.wallet} -> ${targetWallet}`);
             socket.to(targetSocketId).emit('receive_invite', {
                 fromWallet: socket.wallet,
-                fromName: socket.username || socket.wallet.slice(0, 6), // Fallback if name not on socket
+                fromName: socket.username || (socket.wallet ? socket.wallet.slice(0, 6) : 'Anonymous'),
                 stake: stake || 0
             });
         }
     });
 
     socket.on('invite_response', ({ fromWallet, response, myUserData, fromUserData }) => {
+        if (!socket.wallet) return; // Guard against unregistered sockets
         const requesterSocketId = onlineWallets.get(fromWallet);
         const requesterSocket = io.sockets.sockets.get(requesterSocketId);
 
