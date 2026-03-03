@@ -423,13 +423,15 @@ function App() {
             setIncomingInvite(data);
         });
 
-        newSocket.on('invite_result', ({ fromWallet, response }) => {
+        newSocket.on('invite_result', ({ fromWallet, response, message }) => {
             console.log("INVITE RESULT:", fromWallet, response);
             if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
             setIsInviting(false);
             setInvitingPlayerName(null);
             if (response === 'decline') {
                 alert("Player declined your invite.");
+            } else if (response === 'error') {
+                alert(message || "Failed to send invite.");
             }
         });
 
@@ -1184,7 +1186,11 @@ function App() {
 
         // Register with Server (Sync Profile)
         if (socket) {
-            socket.emit('register_user', pKeyStr);
+            socket.emit('register_user', {
+                wallet: pKeyStr,
+                name: profileData.name || '',
+                avatar: profileData.avatar || null
+            });
             fetchLeaderboard(); // Immediate
             setTimeout(() => fetchLeaderboard(), 1000); // And slightly delayed to catch DB update
 

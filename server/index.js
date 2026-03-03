@@ -541,53 +541,48 @@ io.on('connection', (socket) => {
 
     // 7. REGISTER / SYNC PROFILE
     socket.on('register_user', async (data) => {
-        const wallet = (typeof data === 'string') ? data : data.wallet;
+        try {
+            const wallet = (typeof data === 'string') ? data : data.wallet;
+            const name = (typeof data === 'object' && 'name' in data) ? data.name : undefined;
+            const avatar = (typeof data === 'object' && 'avatar' in data) ? data.avatar : undefined;
 
-        // Detect presence of fields to distinguish "not updating" vs "clearing"
-        const name = (typeof data === 'object' && 'name' in data) ? data.name : undefined;
-        const avatar = (typeof data === 'object' && 'avatar' in data) ? data.avatar : undefined;
+            if (wallet && !wallet.startsWith('Guest')) {
+                const user = await getUser(wallet);
 
-        if (wallet && !wallet.startsWith('Guest')) {
-            const user = await getUser(wallet); // Ensure exists
-
-            // Track globally
-            socket.wallet = wallet;
-            onlineWallets.set(wallet, socket.id);
-            if (user.name) {
-                socket.username = user.name;
-                onlineNames.set(user.name, socket.id);
-            }
-
-            // Update Profile if provided
-            if (name !== undefined || avatar !== undefined) {
-                // If changing name, cleanup old name from tracker
-                if (name && socket.username && socket.username !== name) {
-                    onlineNames.delete(socket.username);
+                socket.wallet = wallet;
+                onlineWallets.set(wallet, socket.id);
+                if (user.name) {
+                    socket.username = user.name;
+                    onlineNames.set(user.name, socket.id);
                 }
 
-                await updateUserProfile(wallet, name, avatar);
-                if (name !== undefined) {
-                    user.name = name;
-                    socket.username = name;
-                    if (name) {
-                        onlineNames.set(name, socket.id);
+                if (name !== undefined || avatar !== undefined) {
+                    if (name && socket.username && socket.username !== name) {
+                        onlineNames.delete(socket.username);
                     }
+                    await updateUserProfile(wallet, name, avatar);
+                    if (name !== undefined) {
+                        user.name = name;
+                        socket.username = name;
+                        if (name) onlineNames.set(name, socket.id);
+                    }
+                    if (avatar !== undefined) user.avatar = avatar;
                 }
-                if (avatar !== undefined) user.avatar = avatar;
-            }
 
-            // Emit back authoritative stats from DB
-            socket.emit('user_profile_update', {
-                name: user.name,
-                avatar: user.avatar,
-                stats: {
-                    wins: user.wins || 0,
-                    losses: user.losses || 0,
-                    xp: user.xp || 0,
-                    level: user.level || 1
-                }
-            });
-            console.log(`[SERVER] Registered ${wallet} (onlineWallets size: ${onlineWallets.size})`);
+                socket.emit('user_profile_update', {
+                    name: user.name,
+                    avatar: user.avatar,
+                    stats: {
+                        wins: user.wins || 0,
+                        losses: user.losses || 0,
+                        xp: user.xp || 0,
+                        level: user.level || 1
+                    }
+                });
+                console.log(`[SERVER] Registered: ${wallet} (${socket.id}). OnlineWallets: ${onlineWallets.size}`);
+            }
+        } catch (err) {
+            console.error(`[SERVER] Registration error for socket ${socket.id}:`, err);
         }
     });
 
@@ -595,15 +590,14 @@ io.on('connection', (socket) => {
     socket.on('invite_player', async ({ targetWallet, stake }) => {
         if (!socket.wallet) {
             console.error(`[INVITE] Blocked: Socket ${socket.id} tried to invite without a registered wallet.`);
+            socket.emit('invite_result', { response: 'error', message: 'You must be logged in to invite.' });
             return;
         }
 
         const targetSocketId = onlineWallets.get(targetWallet);
         if (targetSocketId) {
-            console.log(`[INVITE] ${socket.wallet} -> ${targetWallet}`);
-
-            // Fetch requester profile to send high-quality invite data
-            const requesterProfile = await getUser(socket.wallet);
+            const requesterProfile = await getUser(socket.wallet).catch(() => ({}));
+            console.log(`[INVITE] ${socket.wallet} -> ${targetWallet} (${targetSocketId})`);
 
             socket.to(targetSocketId).emit('receive_invite', {
                 fromWallet: socket.wallet,
@@ -617,6 +611,9 @@ io.on('connection', (socket) => {
                 },
                 stake: stake || 0
             });
+        } else {
+            console.log(`[INVITE] Failed: Target ${targetWallet} not found in onlineWallets.`);
+            socket.emit('invite_result', { response: 'error', message: 'Player is currently offline.' });
         }
         // Also clear any lobby the requester might have open while they invite someone
         clearLobby(socket.id);
@@ -705,11 +702,16 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (socket.wallet) {
-            onlineWallets.delete(socket.wallet);
-            if (socket.username) {
+            // ONLY delete from maps if THIS socket is the one currently registered for this wallet
+            if (onlineWallets.get(socket.wallet) === socket.id) {
+                onlineWallets.delete(socket.wallet);
+                console.log(`[SERVER] Wallet unregistered on disconnect: ${socket.wallet}`);
+            } else {
+                console.log(`[SERVER] Stale socket disconnected for ${socket.wallet}, keeping active mapping.`);
+            }
+            if (socket.username && onlineNames.get(socket.username) === socket.id) {
                 onlineNames.delete(socket.username);
             }
-            console.log(`[SERVER] User disconnected: ${socket.wallet}`);
         }
 
         // Broadcast online count after disconnect
