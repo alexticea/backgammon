@@ -23,7 +23,6 @@ let db;   // LowDB Instance
 
 // Social Tracker
 const onlineWallets = new Map(); // wallet -> socketId
-const onlineNames = new Map();   // name -> socketId
 
 // Check for MongoDB
 if (process.env.MONGO_URI) {
@@ -169,7 +168,7 @@ const getLeaderboard = async () => {
     // Add online status
     const result = users.map(u => ({
         ...u,
-        isOnline: onlineWallets.has(u.wallet) || (u.name && onlineNames.has(u.name))
+        isOnline: onlineWallets.has(u.wallet)
     }));
 
     console.log(`[LEADERBOARD] Serving ${result.length} players. Online wallets: ${Array.from(onlineWallets.keys()).join(', ')}`);
@@ -567,22 +566,13 @@ io.on('connection', (socket) => {
 
                 socket.wallet = wallet;
                 onlineWallets.set(wallet, socket.id);
-                if (user.name) {
-                    socket.username = user.name;
-                    onlineNames.set(user.name, socket.id);
-                }
 
-                if (name !== undefined || avatar !== undefined) {
-                    if (name && socket.username && socket.username !== name) {
-                        onlineNames.delete(socket.username);
-                    }
+                // Update Profile if fields are provided AND NOT EMPTY
+                // This prevents names from being wiped by stale client cache
+                if ((name !== undefined && name !== '') || (avatar !== undefined && avatar !== null)) {
                     await updateUserProfile(wallet, name, avatar);
-                    if (name !== undefined) {
-                        user.name = name;
-                        socket.username = name;
-                        if (name) onlineNames.set(name, socket.id);
-                    }
-                    if (avatar !== undefined) user.avatar = avatar;
+                    if (name) user.name = name;
+                    if (avatar) user.avatar = avatar;
                 }
 
                 // AGGRESSIVE: Clear any existing lobbies for this wallet (e.g. from a past stale connection)
@@ -728,9 +718,6 @@ io.on('connection', (socket) => {
                 console.log(`[SERVER] Wallet unregistered on disconnect: ${socket.wallet}`);
             } else {
                 console.log(`[SERVER] Stale socket disconnected for ${socket.wallet}, keeping active mapping.`);
-            }
-            if (socket.username && onlineNames.get(socket.username) === socket.id) {
-                onlineNames.delete(socket.username);
             }
         }
 

@@ -110,6 +110,22 @@ function App() {
         }
     }, [isCapacitor]);
 
+    const walletReady = !!(wallet && !wallet.startsWith('Guest'));
+    useEffect(() => {
+        if (socket && walletReady) {
+            console.log(`[AUTH] Registering online status for ${wallet}...`);
+            socket.emit('register_user', {
+                wallet: wallet,
+                name: userProfile?.name || '',
+                avatar: userProfile?.avatar || null
+            });
+            // Also check for active game
+            socket.emit('check_active_game', wallet);
+            // Refresh leaderboard to see yourself online
+            setTimeout(() => fetchLeaderboard(), 500);
+        }
+    }, [socket, walletReady, userProfile?.name]);
+
     const inviteTimerRef = useRef(null);
     useEffect(() => {
         if (gameStatus === 'menu' || gameStatus === 'multiplayer_menu' || gameStatus === 'leaderboard') {
@@ -248,24 +264,8 @@ function App() {
 
         newSocket.on('connect', () => {
             console.log("Connected to Game Server:", newSocket.id);
-            setLogs(prev => ["Connected to Server!", ...prev]); // Visual Confirm
+            setLogs(prev => ["Connected to Server!", ...prev]);
 
-            // Auto-Check for Active Game if Wallet is already "connected" (e.g. after internet drop)
-            if (walletRef.current) {
-                console.log("Reconnected to socket. Checking for active game and registering:", walletRef.current);
-                newSocket.emit('check_active_game', walletRef.current);
-
-                // Also Sync Profile stats from MongoDB
-                const existing = localStorage.getItem('bg_profile_' + walletRef.current);
-                let profile;
-                try { profile = existing ? JSON.parse(existing) : null; } catch (e) { }
-
-                newSocket.emit('register_user', {
-                    wallet: walletRef.current,
-                    name: profile?.name || '',
-                    avatar: profile?.avatar || null
-                });
-            }
             // Sync leaderboard immediately on connect
             fetchLeaderboard();
         });
